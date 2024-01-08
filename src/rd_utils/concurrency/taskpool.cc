@@ -21,7 +21,6 @@ namespace rd_utils::concurrency {
       (this-> closure->* (this-> func)) ();
     }
 
-
   }
 
   TaskPool::TaskPool (unsigned int nbThreads)

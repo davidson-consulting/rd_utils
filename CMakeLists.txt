@@ -42,6 +42,13 @@ file(
 
 file(
   GLOB
+  HEADER_MEMORY
+  src/rd_utils/memory/*.hh
+  )
+
+
+file(
+  GLOB
   HEADER_ROOT
   src/rd_utils/*.hh
   )
@@ -57,6 +64,8 @@ install (FILES ${HEADER_CONCURRENCY} DESTINATION /usr/include/rd_utils/concurren
 install (FILES ${HEADER_NET} DESTINATION /usr/include/rd_utils/net)
 install (FILES ${HEADER_UTILS} DESTINATION /usr/include/rd_utils/utils)
 install (FILES ${HEADER_FOREIGN} DESTINATION /usr/include/rd_utils/foreign)
+install (FILES ${HEADER_MEMORY} DESTINATION /usr/include/rd_utils/memory)
 install (FILES ${HEADER_ROOT} DESTINATION /usr/include/rd_utils/)
+
 
 target_link_libraries (rd_utils dio_common nlohmann_json::nlohmann_json ssl crypto ssh)
