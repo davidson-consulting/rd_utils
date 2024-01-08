@@ -18,6 +18,11 @@ namespace rd_utils::memory {
 
   public:
 
+    template <typename ... A>
+    Box (A ... args) {
+      this-> _value = new (GC) T (args...);
+    }
+
     Box (T && val) {
       this-> _value = new (GC) T (std::move (val));
       GC_register_finalizer (this-> _value, destruct_class<T>, nullptr, nullptr, nullptr);
