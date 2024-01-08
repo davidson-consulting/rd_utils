@@ -7,12 +7,13 @@ namespace rd_utils {
     namespace concurrency {
 
 		class mutex_locker;
+		class condition;
+
 
 		class mutex {
 
 			pthread_mutex_t _m;
 
-	    
 		public:
 	    
 			mutex ();
@@ -22,6 +23,7 @@ namespace rd_utils {
 		private:
 
 			friend mutex_locker;
+			friend condition;
 
 			void lock ();
 
