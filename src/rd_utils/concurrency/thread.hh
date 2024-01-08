@@ -5,7 +5,6 @@
 #include "tpipe.hh"
 
 namespace rd_utils {
-
     namespace concurrency {
 
 		struct Thread {
@@ -128,7 +127,7 @@ namespace rd_utils {
 		template <class X, typename ... T>
 		Thread spawn (X * x, void (X::*func)(Thread, T...), T... args) {
 			auto th = new internal::dg_thread_launcher_template ((internal::fake*)x, (void (internal::fake::*)(Thread, T...)) func, args...);
-			pthread_create (&th-> content, nullptr, &internal::thread_dg_main, th);
+			pthread_create (&th-> content.id, nullptr, &internal::thread_dg_main, th);
 			return th-> content;
 		}
 

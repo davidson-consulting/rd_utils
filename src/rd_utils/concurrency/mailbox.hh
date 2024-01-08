@@ -45,7 +45,7 @@ namespace rd_utils::concurrency {
     /**
      * Post a message in the mailbox
      */
-    void send (T && value) {
+    void send (T value) {
       WITH_LOCK (this-> _m) {
         this-> _mails.push (std::move (value));
       }
@@ -59,7 +59,7 @@ namespace rd_utils::concurrency {
         if (this-> _mails.empty ()) {
           return std::nullopt;
         } else {
-          auto & ret = this-> _mails.back ();
+          auto & ret = this-> _mails.front ();
           this-> _mails.pop ();
           return ret;
         }
@@ -71,7 +71,8 @@ namespace rd_utils::concurrency {
      */
     void clear () {
       WITH_LOCK (this-> _m) {
-        this-> _mails.clear ();
+        std::queue<T> empty;
+        std::swap (this-> _mails, empty);
       }
     }
 
@@ -103,7 +104,3 @@ namespace rd_utils::concurrency {
 
 
 }
-
-
-
-#endif // MAILBOX_H_
