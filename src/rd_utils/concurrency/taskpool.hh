@@ -141,6 +141,7 @@ namespace rd_utils::concurrency {
   private :
 
     TaskPool (const TaskPool & other);
+    void operator= (const TaskPool & other);
 
   public :
 
@@ -150,6 +151,16 @@ namespace rd_utils::concurrency {
      *    - nbThreads: the maximum number of thread that can run concurrently in the pool
      */
     TaskPool (unsigned int nbThreads);
+
+    /**
+     * Move ctor
+     */
+    TaskPool (TaskPool && other);
+
+    /**
+     * Move affectation
+     */
+    void operator=(TaskPool && other);
 
     /**
      * Submit a delegate task

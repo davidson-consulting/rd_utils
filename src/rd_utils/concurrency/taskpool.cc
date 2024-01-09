@@ -28,6 +28,48 @@ namespace rd_utils::concurrency {
     : _nbThread (nbThreads)
   {}
 
+
+  TaskPool::TaskPool (TaskPool && other) :
+    _terminated (other._terminated)
+    , _jobs (std::move (other._jobs))
+    , _nbSubmitted (other._nbSubmitted)
+    , _nbCompleted (other._nbCompleted)
+    , _nbThread (other._nbThread)
+    , _runningThreads (std::move (other._runningThreads))
+    , _closed (std::move (other._closed))
+    , _m (std::move (other._m))
+    , _waitTask (std::move (other._waitTask))
+    , _waitTaskSig (std::move (other._waitTaskSig))
+    , _completeTask (std::move (other._completeTask))
+    , _completeTaskSig (std::move (other._completeTaskSig))
+    , _ready (std::move (other._ready))
+    , _readySig (std::move (other._readySig))
+  {
+    other._nbSubmitted = 0;
+    other._nbCompleted = 0;
+  }
+
+  void TaskPool::operator=(TaskPool && other) {
+    this-> join ();
+    this-> _terminated = other._terminated;
+    this-> _jobs = std::move (other._jobs);
+    this-> _nbSubmitted = other._nbSubmitted;
+    this-> _nbCompleted = other._nbCompleted;
+    this-> _nbThread = other._nbThread;
+    this-> _runningThreads = std::move (other._runningThreads);
+    this-> _closed = std::move (other._closed);
+    this-> _m = std::move (other._m);
+    this-> _waitTask = std::move (other._waitTask);
+    this-> _waitTaskSig = std::move (other._waitTaskSig);
+    this-> _completeTask = std::move (other._completeTask);
+    this-> _completeTaskSig = std::move (other._completeTaskSig);
+    this-> _ready = std::move (other._ready);
+    this-> _readySig = std::move (other._readySig);
+
+    other._nbSubmitted = 0;
+    other._nbCompleted = 0;
+  }
+
   void TaskPool::submit (void (*func) ()) {
     this-> submit (new internal_pool::fn_task (func));
   }

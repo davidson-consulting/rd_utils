@@ -40,7 +40,7 @@ namespace rd_utils::concurrency {
      */
     void operator=(Mailbox<T> && other) {
       this-> dispose ();
-      this-> _mails = std::move (other);
+      this-> _mails = std::move (other._mails);
     }
     /**
      * Post a message in the mailbox

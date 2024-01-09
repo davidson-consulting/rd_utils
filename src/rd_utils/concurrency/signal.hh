@@ -32,15 +32,19 @@ namespace rd_utils::concurrency {
 			}
 		}
 
+		/**
+		 * Move ctor
+		 */
+		signal (signal<T...> && other) {
+			this-> _connects = std::move (other._connects);
+		}
 
 		/**
 		 * Deep copy of other
 		 */
 		const signal<T...>& operator= (const signal<T...> & other) {
-			for (auto & it : this-> _connects) {
-				delete it;
-			}
-		
+			this-> dispose ();
+
 			for (auto & it : other._connects) {
 				this-> _connects.push_back (it-> clone ());
 			}
@@ -48,7 +52,14 @@ namespace rd_utils::concurrency {
 			return other;
 		}
 
-	    
+		/**
+		 * Move affectation
+		 */
+		void operator= (signal<T...> && other) {
+			this-> dispose ();
+			this-> _connects = std::move (other._connects);
+		}
+
 		/**
 		 * Connect the signal to a new slot
 		 * @params:
@@ -145,15 +156,15 @@ namespace rd_utils::concurrency {
 		}
 
 		void dispose () {
-	    for (auto it : this-> _connects) {
-		delete it;
-	    }
-	    this-> _connects.clear ();
-	}
+			for (auto it : this-> _connects) {
+				delete it;
+			}
+			this-> _connects.clear ();
+		}
       
-	~signal () {
-	    this-> dispose ();
-	}	    
+		~signal () {
+			this-> dispose ();
+		}
 	    
     };
 	

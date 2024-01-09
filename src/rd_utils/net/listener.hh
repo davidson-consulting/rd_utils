@@ -8,8 +8,7 @@ namespace rd_utils {
 
     namespace net {
 
-		class TcpQueue;
-
+		class TcpServer;
 		class TcpListener {
 
 			int _sockfd = 0;
@@ -21,7 +20,7 @@ namespace rd_utils {
 
 		private :
 
-			friend TcpQueue;
+			friend TcpServer;
 
 		private:
 
