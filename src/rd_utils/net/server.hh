@@ -2,6 +2,7 @@
 
 #include <rd_utils/concurrency/tpipe.hh>
 #include <rd_utils/concurrency/_.hh>
+#include <rd_utils/memory/box.hh>
 #include <rd_utils/net/listener.hh>
 #include <map>
 
@@ -26,7 +27,7 @@ namespace rd_utils::net {
         TcpListener _context;
 
         // The list of opened socket
-        std::map <int, TcpStream*> _openSockets;
+        std::map <int, memory::Box<TcpStream>> _openSockets;
 
         // The pipe to trigger when a thread close a session
         concurrency::ThreadPipe _trigger;
@@ -51,6 +52,12 @@ namespace rd_utils::net {
 
         // Signal emitted by a thread when ready
         concurrency::condition _readySig;
+
+        // Mutex locked during a epoll update
+        concurrency::mutex _updating;
+
+        // Signal emitted when update is finished
+        concurrency::condition _updatingSig;
 
     private:
 

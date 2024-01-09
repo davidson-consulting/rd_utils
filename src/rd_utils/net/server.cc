@@ -38,6 +38,8 @@ namespace rd_utils::net {
     , _th (other._th)
     , _ready (std::move (other._ready))
     , _readySig (std::move (other._readySig))
+    , _updating (std::move (other._updating))
+    , _updatingSig (std::move (other._updatingSig))
   {
     other._epoll_fd = 0;
     other._epoll_nb = 0;
@@ -57,6 +59,8 @@ namespace rd_utils::net {
     this-> _epoll_nb = other._epoll_nb;
     this-> _ready = std::move (other._ready);
     this-> _readySig = std::move (other._readySig);
+    this-> _updating = std::move (other._updating);
+    this->  _updatingSig = std::move (other._updatingSig);
 
     other._epoll_fd = 0;
     other._epoll_nb = 0;
@@ -109,7 +113,7 @@ namespace rd_utils::net {
 
       // New socket
       if (event.data.fd == this-> _context._sockfd) {
-        auto stream = new TcpStream (std::move (this-> _context.accept ()));
+        auto stream = memory::Box<TcpStream> (std::move (this-> _context.accept ()));
         this-> _openSockets.emplace (stream-> getHandle (), stream);
 
         WITH_LOCK (this-> _m) {
@@ -118,21 +122,21 @@ namespace rd_utils::net {
           epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, stream-> getHandle (), &event);
         }
 
-        this-> submit (TcpSessionKind::NEW, stream);
+        this-> submit (TcpSessionKind::NEW, stream.get ());
       }
 
       // on session close
       else if (event.data.fd == this-> _trigger.getReadFd ()) {
         char c;
         ::read (this-> _trigger.getReadFd (), &c, 1);
-        usleep (100);
+        this-> _trigger.read <int> ();
       }
 
       // Old client is writing
       else {
         WITH_LOCK (this-> _m) {
           auto it = this-> _openSockets.find (event.data.fd);
-          this-> submit (TcpSessionKind::OLD, it-> second);
+          this-> submit (TcpSessionKind::OLD, it-> second.get ());
         }
       }
     }
@@ -158,6 +162,7 @@ namespace rd_utils::net {
   void TcpServer::close (TcpStream * stream) {
      // we need to trigger the epoll, because we are modifiying the epoll list
     ::write (this-> _trigger.getWriteFd (), "c", 1);
+
     WITH_LOCK (this-> _m) {
       if (!stream-> isOpen ()) {
         epoll_event event;
@@ -165,7 +170,6 @@ namespace rd_utils::net {
         this-> _epoll_nb += 1;
         this-> _openSockets.erase (stream-> getHandle ());
         stream-> close ();
-        delete stream;
       } else {
         epoll_event event;
         event.events = EPOLLIN | EPOLLONESHOT;
@@ -175,6 +179,8 @@ namespace rd_utils::net {
         this-> _epoll_nb += 1;
       }
     }
+
+    this-> _trigger.write (1);
   }
 
   void TcpServer::join () {
@@ -200,10 +206,6 @@ namespace rd_utils::net {
       ::close (this-> _epoll_fd);
       this-> _epoll_fd = 0;
       this-> _epoll_nb = 0;
-    }
-
-    for (auto & [it, str] : this-> _openSockets) {
-      delete str;
     }
 
     this-> _openSockets.clear ();
