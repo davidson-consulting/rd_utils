@@ -6,6 +6,7 @@
 namespace rd_utils::concurrency {
 
   namespace internal_pool {
+
     fn_task::fn_task (void (*func) ()) : func (func) {}
 
     void fn_task::execute (Thread) {
@@ -27,80 +28,86 @@ namespace rd_utils::concurrency {
     : _nbThread (nbThreads)
   {}
 
-
   void TaskPool::submit (void (*func) ()) {
     this-> submit (new internal_pool::fn_task (func));
   }
 
+  void TaskPool::waitAllCompletes () {
+    while (this-> _nbSubmitted != this-> _nbCompleted) {
+      WITH_LOCK (this-> _completeTask) {
+        this-> _completeTaskSig.wait (this-> _completeTask);
+      }
+    }
+  }
+
   void TaskPool::join () {
+    this-> waitAllCompletes ();
+    this-> _terminated = true;
+
+    while (this-> _closed.len () != this-> _runningThreads.size ()) {
+      this-> _waitTaskSig.signal ();
+    }
+
     for (auto [i, th] : this-> _runningThreads) {
       concurrency::join (th);
     }
 
+    this-> _closed.clear ();
     this-> _runningThreads.clear ();
+    this-> _nbCompleted = 0;
+    this-> _nbSubmitted = 0;
   }
 
   void TaskPool::submit (Task * task) {
     this-> _jobs.send (task);
-    this-> removeExitedThreads ();
-    int jobLen = this-> _jobs.len () + 1;
-    int max_th = this-> _nbThread - this-> _runningThreads.size ();
-    if (max_th != 0) {
-      if (max_th > jobLen) {
-        this-> spawnThread (jobLen, this-> _runningThreads.size ());
-      } else {
-        this-> spawnThread (max_th, this-> _runningThreads.size ());
+    if (this-> _runningThreads.size () != this-> _nbThread) {
+      this-> spawnThread ();
+    }
+
+    this-> _nbSubmitted += 1;
+    this-> _waitTaskSig.signal ();
+  }
+
+  void TaskPool::spawnThread () {
+    this-> _terminated = false;
+    for (int i = 0 ; i < this-> _nbThread ; i++) {
+      auto th = spawn (this, &TaskPool::taskMain);
+      WITH_LOCK (this-> _ready) {
+        this-> _readySig.wait (this-> _ready);
+        this-> _runningThreads.emplace (th.id, th);
       }
     }
   }
 
-  void TaskPool::spawnThread (unsigned int nb, unsigned int id) {
-    std::cout << "Spawning nb " << nb << std::endl;
-    for (int i = 0 ; i < nb ; i++) {
-      auto th = spawn (this, &TaskPool::taskMain, id + i);
-      WITH_LOCK (this-> _m) {
-        this-> _runningThreads.emplace (id + i, th);
+  void TaskPool::taskMain (Thread t) {
+    this-> _readySig.signal ();
+    for (;;) {
+      WITH_LOCK (this-> _waitTask) {
+        std::cout << "Waiting task " << t.id << std::endl;
+        this-> _waitTaskSig.wait (this-> _waitTask);
       }
-    }
-  }
 
-  void TaskPool::taskMain (Thread t, unsigned int id) {
-#define EXIT_THREAD_AFTER_LOST 100
-    int nbSkips = 0;
-    while (true) {
-      auto msg = this-> _jobs.receive ();
-      if (msg.has_value ()) {
-        Task * task = *msg;
-        task-> execute (t);
-        delete task;
-      } else {
-        nbSkips += 1;
-        if (nbSkips > EXIT_THREAD_AFTER_LOST) {
+      std::cout << "Signaled" << std::endl;
+      // Signal was emitted to kill the thread
+      if (this-> _terminated) break;
+      for (;;) {
+        auto msg = this-> _jobs.receive ();
+        if (msg.has_value ()) {
+          Task * task = *msg;
+          task-> execute (t);
+          delete task;
+
+          WITH_LOCK (this-> _m) {
+            this-> _nbCompleted += 1;
+            this-> _completeTaskSig.signal ();
+          }
+        } else {
           break;
         }
-
-        usleep (1000);
       }
     }
 
-    this-> _exited.send (id);
-  }
-
-  void TaskPool::removeExitedThreads () {
-    while (true) {
-      auto msg = this-> _exited.receive ();
-      if (msg.has_value ()) {
-        auto th = this-> _runningThreads.find (*msg);
-        if (th != this-> _runningThreads.end ()) {
-          concurrency::join (th-> second);
-          WITH_LOCK (this-> _m) {
-            this-> _runningThreads.erase (*msg);
-          }
-        }
-      } else {
-        break;
-      }
-    }
+    this-> _closed.send (t);
   }
 
 

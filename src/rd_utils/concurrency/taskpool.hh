@@ -95,8 +95,17 @@ namespace rd_utils::concurrency {
   class TaskPool {
   private:
 
+    // True if the taskpool started
+    bool _terminated = false;
+
     // The list of jobs to launch
     Mailbox <Task*> _jobs;
+
+    // The number of task that were submitted
+    unsigned int _nbSubmitted = 0;
+
+    // The number of task that were completed
+    unsigned int _nbCompleted = 0;
 
     // The maximum number of thread that can be launched by the task pool
     unsigned int _nbThread = 0;
@@ -104,12 +113,29 @@ namespace rd_utils::concurrency {
     // The list of running threads
     std::unordered_map<unsigned int, Thread> _runningThreads;
 
-    // The mail box of thread that are dead
-    Mailbox<unsigned long> _exited;
+    // The list of closed threads
+    Mailbox<Thread> _closed;
 
     // The mutex of the task pool
     mutex _m;
 
+    // Mutex to wait a new task
+    mutex _waitTask;
+
+    // Signal emitted when a new task is submitted
+    condition _waitTaskSig;
+
+    // Mutex to wait for a task to be completed
+    mutex _completeTask;
+
+    // Signal emitted when a task is completed
+    condition _completeTaskSig;
+
+    // Mutex locked when waiting for a thread to be ready
+    mutex _ready;
+
+    // Signal emitted by a thread when ready
+    condition _readySig;
 
   private :
 
@@ -168,19 +194,19 @@ namespace rd_utils::concurrency {
     void submit (Task * task);
 
     /**
-     * Spawn a new thread in the pool
-     * */
-    void spawnThread (unsigned int nb, unsigned int id);
+     * Wait for all the tasks to be completed
+     */
+    void waitAllCompletes ();
 
     /**
-     * Remove the threads that finished from the pool
+     * Spawn the threads in the pool
      * */
-    void removeExitedThreads ();
+    void spawnThread ();
 
     /**
      * The function of a running task
      */
-    void taskMain (Thread, unsigned int id);
+    void taskMain (Thread);
 
   };
 
