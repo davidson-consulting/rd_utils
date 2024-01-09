@@ -8,6 +8,7 @@ namespace rd_utils {
 
     namespace net {
 
+		class TcpQueue;
 
 		class TcpListener {
 
@@ -18,6 +19,9 @@ namespace rd_utils {
 			/// The binded port
 			short _port;
 
+		private :
+
+			friend TcpQueue;
 
 		private:
 

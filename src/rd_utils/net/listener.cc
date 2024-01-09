@@ -66,7 +66,6 @@ namespace rd_utils {
 			auto addr = SockAddrV4 (Ipv4Address (client.sin_addr.s_addr), ntohs (client.sin_port));
 			return TcpStream (sock, addr);
 		}
-	
 
 		void TcpListener::close () {
 			if (this-> _sockfd != 0) {

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <fcntl.h>
 
 namespace rd_utils::concurrency {
 
@@ -50,6 +51,14 @@ namespace rd_utils::concurrency {
 
   int ThreadPipe::getReadFd () const {
     return this-> _read;
+  }
+
+  void ThreadPipe::setNonBlocking () {
+    auto old_flg_rd = fcntl (this-> _read, F_GETFL, 0);
+    fcntl (this-> _read, F_SETFL, old_flg_rd | O_NONBLOCK);
+
+    auto old_flg_wr = fcntl (this-> _write, F_GETFL, 0);
+    fcntl (this-> _write, F_SETFL, old_flg_wr | O_NONBLOCK);
   }
 
   void ThreadPipe::dispose () {

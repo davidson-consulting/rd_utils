@@ -73,8 +73,9 @@ namespace rd_utils::concurrency {
     template <typename ... T>
     class dg_task_template : public Task {
       fake* closure;
-      void (internal_pool::fake::*func) ();
+      void (internal_pool::fake::*func) (T...);
       std::tuple<T...> datas;
+    public:
 
       dg_task_template (fake * closure, void (internal_pool::fake::*func) (T...), T ... args) :
         closure (closure),

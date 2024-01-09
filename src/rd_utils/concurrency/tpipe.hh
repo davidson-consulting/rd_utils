@@ -101,6 +101,11 @@ namespace rd_utils::concurrency {
     }
 
     /**
+     * Set the pipe in non blocking mode
+     */
+    void setNonBlocking ();
+
+    /**
      * Dispose the pipe
      */
     void dispose ();

@@ -83,31 +83,31 @@ namespace rd_utils::concurrency {
     this-> _readySig.signal ();
     for (;;) {
       WITH_LOCK (this-> _waitTask) {
-        std::cout << "Waiting task " << t.id << std::endl;
         this-> _waitTaskSig.wait (this-> _waitTask);
       }
 
-      std::cout << "Signaled" << std::endl;
       // Signal was emitted to kill the thread
       if (this-> _terminated) break;
-      for (;;) {
+
+      // Otherwise a new task is ready
+      for (;;) { // maybe multiple tasks are in the list
         auto msg = this-> _jobs.receive ();
         if (msg.has_value ()) {
           Task * task = *msg;
           task-> execute (t);
           delete task;
 
-          WITH_LOCK (this-> _m) {
+          WITH_LOCK (this-> _m) { // Task completed
             this-> _nbCompleted += 1;
             this-> _completeTaskSig.signal ();
           }
-        } else {
+        } else { // No task found
           break;
         }
       }
     }
 
-    this-> _closed.send (t);
+    this-> _closed.send (t); // Thread is exiting
   }
 
 
