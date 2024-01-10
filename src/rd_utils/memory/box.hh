@@ -33,6 +33,10 @@ namespace rd_utils::memory {
       GC_register_finalizer (this-> _value, destruct_class<T>, nullptr, nullptr, nullptr);
     }
 
+    T* get () {
+      return this-> _value;
+    }
+
     T& operator*() {
       return *this-> _value;
     }

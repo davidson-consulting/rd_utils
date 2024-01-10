@@ -5,165 +5,225 @@
 #include <rd_utils/memory/box.hh>
 #include <rd_utils/net/listener.hh>
 #include <map>
+#include <tuple>
 
 namespace rd_utils::net {
 
-    enum class TcpSessionKind : int {
-        NEW,
-        OLD,
-        NONE
-    };
+        enum class TcpSessionKind : int {
+                NEW,
+                OLD,
+                NONE
+        };
 
-    class TcpServer {
-    private:
+        class TcpServer {
+        private: // Socket management
 
-        // True if the polling is running
-        bool _started = false;
+                // The epoll list
+                int _epoll_fd = 0;
 
-        // The polling thread
-        concurrency::Thread _th;
+                // The context of the queuing
+                TcpListener _context;
 
-        // The context of the queuing
-        TcpListener _context;
+                // The maximum number of clients that are allowed to connect at the same time
+                int _maxConn;
 
-        // The list of opened socket
-        std::map <int, memory::Box<TcpStream>> _openSockets;
+                // The list of opened socket
+                std::map <int, TcpStream*> _openSockets;
 
-        // The pipe to trigger when a thread close a session
-        concurrency::ThreadPipe _trigger;
+                // The fds of the open sockets (a socket can be closed manually during a session)
+                std::map <TcpStream*, int> _socketFds;
 
-        // The mutex to lock
-        concurrency::mutex _m;
+        private: // Task pool
 
-        // The task pool of the queue
-        concurrency::TaskPool _pool;
+                // True if the polling is running
+                bool _started = false;
 
-        // The signal emitted on new session
-        concurrency::signal<TcpSessionKind, TcpStream&> _onSession;
+                // The number of threads in the pool
+                int _nbThreads;
 
-        // The epoll list
-        int _epoll_fd = 0;
+                // The polling thread
+                concurrency::Thread _th;
 
-        // The number of element in the epoll list
-        int _epoll_nb = 0;
+                // The worker threads
+                std::map <int, concurrency::Thread> _runningThreads;
 
-        // Mutex locked when waiting for a thread to be ready
-        concurrency::mutex _ready;
+                // The signal emitted when a session is started
+                concurrency::signal<TcpSessionKind, TcpStream&> _onSession;
 
-        // Signal emitted by a thread when ready
-        concurrency::condition _readySig;
+        private: // Task jobs/completed
 
-        // Mutex locked during a epoll update
-        concurrency::mutex _updating;
+                // The number of session submitted
+                int _nbSubmitted = 0;
 
-        // Signal emitted when update is finished
-        concurrency::condition _updatingSig;
+                // The list of socket whose session has to be launched
+                concurrency::Mailbox<std::tuple<TcpSessionKind, TcpStream*> > _jobs;
 
-    private:
+                // The number of session completed
+                int _nbCompleted = 0;
 
-        TcpServer (const TcpServer & other);
-        void operator=(const TcpServer& other);
+                // The list of socket whose session is finished
+                concurrency::Mailbox<TcpStream*> _completed;
 
-    public:
+                // Closed threads
+                concurrency::Mailbox<int> _closed;
 
-        /**
-         * Empty tcp queue
-         */
-        TcpServer ();
+        private: // Synchronization
 
-        /**
-         * Create a tcp watcher
-         */
-        TcpServer (SockAddrV4 addr, int nbThreads);
+                // The pipe to trigger when a thread close a session
+                concurrency::ThreadPipe _trigger;
 
-        /**
-         * Move ctor
-         */
-        TcpServer (TcpServer && other);
+                // Mutex to lock when writing inside the trigger
+                concurrency::mutex _triggerM;
 
-        /**
-         * Move affectation
-         */
-        void operator=(TcpServer && other);
+                // Mutex to lock when waiting for a thread to be ready
+                concurrency::mutex _ready;
 
-        /**
-         * Wait for a stream to be ready
-         */
-        void start (void (*onSession)(TcpSessionKind, TcpStream&));
+                // Signal emitted when a mutex is ready
+                concurrency::condition _readySig;
 
-        /**
-         * Wait for a stream to be ready
-         */
-        template <class X>
-        void start (X* x, void (X::*onSession)(TcpSessionKind, TcpStream&)) {
-            if (this-> _started) throw utils::Rd_UtilsError ("Already running");
+                // Mutex to lock when waiting a task
+                concurrency::mutex _waitTask;
 
-            this-> _onSession.dispose ();
-            this-> _onSession.connect (x, onSession);
+                // Condition emitted when a task is submitted
+                concurrency::condition _waitTaskSig;
 
-            this-> _th = concurrency::spawn (this, &TcpServer::pollMain);
-            WITH_LOCK (this-> _ready) {
-                this-> _readySig.wait (this-> _ready);
-            }
-        }
+                // Mutex to lock when waiting for a task to be completed
+                concurrency::mutex _completeM;
 
-        /**
-         * @return: the port number of the listener
-         */
-        int port () const;
+                // The signal emitted when a task is completed
+                concurrency::condition _completeSig;
 
-        /**
-         * @returns: the current number of connected socket
-         */
-        int nbConnected () const;
 
-        /**
-         * Stop the server in the future
-         */
-        void stop ();
+        private:
 
-        /**
-         * Wait for the polling thread to stop
-         */
-        void join ();
+                TcpServer (const TcpServer & other);
+                void operator=(const TcpServer& other);
 
-        /**
-         * Close all opened connection
-         */
-        void dispose ();
+        public:
 
-        /**
-         * this-> dispose ()
-         */
-        ~TcpServer ();
+                /**
+                 * Empty tcp queue
+                 */
+                TcpServer ();
 
-    private:
+                /**
+                 * Create a tcp watcher
+                 */
+                TcpServer (SockAddrV4 addr, int nbThreads, int maxCon = -1);
 
-        /**
-         * Configure the epoll elements
-         */
-        void configureEpoll ();
+                /**
+                 * Move ctor
+                 */
+                TcpServer (TcpServer && other);
 
-        /**
-         * The main loop of the poll
-         */
-        void pollMain (concurrency::Thread);
+                /**
+                 * Move affectation
+                 */
+                void operator=(TcpServer && other);
 
-        /**
-         * Submit a new session to the task pool
-         */
-        void submit (TcpSessionKind, TcpStream * stream);
+                /**
+                 * Wait for a stream to be ready
+                 */
+                void start (void (*onSession)(TcpSessionKind, TcpStream&));
 
-        /**
-         * Main part of a session task
-         */
-        void onSessionMain (TcpSessionKind, TcpStream * stream);
+                /**
+                 * Wait for a stream to be ready
+                 */
+                template <class X>
+                void start (X* x, void (X::*onSession)(TcpSessionKind, TcpStream&)) {
+                        if (this-> _started) throw utils::Rd_UtilsError ("Already running");
 
-        /**
-         * Close a tcp session
-         */
-        void close (TcpStream * stream);
+                        this-> _onSession.dispose ();
+                        this-> _onSession.connect (x, onSession);
 
-    };
+                        this-> _th = concurrency::spawn (this, &TcpServer::pollMain);
+                        WITH_LOCK (this-> _ready) {
+                                this-> _readySig.wait (this-> _ready);
+                        }
+                }
+
+                /**
+                 * @return: the port number of the listener
+                 */
+                int port () const;
+
+                /**
+                 * @returns: the current number of connected socket
+                 */
+                int nbConnected () const;
+
+                /**
+                 * Stop the server in the future
+                 */
+                void stop ();
+
+                /**
+                 * Wait for the polling thread to stop
+                 */
+                void join ();
+
+                /**
+                 * Close all opened connection
+                 */
+                void dispose ();
+
+                /**
+                 * this-> dispose ()
+                 */
+                ~TcpServer ();
+
+        private:
+
+                /**
+                 * Close all the socket that are finished
+                 */
+                void closeAllError ();
+
+                /**
+                 * Configure the epoll elements
+                 */
+                void configureEpoll ();
+
+                /**
+                 * Add file descriptor to epoll list
+                 */
+                void addEpoll (int fd);
+
+                /**
+                 * delete file descriptor from epoll list
+                 */
+                void delEpoll (int fd);
+
+                /**
+                 * The main loop of the poll
+                 */
+                void pollMain (concurrency::Thread);
+
+                /**
+                 * The thread managing sessions
+                 */
+                void workerThread (concurrency::Thread);
+
+                /**
+                 * Submit a new session to the task pool
+                 */
+                void submit (TcpSessionKind, TcpStream * stream);
+
+                /**
+                 * Reload all the socket whose session is finished
+                 */
+                void reloadAllFinished ();
+
+                /**
+                 * Spawn the worker threads
+                 */
+                void spawnThreads ();
+
+                /**
+                 * Wait for all submitted tasks to complete
+                 */
+                void waitAllCompletes ();
+
+        };
 
 }

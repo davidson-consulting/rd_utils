@@ -69,7 +69,8 @@ namespace rd_utils {
 
 		void TcpListener::close () {
 			if (this-> _sockfd != 0) {
-				::close (this-> _sockfd);
+				std::cout << "Closing listener socket" << std::endl;
+				::shutdown (this-> _sockfd, SHUT_RDWR);
 				this-> _sockfd = 0;
 			}
 		}

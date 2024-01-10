@@ -59,7 +59,7 @@ namespace rd_utils::net {
 	
 	
 	bool TcpStream::sendInt (unsigned long i) {
-		if (this-> _sockfd != 0) {
+		if (this-> _sockfd != 0 && !this-> _error) {
 			if (write (this-> _sockfd, &i, sizeof (unsigned long)) == -1) {
 				this-> _error = true;
 				return false;
@@ -71,7 +71,7 @@ namespace rd_utils::net {
 	}
 
 	bool TcpStream::send (const std::string & msg) {
-		if (this-> _sockfd != 0) {
+		if (this-> _sockfd != 0 && !this-> _error) {
 			if (write (this-> _sockfd, msg.c_str (), msg.length () * sizeof (char)) == -1) {
 				this-> _error = true;
 				return false;
@@ -82,7 +82,7 @@ namespace rd_utils::net {
 	}
 
 	std::string TcpStream::receive () {
-		if (this-> _sockfd != 0) {
+		if (this-> _sockfd != 0 && !this-> _error) {
 			std::stringstream res;
 			long bufferSize = 100;
 			char buffer[bufferSize];
@@ -109,7 +109,7 @@ namespace rd_utils::net {
 
 	unsigned long TcpStream::receiveInt () {
 		unsigned long res = 0;
-		if (this-> _sockfd != 0) {
+		if (this-> _sockfd != 0 && !this-> _error) {
 			auto r = read (this-> _sockfd, &res, sizeof (unsigned long));
 			if (r == -1) {
 				this-> _error = true;
@@ -124,7 +124,7 @@ namespace rd_utils::net {
 	}
 
 	bool TcpStream::isOpen () const {
-		return !this-> _error;
+		return !this-> _error && this-> _sockfd != 0;
 	}
 
 	SockAddrV4 TcpStream::addr () const {
@@ -133,10 +133,11 @@ namespace rd_utils::net {
 	
 	void TcpStream::close  () {
 		if (this-> _sockfd != 0) {
-			::close (this-> _sockfd);
+			::shutdown (this-> _sockfd, SHUT_RDWR);
 
 			this-> _sockfd = 0;
-			this-> _addr = SockAddrV4 (Ipv4Address (0), 0);
+			this-> _addr = SockAddrV4 (0, 0);
+			this-> _error = false;
 		}
 	}
 
