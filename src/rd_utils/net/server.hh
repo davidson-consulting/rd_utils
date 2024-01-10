@@ -136,6 +136,10 @@ namespace rd_utils::net {
                         this-> _onSession.dispose ();
                         this-> _onSession.connect (x, onSession);
 
+                        // need to to that in the main thread to catch the exception on binding failure
+                        this-> configureEpoll ();
+
+                        // Then spawning the thread with working tcplistener already configured
                         this-> _th = concurrency::spawn (this, &TcpServer::pollMain);
                         WITH_LOCK (this-> _ready) {
                                 this-> _readySig.wait (this-> _ready);
