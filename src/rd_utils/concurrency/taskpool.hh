@@ -121,22 +121,13 @@ namespace rd_utils::concurrency {
     mutex _m;
 
     // Mutex to wait a new task
-    mutex _waitTask;
-
-    // Signal emitted when a new task is submitted
-    condition _waitTaskSig;
+    semaphore _waitTask;
 
     // Mutex to wait for a task to be completed
-    mutex _completeTask;
-
-    // Signal emitted when a task is completed
-    condition _completeTaskSig;
-
-    // Mutex locked when waiting for a thread to be ready
-    mutex _ready;
+    semaphore _completeTask;
 
     // Signal emitted by a thread when ready
-    condition _readySig;
+    semaphore _ready;
 
   private :
 

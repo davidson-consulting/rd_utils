@@ -30,7 +30,7 @@ namespace rd_utils::net {
   TcpServer::TcpServer (TcpServer && other) :
     _epoll_fd (other._epoll_fd)
     ,_context (std::move (other._context))
-    , _maxConn (other._maxConn)
+    ,_maxConn (other._maxConn)
     ,_openSockets (std::move (other._openSockets))
     ,_socketFds (std::move (other._socketFds))
     ,_started (other._started)

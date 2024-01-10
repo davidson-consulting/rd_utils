@@ -135,8 +135,6 @@ namespace rd_utils::net {
 		if (this-> _sockfd != 0) {
 			// ::shutdown (this-> _sockfd, SHUT_RDWR);
 			auto i = ::close (this-> _sockfd);
-			std::cout << "Closing socket ?" << this-> _sockfd << " " << i << std::endl;
-
 
 			this-> _sockfd = 0;
 			this-> _addr = SockAddrV4 (0, 0);

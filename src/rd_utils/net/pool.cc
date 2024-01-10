@@ -1,5 +1,5 @@
 #include "pool.hh"
-
+#include <rd_utils/utils/log.hh>
 
 namespace rd_utils::net {
 
@@ -71,9 +71,10 @@ namespace rd_utils::net {
             }
         }
 
-        std::cout << "Waiting ?" << pthread_self () << std::endl;
+        // LOG_INFO ("Waiting ?", pthread_self ());
         this-> _release.wait ();
-        std::cout << "No" << pthread_self () << std::endl;
+        // LOG_INFO ("NO ?", pthread_self ());
+
         auto conn = this-> _free.receive ();
         if (conn.has_value ()) {
             return TcpSession (*conn, this);
@@ -103,13 +104,11 @@ namespace rd_utils::net {
             this-> _free.send (s);
         }
 
-        std::cout << this-> _release.get () << std::endl;
         this-> _release.post ();
     }
 
     void TcpPool::dispose () {
         WITH_LOCK (this-> _m) {
-            std::cout << "Disposing all connection" << std::endl;
             this-> _free.clear ();
             for (auto & [it, sock] : this-> _open) {
                 delete sock;
