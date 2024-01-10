@@ -39,6 +39,11 @@ namespace rd_utils::net {
 
     friend TcpSession;
 
+  private :
+
+    TcpPool (const TcpPool& );
+    void operator=(const TcpPool&);
+
   public:
 
     /**
