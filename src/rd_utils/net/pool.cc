@@ -47,6 +47,30 @@ namespace rd_utils::net {
         , _max (max)
     {}
 
+    TcpPool::TcpPool (TcpPool && other):
+        _addr (std::move(other._addr))
+        , _open (std::move(other._open))
+        , _socketFds (std::move(other._socketFds))
+        , _free (std::move(other._free))
+        , _m (std::move(other._m))
+        , _release (std::move(other._release))
+        , _max (other._max)    
+    {
+        other._max = 0;
+    }
+
+    void TcpPool::operator= (TcpPool && other) {
+        this->_addr = std::move(other._addr);
+        this->_open = std::move(other._open);
+        this->_socketFds = std::move(other._socketFds);
+        this->_free = std::move(other._free);
+        this->_m = std::move(other._m);
+        this->_release = std::move(other._release);
+        this->_max = other._max;
+
+        other._max = 0;
+    }
+
     TcpSession TcpPool::get () {
         bool check = false;
         WITH_LOCK (this-> _m) {

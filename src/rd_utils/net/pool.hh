@@ -49,6 +49,16 @@ namespace rd_utils::net {
     TcpPool (SockAddrV4 addr, int max);
 
     /**
+     * Move ctor
+     */
+    TcpPool (TcpPool &&);
+
+    /**
+     * Move affectation
+     */
+    void operator=(TcpPool &&);
+
+    /**
      * @returns: an avalaible stream
      */
     TcpSession get ();
