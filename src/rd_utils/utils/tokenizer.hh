@@ -19,7 +19,7 @@ namespace rd_utils::utils {
 
     std::list <std::string> _comments;
 
-    bool _doComments;
+    bool _doComments = true;
 
     std::list <int> _lastLocs;
 

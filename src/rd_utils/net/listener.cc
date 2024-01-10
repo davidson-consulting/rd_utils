@@ -14,7 +14,7 @@ namespace rd_utils {
     namespace net {
 
 		bool ignoreSigPipe () {
-			LOG_DEBUG ("Disabling SIGPIPE");
+			// LOG_DEBUG ("Disabling SIGPIPE");
 			signal(SIGPIPE, SIG_IGN); // ignore
 			return true;
 		}
@@ -54,13 +54,11 @@ namespace rd_utils {
 		}
 
 		TcpStream TcpListener::accept () {
-			std::cout << "Call accept" << std::endl;
 			sockaddr_in client = { 0 };
 			unsigned int len = sizeof (sockaddr_in);
 
 			auto sock = ::accept (this-> _sockfd, (sockaddr*) (&client), &len);
 			if (sock <= 0) {
-				std::cout << strerror (errno) << std::endl;
 				throw utils::Rd_UtilsError ("Failed to accept client");
 			}
 	    
