@@ -6,7 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <signal.h>
-#include <rd_utils/utils/log.hh>
+#include <rd_utils/utils/_.hh>
 
 
 namespace rd_utils {
@@ -59,8 +59,7 @@ namespace rd_utils {
 
 			auto sock = ::accept (this-> _sockfd, (sockaddr*) (&client), &len);
 			if (sock <= 0) {
-				std::cout << "Failed to accept client" << std::endl;
-				return TcpStream (0, SockAddrV4 (Ipv4Address (0, 0, 0, 0), 0));
+				throw utils::Rd_UtilsError ("Failed to accept client");
 			}
 	    
 			auto addr = SockAddrV4 (Ipv4Address (client.sin_addr.s_addr), ntohs (client.sin_port));
@@ -69,7 +68,6 @@ namespace rd_utils {
 
 		void TcpListener::close () {
 			if (this-> _sockfd != 0) {
-				std::cout << "Closing listener socket" << std::endl;
 				::shutdown (this-> _sockfd, SHUT_RDWR);
 				this-> _sockfd = 0;
 			}
@@ -83,8 +81,7 @@ namespace rd_utils {
 		void TcpListener::bind () {
 			this-> _sockfd = socket (AF_INET, SOCK_STREAM, 0);
 			if (this-> _sockfd == -1) {
-				std::cout << "Error creating socket" << std::endl;
-				exit (-1);
+				throw utils::Rd_UtilsError ("Error creating socket");
 			}
 
 			sockaddr_in sin = { 0 };
@@ -93,13 +90,11 @@ namespace rd_utils {
 			sin.sin_family = AF_INET;
 
 			if (::bind (this-> _sockfd, (sockaddr*) &sin, sizeof (sockaddr_in)) != 0) {
-				std::cout << "Error binding socket" << std::endl;
-				exit (-1);
+				throw utils::Rd_UtilsError ("Error binding socket");
 			}
 
 			if (listen (this-> _sockfd, 100) != 0) {
-				std::cout << "Error listening socket" << std::endl;
-				exit (-1);
+				throw utils::Rd_UtilsError ("Error listening to socket");
 			}
 
 			if (this-> _addr.port () == 0) {

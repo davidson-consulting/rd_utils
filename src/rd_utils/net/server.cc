@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/epoll.h>
-#include <rd_utils/utils/print.hh>
+#include <rd_utils/utils/_.hh>
 
 
 namespace rd_utils::net {
@@ -145,16 +145,18 @@ namespace rd_utils::net {
 
       // New socket
       if (event.data.fd == this-> _context._sockfd) {
-        auto stream = new TcpStream (std::move (this-> _context.accept ()));
-        // Reject connection if there are too much clients
-        if (this-> _openSockets.size () + 1 > this-> _maxConn && this-> _maxConn != -1) {
-          stream-> close ();
-        } else {
-          this-> _openSockets.emplace (stream-> getHandle (), stream);
-          this-> _socketFds.emplace (stream, stream-> getHandle ());
+        try {
+          auto stream = new TcpStream (std::move (this-> _context.accept ()));
+          // Reject connection if there are too much clients
+          if (this-> _openSockets.size () + 1 > this-> _maxConn && this-> _maxConn != -1) {
+            stream-> close ();
+          } else {
+            this-> _openSockets.emplace (stream-> getHandle (), stream);
+            this-> _socketFds.emplace (stream, stream-> getHandle ());
 
-          this-> submit (TcpSessionKind::NEW, stream);
-        }
+            this-> submit (TcpSessionKind::NEW, stream);
+          }
+        } catch (utils::Rd_UtilsError err) {} // accept can fail
       }
 
       // on session close
