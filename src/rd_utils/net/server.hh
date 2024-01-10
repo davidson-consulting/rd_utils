@@ -62,7 +62,7 @@ namespace rd_utils::net {
                 int _nbCompleted = 0;
 
                 // The list of socket whose session is finished
-                concurrency::Mailbox<TcpStream*> _completed;
+                concurrency::Mailbox<std::tuple<TcpSessionKind, TcpStream*> > _completed;
 
                 // Closed threads
                 concurrency::Mailbox<int> _closed;
@@ -76,23 +76,10 @@ namespace rd_utils::net {
                 concurrency::mutex _triggerM;
 
                 // Mutex to lock when waiting for a thread to be ready
-                concurrency::mutex _ready;
+                concurrency::semaphore _ready;
 
-                // Signal emitted when a mutex is ready
-                concurrency::condition _readySig;
-
-                // Mutex to lock when waiting a task
-                concurrency::mutex _waitTask;
-
-                // Condition emitted when a task is submitted
-                concurrency::condition _waitTaskSig;
-
-                // Mutex to lock when waiting for a task to be completed
-                concurrency::mutex _completeM;
-
-                // The signal emitted when a task is completed
-                concurrency::condition _completeSig;
-
+                // Signal emitted when a task is ready
+                concurrency::semaphore _waitTask;
 
         private:
 
@@ -141,9 +128,7 @@ namespace rd_utils::net {
 
                         // Then spawning the thread with working tcplistener already configured
                         this-> _th = concurrency::spawn (this, &TcpServer::pollMain);
-                        WITH_LOCK (this-> _ready) {
-                                this-> _readySig.wait (this-> _ready);
-                        }
+                        this-> _ready.wait ();
                 }
 
                 /**
@@ -191,7 +176,7 @@ namespace rd_utils::net {
                 /**
                  * Add file descriptor to epoll list
                  */
-                void addEpoll (int fd);
+                void addEpoll (TcpSessionKind, int fd);
 
                 /**
                  * delete file descriptor from epoll list

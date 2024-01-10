@@ -23,10 +23,8 @@ namespace rd_utils::concurrency {
   public:
 
     /**
-     * @params:
-     *    - nb_resources: the numer of available resource managed by the sem
      */
-    semaphore (int nb_resources);
+    semaphore ();
 
     /**
      * Move ctor
@@ -49,6 +47,11 @@ namespace rd_utils::concurrency {
      * @assume: post will be called when the resource will be released
      */
     void wait ();
+
+    /**
+     * @returns: the current count of the semaphore
+     */
+    int get ();
 
     /**
      * Dispose the semaphore

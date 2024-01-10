@@ -54,11 +54,13 @@ namespace rd_utils {
 		}
 
 		TcpStream TcpListener::accept () {
+			std::cout << "Call accept" << std::endl;
 			sockaddr_in client = { 0 };
 			unsigned int len = sizeof (sockaddr_in);
 
 			auto sock = ::accept (this-> _sockfd, (sockaddr*) (&client), &len);
 			if (sock <= 0) {
+				std::cout << strerror (errno) << std::endl;
 				throw utils::Rd_UtilsError ("Failed to accept client");
 			}
 	    
@@ -69,6 +71,7 @@ namespace rd_utils {
 		void TcpListener::close () {
 			if (this-> _sockfd != 0) {
 				::shutdown (this-> _sockfd, SHUT_RDWR);
+				::close (this-> _sockfd);
 				this-> _sockfd = 0;
 			}
 		}

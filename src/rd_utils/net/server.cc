@@ -46,9 +46,7 @@ namespace rd_utils::net {
     ,_trigger (std::move (other._trigger))
     ,_triggerM (std::move (other._triggerM))
     ,_ready (std::move (other._ready))
-    ,_readySig (std::move (other._readySig))
     ,_waitTask (std::move (other._waitTask))
-    ,_waitTaskSig (std::move (other._waitTaskSig))
     {
       other._nbCompleted = 0;
       other._nbSubmitted = 0;
@@ -80,9 +78,7 @@ namespace rd_utils::net {
     this-> _trigger = std::move (other._trigger);
     this-> _triggerM = std::move (other._triggerM);
     this-> _ready = std::move (other._ready);
-    this-> _readySig = std::move (other._readySig);
     this-> _waitTask = std::move (other._waitTask);
-    this-> _waitTaskSig = std::move (other._waitTaskSig);
 
     other._nbCompleted = 0;
     other._nbSubmitted = 0;
@@ -112,9 +108,7 @@ namespace rd_utils::net {
 
     // Then spawning the thread with working tcplistener already configured
     this-> _th = concurrency::spawn (this, &TcpServer::pollMain);
-    WITH_LOCK (this-> _ready) {
-      this-> _readySig.wait (this-> _ready);
-    }
+    this-> _ready.wait ();
   }
 
   void TcpServer::configureEpoll () {
@@ -135,7 +129,7 @@ namespace rd_utils::net {
 
   void TcpServer::pollMain (concurrency::Thread) {
     this-> _started = true;
-    this-> _readySig.signal ();
+    this-> _ready.post ();
 
     epoll_event event;
     while (this-> _started) {
@@ -144,22 +138,28 @@ namespace rd_utils::net {
         throw utils::Rd_UtilsError ("Error while tcp waiting");
       }
 
+      // std::cout << "Looping ?" << " " << event.data.fd << " " << this-> _trigger.getReadFd () << " " << this-> _context._sockfd << std::endl;
       this-> reloadAllFinished ();
 
       // New socket
       if (event.data.fd == this-> _context._sockfd) {
         try {
-          auto stream = new TcpStream (std::move (this-> _context.accept ()));
+          TcpStream cl = std::move (this-> _context.accept ());
           // Reject connection if there are too much clients
           if (this-> _openSockets.size () + 1 > this-> _maxConn && this-> _maxConn != -1) {
-            stream-> close ();
+            cl.close ();
           } else {
+            auto stream = new TcpStream (std::move (cl));
             this-> _openSockets.emplace (stream-> getHandle (), stream);
             this-> _socketFds.emplace (stream, stream-> getHandle ());
 
             this-> submit (TcpSessionKind::NEW, stream);
           }
-        } catch (utils::Rd_UtilsError err) {} // accept can fail
+        } catch (utils::Rd_UtilsError err) {
+          // std::cout << this-> _openSockets.size () << std::endl;
+          // std::cout << "IN ERROR ??? " << std::endl;
+
+        } // accept can fail
       }
 
       // on session close
@@ -170,7 +170,7 @@ namespace rd_utils::net {
 
       // Old client is writing
       else {
-        this-> delEpoll (event.data.fd);
+        // this-> delEpoll (event.data.fd);
         auto it = this-> _openSockets.find (event.data.fd);
         if (it != this-> _openSockets.end ()) {
           this-> submit (TcpSessionKind::OLD, it-> second);
@@ -179,17 +179,21 @@ namespace rd_utils::net {
     }
   }
 
-  void TcpServer::addEpoll (int fd) {
+  void TcpServer::addEpoll (TcpSessionKind kind, int fd) {
     epoll_event event;
     event.events = EPOLLIN | EPOLLHUP | EPOLLONESHOT;
     event.data.fd = fd;
-    epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, fd, &event);
+    if (kind == TcpSessionKind::NEW) {
+      epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, fd, &event);
+    } else {
+      epoll_ctl (this-> _epoll_fd, EPOLL_CTL_MOD, fd, &event);
+    }
   }
 
   void TcpServer::delEpoll (int fd) {
     epoll_event event;
     event.data.fd = fd;
-    epoll_ctl (this-> _epoll_fd, EPOLL_CTL_DEL, fd, &event);
+    auto i = epoll_ctl (this-> _epoll_fd, EPOLL_CTL_DEL, fd, &event);
   }
 
   void TcpServer::submit (TcpSessionKind kind, TcpStream * stream) {
@@ -199,17 +203,21 @@ namespace rd_utils::net {
     }
 
     this-> _nbSubmitted += 1;
-    this-> _waitTaskSig.signal ();
+    this-> _waitTask.post ();
   }
 
   void TcpServer::reloadAllFinished () {
     for (;;) {
       auto msg = this-> _completed.receive ();
       if (msg.has_value ()) {
-        TcpStream * str = *msg;
+        auto tu = *msg;
+        TcpStream* str = std::get<1> (tu);
+
         if (str-> isOpen ()) {
-          this-> addEpoll (str-> getHandle ());
+          this-> addEpoll (std::get<TcpSessionKind> (tu), str-> getHandle ());
         } else {
+          this-> delEpoll (str-> getHandle ());
+
           auto handle = this-> _socketFds.find (str);
           this-> _openSockets.erase (handle-> second);
           this-> _socketFds.erase (str);
@@ -234,19 +242,17 @@ namespace rd_utils::net {
   void TcpServer::spawnThreads () {
     for (int i = 0 ; i < this-> _nbThreads ; i++) {
       auto th = spawn (this, &TcpServer::workerThread);
-      WITH_LOCK (this-> _ready) {
-        this-> _readySig.wait (this-> _ready);
-        this-> _runningThreads.emplace (th.id, th);
-      }
+      this-> _ready.wait ();
+
+      this-> _runningThreads.emplace (th.id, th);
     }
   }
 
   void TcpServer::workerThread (concurrency::Thread t) {
-    this-> _readySig.signal ();
+    this-> _ready.post ();
+
     for (;;) {
-      WITH_LOCK (this-> _waitTask) {
-        this-> _waitTaskSig.wait (this-> _waitTask);
-      }
+      this-> _waitTask.wait ();
 
       if (!this-> _started) break;
 
@@ -255,7 +261,7 @@ namespace rd_utils::net {
         if (msg.has_value ()) {
           auto tu = *msg;
           this-> _onSession.emit (std::get<TcpSessionKind> (tu), *std::get<TcpStream*> (tu));
-          this-> _completed.send (std::get<TcpStream*> (tu));
+          this-> _completed.send (tu);
 
           WITH_LOCK (this-> _triggerM) {
             this-> _nbCompleted += 1;
@@ -323,8 +329,9 @@ namespace rd_utils::net {
 
   void TcpServer::dispose () {
     this-> waitAllCompletes ();
-    while (this-> _closed.len () != this-> _runningThreads.size ()) { // Force all thread to halt
-      this-> _waitTaskSig.signal ();
+    while (this-> _closed.len () != this-> _runningThreads.size ()) {
+      // Force all thread to halt
+      this-> _waitTask.post ();
     }
 
     for (auto [it, th] : this-> _runningThreads) { // kill all running threads

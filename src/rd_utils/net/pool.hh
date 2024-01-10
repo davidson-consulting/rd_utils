@@ -22,17 +22,17 @@ namespace rd_utils::net {
     // The number of active connection
     std::map <int, TcpStream*> _open;
 
+    // The handles of the sockets
+    std::map <uint64_t, int> _socketFds;
+
     // All the connection that are available
     concurrency::Mailbox <TcpStream*> _free;
 
     // mutex locked when updating connections
     concurrency::mutex _m;
 
-    // Mutex to lock when waiting for a connection to be released
-    concurrency::mutex _release;
-
     // signal emitted when a connection is released
-    concurrency::condition _releasedSig;
+    concurrency::semaphore _release;
 
     // The maximum number of opened connection
     int _max = 0;

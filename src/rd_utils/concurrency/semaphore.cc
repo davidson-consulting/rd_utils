@@ -4,8 +4,8 @@
 namespace rd_utils::concurrency {
 
 
-  semaphore::semaphore (int nb_resources) {
-    ::sem_init (&this-> _sem, 0, nb_resources);
+  semaphore::semaphore () {
+    ::sem_init (&this-> _sem, 0, 0);
     this-> _init = true;
   }
 
@@ -41,6 +41,13 @@ namespace rd_utils::concurrency {
 
   void semaphore::wait () {
     ::sem_wait (&this-> _sem);
+  }
+
+  int semaphore::get () {
+    int i = 0;
+    ::sem_getvalue (&this-> _sem, &i);
+
+    return i;
   }
 
   semaphore::~semaphore () {

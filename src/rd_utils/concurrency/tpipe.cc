@@ -8,8 +8,7 @@
 
 namespace rd_utils::concurrency {
 
-  ThreadPipe::ThreadPipe (bool create) :
-    _s (0)
+  ThreadPipe::ThreadPipe (bool create)
   {
     if (create) {
       int pipes[2];
