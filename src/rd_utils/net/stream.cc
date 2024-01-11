@@ -56,8 +56,8 @@ namespace rd_utils::net {
 			throw utils::Rd_UtilsError ("Error creating socket.");
 		}
 	}
-	
-	
+
+
 	bool TcpStream::sendInt (unsigned long i) {
 		if (this-> _sockfd != 0 && !this-> _error) {
 			if (write (this-> _sockfd, &i, sizeof (unsigned long)) == -1) {
@@ -81,9 +81,36 @@ namespace rd_utils::net {
 		return false;
 	}
 
+	bool TcpStream::send (const char * buffer, int len) {
+		if (this-> _sockfd != 0 && !this-> _error) {
+			if (write (this-> _sockfd, buffer, len * sizeof (char)) == -1) {
+				this-> _error;
+				return false;
+			}
+			return true;
+		}
+		return false;
+	}
+
+
+	int TcpStream::receive (char * buffer, int len) {
+		if (this-> _sockfd != 0 && !this-> _error) {
+			auto valread = recv (this-> _sockfd, buffer, len, 0);
+			if (valread == -1) {
+				this-> _error = true;
+			} else {
+				if (valread == 0) this-> _error = true;
+				buffer [valread] = 0;
+				return valread;
+			}
+		}
+
+		return 0;
+	}
+
 	std::string TcpStream::receive () {
 		if (this-> _sockfd != 0 && !this-> _error) {
-			std::stringstream res;
+			std::string res;
 			long bufferSize = 100;
 			char buffer[bufferSize];
 			ssize_t valread = 0;
@@ -96,12 +123,12 @@ namespace rd_utils::net {
 				}
 
 				buffer [valread] = 0;
-				res << buffer;
+				res.append (buffer, buffer + valread);
 
 			} while(valread == bufferSize);
 
-			if (res.str ().length () == 0) { this-> _error = true; }
-			return res.str();
+			if (res.length () == 0) { this-> _error = true; }
+			return res;
 		}
 
 		return "";
@@ -130,7 +157,7 @@ namespace rd_utils::net {
 	SockAddrV4 TcpStream::addr () const {
 		return this-> _addr;
 	}
-	
+
 	void TcpStream::close  () {
 		if (this-> _sockfd != 0) {
 			// ::shutdown (this-> _sockfd, SHUT_RDWR);

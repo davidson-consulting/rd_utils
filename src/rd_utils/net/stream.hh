@@ -24,7 +24,7 @@ namespace rd_utils {
 		private :
 
 			friend TcpListener;
-	    
+
 			/**
 			 * Construction of a stream from an already connected socket
 			 * @warning: should be used only by the listener
@@ -51,7 +51,7 @@ namespace rd_utils {
 			 * @warning: does not connect the stream (cf. this-> connect);
 			 */
 			TcpStream (SockAddrV4 addr);
-	    
+
 			/**
 			 * ================================================================================
 			 * ================================================================================
@@ -82,14 +82,14 @@ namespace rd_utils {
 			 * ================================================================================
 			 * ================================================================================
 			 */
-	    
+
 			/**
 			 * Connect the stream as a client
 			 * @info: use the addr given in the constructor
 			 * @warning: close the current stream if connected to something
 			 */
 			void connect ();
-	    
+
 			/**
 			 * Close the stream if connected
 			 */
@@ -102,25 +102,34 @@ namespace rd_utils {
 			 * ================================================================================
 			 * ================================================================================
 			 */
-	    
+
 			/**
 			 * Send a int into the stream
 			 * @params:
 			 *   - i: the int to send
 			 */
 			bool sendInt (unsigned long i);
-	    
-	    
+
+
 			/**
 			 * Send a message through the stream
 			 * @returns: true, iif the send was successful
 			 */
 			bool send (const std::string & msg);
-	    
+
+			/**
+			 * Send a message through the stream
+			 */
+			bool send (const char * buffer, int len);
+
+			/**
+			 * Receive a message in a pre allocated buffer
+			 * @return: the length read
+			 */
+			int receive (char * buffer, int len);
+
 			/**
 			 * Receive a message from the stream
-			 * @params:
-			 *   - size: the size of the string to receive
 			 */
 			std::string receive ();
 
@@ -135,8 +144,8 @@ namespace rd_utils {
 			~TcpStream ();
 
 		};
-	
-	
+
+
 	}
 
 }
