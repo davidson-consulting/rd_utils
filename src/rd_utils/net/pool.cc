@@ -99,9 +99,9 @@ namespace rd_utils::net {
         this-> _release.wait ();
         // LOG_INFO ("NO ?", pthread_self ());
 
-        auto conn = this-> _free.receive ();
-        if (conn.has_value ()) {
-            return TcpSession (*conn, this);
+        TcpStream * conn = nullptr;
+        if (this-> _free.receive (conn)) {
+            return TcpSession (conn, this);
         } else {
             return this-> get ();
         }

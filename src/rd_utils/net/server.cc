@@ -197,7 +197,7 @@ namespace rd_utils::net {
   }
 
   void TcpServer::submit (TcpSessionKind kind, TcpStream * stream) {
-    this-> _jobs.send (std::make_tuple (kind, stream));
+    this-> _jobs.send ({.kind = kind, .stream = stream});
     if (this-> _runningThreads.size () != this-> _nbThreads) {
       this-> spawnThreads ();
     }
@@ -208,13 +208,12 @@ namespace rd_utils::net {
 
   void TcpServer::reloadAllFinished () {
     for (;;) {
-      auto msg = this-> _completed.receive ();
-      if (msg.has_value ()) {
-        auto tu = *msg;
-        TcpStream* str = std::get<1> (tu);
+      MailElement elem;
+      if (this-> _completed.receive (elem)) {
+        TcpStream* str = elem.stream;
 
         if (str-> isOpen ()) {
-          this-> addEpoll (std::get<TcpSessionKind> (tu), str-> getHandle ());
+          this-> addEpoll (elem.kind, str-> getHandle ());
         } else {
           this-> delEpoll (str-> getHandle ());
 
@@ -257,11 +256,10 @@ namespace rd_utils::net {
       if (!this-> _started) break;
 
       for (;;) {
-        auto msg = this-> _jobs.receive ();
-        if (msg.has_value ()) {
-          auto tu = *msg;
-          this-> _onSession.emit (std::get<TcpSessionKind> (tu), *std::get<TcpStream*> (tu));
-          this-> _completed.send (tu);
+        MailElement elem;
+        if (this-> _jobs.receive (elem)) {
+          this-> _onSession.emit (elem.kind, *elem.stream);
+          this-> _completed.send (elem);
 
           WITH_LOCK (this-> _triggerM) {
             this-> _nbCompleted += 1;

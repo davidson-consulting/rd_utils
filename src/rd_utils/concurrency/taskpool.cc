@@ -121,9 +121,8 @@ namespace rd_utils::concurrency {
 
       // Otherwise a new task is ready
       for (;;) { // maybe multiple tasks are in the list
-        auto msg = this-> _jobs.receive ();
-        if (msg.has_value ()) {
-          Task * task = *msg;
+        Task * task = nullptr;
+        if (this-> _jobs.receive (task)) {
           task-> execute (t);
           delete task;
 

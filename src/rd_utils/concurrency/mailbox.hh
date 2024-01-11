@@ -1,7 +1,7 @@
 #pragma once
 
 
-#include <queue>
+#include <deque>
 #include <optional>
 #include <rd_utils/concurrency/mutex.hh>
 
@@ -16,7 +16,10 @@ namespace rd_utils::concurrency {
   private:
 
     // The list of mails
-    std::queue<T> _mails;
+    std::deque<T> _mails;
+
+    // The len of the mailbox
+    unsigned int _len;
 
     // The mutex to lock when submitting new values to the mailbox
     mutex _m;
@@ -26,14 +29,17 @@ namespace rd_utils::concurrency {
     /**
      * Create a new empty mailbox
      */
-    Mailbox () {}
+    Mailbox () : _len (0) {}
 
     /**
      * Move ctor
      */
     Mailbox (Mailbox<T> && other) :
-      _mails (std::move (other._mails))
-    {}
+      _mails (std::move (other._mails)),
+      _len (other._len)
+    {
+      other._len = 0;
+    }
 
     /**
      * Move affectation
@@ -41,27 +47,28 @@ namespace rd_utils::concurrency {
     void operator=(Mailbox<T> && other) {
       this-> dispose ();
       this-> _mails = std::move (other._mails);
+      this-> _len = other._len;
+      other._len = 0;
     }
     /**
      * Post a message in the mailbox
      */
     void send (T value) {
       WITH_LOCK (this-> _m) {
-        this-> _mails.push (std::move (value));
+        this-> _mails.push_back (std::move (value));
+        this-> _len += 1;
       }
     }
 
-    /**
-     * Retreive a message from the mailbox
-     */
-    std::optional<T> receive () {
+    bool receive (T & val) {
       WITH_LOCK (this-> _m) {
-        if (this-> _mails.empty ()) {
-          return std::nullopt;
+        if (this-> _len == 0) {
+          return false;
         } else {
-          auto & ret = this-> _mails.front ();
-          this-> _mails.pop ();
-          return ret;
+          val = this-> _mails.front ();
+          this-> _mails.pop_front ();
+          this-> _len -= 1;
+          return true;
         }
       }
     }
@@ -71,8 +78,9 @@ namespace rd_utils::concurrency {
      */
     void clear () {
       WITH_LOCK (this-> _m) {
-        std::queue<T> empty;
+        std::deque<T> empty;
         std::swap (this-> _mails, empty);
+        this-> _len = 0;
       }
     }
 
@@ -80,9 +88,7 @@ namespace rd_utils::concurrency {
      * @returns: the number of elements in the mailbox
      */
     unsigned int len () {
-      WITH_LOCK (this-> _m) {
-        return this-> _mails.size ();
-      }
+      return this-> _len;
     }
 
     /**
