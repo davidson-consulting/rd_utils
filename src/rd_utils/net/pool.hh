@@ -26,7 +26,7 @@ namespace rd_utils::net {
     std::map <uint64_t, int> _socketFds;
 
     // All the connection that are available
-    concurrency::Mailbox <TcpStream*> _free;
+    concurrency::LockFreeMailbox <TcpStream*> _free;
 
     // mutex locked when updating connections
     concurrency::mutex _m;

@@ -138,7 +138,6 @@ namespace rd_utils::net {
         throw utils::Rd_UtilsError ("Error while tcp waiting");
       }
 
-      // std::cout << "Looping ?" << " " << event.data.fd << " " << this-> _trigger.getReadFd () << " " << this-> _context._sockfd << std::endl;
       this-> reloadAllFinished ();
 
       // New socket
@@ -319,7 +318,7 @@ namespace rd_utils::net {
       concurrency::join (this-> _th);
     }
 
-    while (this-> _nbSubmitted != this-> _nbCompleted && this-> _jobs.len () != 0) { // wait for the finish of already running tasks
+    while (this-> _nbSubmitted != this-> _nbCompleted) { // && this-> _jobs.len () != 0) { // wait for the finish of already running tasks
       char c;
       ::read (this-> _trigger.getReadFd (), &c, 1);
     }

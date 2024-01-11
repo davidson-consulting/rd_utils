@@ -4,6 +4,7 @@
 #include <rd_utils/concurrency/iopipe.hh>
 #include <rd_utils/concurrency/mutex.hh>
 #include <rd_utils/concurrency/mailbox.hh>
+#include <rd_utils/concurrency/lfmailbox.hh>
 #include <rd_utils/concurrency/proc.hh>
 #include <rd_utils/concurrency/pty.hh>
 #include <rd_utils/concurrency/semaphore.hh>

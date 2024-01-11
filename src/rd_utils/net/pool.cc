@@ -133,7 +133,7 @@ namespace rd_utils::net {
 
     void TcpPool::dispose () {
         WITH_LOCK (this-> _m) {
-            this-> _free.clear ();
+            this-> _free.dispose ();
             for (auto & [it, sock] : this-> _open) {
                 delete sock;
             }
