@@ -4,6 +4,7 @@
 #include "thread.hh"
 #include "mutex.hh"
 #include "mailbox.hh"
+#include "lfmailbox.hh"
 #include <unordered_map>
 
 namespace rd_utils::concurrency {
@@ -100,7 +101,7 @@ namespace rd_utils::concurrency {
     bool _terminated = false;
 
     // The list of jobs to launch
-    Mailbox <Task*> _jobs;
+    LockFreeMailbox <Task*> _jobs;
 
     // The number of task that were submitted
     unsigned int _nbSubmitted = 0;
