@@ -62,13 +62,13 @@ namespace rd_utils::net {
                 int _nbSubmitted = 0;
 
                 // The list of socket whose session has to be launched
-                concurrency::LockFreeMailbox<MailElement> _jobs;
+                concurrency::Mailbox<MailElement> _jobs;
 
                 // The number of session completed
                 int _nbCompleted = 0;
 
                 // The list of socket whose session is finished
-                concurrency::LockFreeMailbox<MailElement> _completed;
+                concurrency::Mailbox<MailElement> _completed;
 
                 // Closed threads
                 concurrency::Mailbox<int> _closed;

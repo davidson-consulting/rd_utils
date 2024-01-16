@@ -164,7 +164,7 @@ namespace rd_utils::net {
       // on session close
       else if (event.data.fd == this-> _trigger.getReadFd ()) {
         char c;
-        ::read (this-> _trigger.getReadFd (), &c, 1);
+        auto ig = ::read (this-> _trigger.getReadFd (), &c, 1);
       }
 
       // Old client is writing
@@ -263,7 +263,7 @@ namespace rd_utils::net {
           WITH_LOCK (this-> _triggerM) {
             this-> _nbCompleted += 1;
             // trigger for epoll
-            ::write (this-> _trigger.getWriteFd (), "c", 1);
+            auto ig = ::write (this-> _trigger.getWriteFd (), "c", 1);
           }
         } else {
           break;
@@ -306,7 +306,7 @@ namespace rd_utils::net {
   void TcpServer::stop () {
     WITH_LOCK (this-> _triggerM) {
       this-> _started = false;
-      ::write (this-> _trigger.getWriteFd (), "c", 1);
+      auto ig = ::write (this-> _trigger.getWriteFd (), "c", 1);
     }
   }
 
@@ -314,13 +314,13 @@ namespace rd_utils::net {
     if (this-> _started) { // Stop the submissions of new tasks
       this-> _started = false;
       // Notify the polling thread to stop
-      ::write (this-> _trigger.getWriteFd (), "c", 1);
+      auto ig = ::write (this-> _trigger.getWriteFd (), "c", 1);
       concurrency::join (this-> _th);
     }
 
     while (this-> _nbSubmitted != this-> _nbCompleted) { // && this-> _jobs.len () != 0) { // wait for the finish of already running tasks
       char c;
-      ::read (this-> _trigger.getReadFd (), &c, 1);
+      auto ig = ::read (this-> _trigger.getReadFd (), &c, 1);
     }
   }
 

@@ -101,7 +101,7 @@ namespace rd_utils::concurrency {
     bool _terminated = false;
 
     // The list of jobs to launch
-    LockFreeMailbox <Task*> _jobs;
+    Mailbox <Task*> _jobs;
 
     // The number of task that were submitted
     unsigned int _nbSubmitted = 0;

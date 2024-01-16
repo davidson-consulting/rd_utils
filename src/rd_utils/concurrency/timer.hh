@@ -32,9 +32,15 @@ namespace rd_utils {
 
 	    /**
 	     * Sleep for nbSec
+	     * @returns: the number of second left (if interrupted by a signal for example)
 	     */
-	    void sleep (float nbSec);
-	    
+	    static float sleep (float nbSec);
+
+		/**
+		 * @returns: the number of second since epoch
+		 */
+		static unsigned long time_since_epoch ();
+
 	};
 	
     }

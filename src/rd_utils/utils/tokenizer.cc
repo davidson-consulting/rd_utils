@@ -18,7 +18,7 @@ namespace rd_utils::utils {
 
   std::string tokenizer::next() {
     while (true) {
-      std::string x = this->nextPure();
+      std::string x = this-> nextPure();
       if (this-> _doComments && std::find(this->_comments.begin(), this->_comments.end(), x) != this->_comments.end()) {
         while (x != "\n" && x != "") {
           x = this->nextPure();
