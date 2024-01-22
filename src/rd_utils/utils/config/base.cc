@@ -33,7 +33,6 @@ namespace rd_utils::utils::config {
 
   int32_t ConfigNode::getOr (const std::string & key, int32_t value) const {
     try {
-      std::cout << "I ???" << std::endl;
       return (*this) [key].getI ();
     } catch (...) {
       return value;
@@ -42,7 +41,6 @@ namespace rd_utils::utils::config {
 
   double ConfigNode::getOr (const std::string & key, double value) const {
     try {
-      std::cout << "F ???" << std::endl;
       return (*this) [key].getF ();
     } catch (...) {
       return value;
@@ -51,10 +49,8 @@ namespace rd_utils::utils::config {
 
   std::string ConfigNode::getOr (const std::string & key, const char* value) const {
     try {
-      std::cout << "Str ???" << std::endl;
       return (*this) [key].getStr ();
     } catch (...) {
-      std::cout << "?" << std::endl;
       return std::string (value);
     }
   }
@@ -62,17 +58,14 @@ namespace rd_utils::utils::config {
 
   std::string ConfigNode::getOr (const std::string & key, std::string value) const {
     try {
-      std::cout << "Str ???" << std::endl;
       return (*this) [key].getStr ();
     } catch (...) {
-      std::cout << "?" << std::endl;
       return value;
     }
   }
 
   bool ConfigNode::getOr (const std::string & key, bool value) const {
     try {
-      std::cout << "B ???" << std::endl;
       return (*this) [key].isTrue ();
     } catch (...) {
       return value;
