@@ -1,4 +1,5 @@
 #pragma once
+
 #include <memory>
 
 #define match(X)                                \
@@ -13,3 +14,10 @@
 #define fo }                                    \
 
 #define elfo } else                             \
+
+
+
+namespace rd_utils::utils::config {
+
+
+}

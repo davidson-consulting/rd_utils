@@ -5,6 +5,7 @@
 #include <string>
 #include <memory>
 #include "../error.hh"
+#include "matching.hh"
 
 
 namespace rd_utils::utils::config {
@@ -52,10 +53,34 @@ namespace rd_utils::utils::config {
     virtual bool contains (const std::string & key) const;;
 
     /**
+     * @returns: the int value at key 'key', or 'value' if it does not exist
+     */
+    int32_t getOr (const std::string & key, int32_t value) const;
+
+    /**
+     * @returns: the float value at key 'key', or 'value' if it does not exist
+     */
+    double getOr (const std::string & key, double value) const;
+
+    /**
+     * @returns: the string value at key 'key', or 'value' if it does not exist
+     */
+    std::string getOr (const std::string & key, std::string value) const;
+
+    /**
+     * @returns: the string value at key 'key', or 'value' if it does not exist
+     */
+    std::string getOr (const std::string & key, const char * value) const;
+
+    /**
+     * @returns: the bool value at key 'key', or 'value' if it does not exist
+     */
+    bool getOr (const std::string & key, bool value) const;
+
+    /**
      * Format the config node into a printable string
      */
     virtual void format (std::ostream & s) const = 0;
-
 
     virtual ~ConfigNode ();
 
