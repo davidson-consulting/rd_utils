@@ -92,19 +92,27 @@ namespace rd_utils {
 		SockAddrV4::SockAddrV4 (const std::string & addr) :
 			_addr (Ipv4Address (0, 0, 0, 0)), _port (0)
 		{
-			utils::tokenizer tok (addr, {".", ":", " "}, {" "});
-			auto fst = std::atoi (tok.next ().c_str ());
-			if (tok.next () != ".") throw utils::addr_error (std::string ("Malformed addr : ") + addr);
-			auto scd = std::atoi (tok.next ().c_str ());
-			if (tok.next () != ".") throw utils::addr_error (std::string ("Malformed addr : ") + addr);
-			auto thd = std::atoi (tok.next ().c_str ());
-			if (tok.next () != ".") throw utils::addr_error (std::string ("Malformed addr : ") + addr);
-			auto fth = std::atoi (tok.next ().c_str ());
-			if (tok.next () != ":") throw utils::addr_error (std::string ("Malformed addr : ") + addr);
-			auto port = std::atoi (tok.next ().c_str ());
-	    
+			std::vector <std::string> tokens = utils::tokenize (addr, {".", ":", " "}, {" "});
+			if (tokens.size () != 7 && tokens.size () != 9) {
+				throw utils::AddrError (std::string ("Malformed addr : ") + addr);
+			}
+
+			if (tokens [1] != "." || tokens [3] != "." || tokens [5] != ".") {
+				throw utils::AddrError (std::string ("Malformed addr : ") + addr);
+			}
+
+			auto fst = std::atoi (tokens [0].c_str ());
+			auto scd = std::atoi (tokens [2].c_str ());
+			auto thd = std::atoi (tokens [4].c_str ());
+			auto fth = std::atoi (tokens [6].c_str ());
+			uint32_t port = 0;
+			if (tokens.size () == 9) {
+				if (tokens [7] != ":") throw utils::AddrError (std::string ("Malformed addr : ") + addr);
+				port = std::atoi (tokens [8].c_str ());
+			}
+
 			this-> _addr = Ipv4Address (fst, scd, thd, fth);
-			this-> _port = port;	    
+			this-> _port = port;
 		}
 
 		Ipv4Address SockAddrV4::ip () const {

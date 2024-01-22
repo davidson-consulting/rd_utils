@@ -1,6 +1,6 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.1)
 project(rd_utils)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++17")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++17")
 
 file(
   GLOB_RECURSE
@@ -53,6 +53,13 @@ file(
   src/rd_utils/*.hh
   )
 
+
+file(
+  GLOB
+  HEADER_CONFIG
+  src/rd_utils/utils/config/*.hh
+  )
+
 find_package(nlohmann_json 3.7.3 REQUIRED)
 add_library (rd_utils ${SRC} ${SRC_C})
 
@@ -65,6 +72,7 @@ install (FILES ${HEADER_NET} DESTINATION /usr/include/rd_utils/net)
 install (FILES ${HEADER_UTILS} DESTINATION /usr/include/rd_utils/utils)
 install (FILES ${HEADER_FOREIGN} DESTINATION /usr/include/rd_utils/foreign)
 install (FILES ${HEADER_MEMORY} DESTINATION /usr/include/rd_utils/memory)
+install (FILES ${HEADER_CONFIG} DESTINATION /usr/include/rd_utils/utils/config)
 install (FILES ${HEADER_ROOT} DESTINATION /usr/include/rd_utils/)
 
 

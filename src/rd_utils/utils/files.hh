@@ -7,12 +7,6 @@
 
 namespace rd_utils::utils {
 
-       
-    class FileError : public utils::Rd_UtilsError {
-    public:
-        FileError(const std::string& msg);
-    };
-		
     /**
      * @return: true if the file at path `name` exists, false otherwise
      */

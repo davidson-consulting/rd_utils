@@ -25,9 +25,28 @@ namespace rd_utils::utils {
 
   };
 
-  class addr_error : Rd_UtilsError {
+  class AddrError : Rd_UtilsError {
   public:
-    addr_error (const std::string & msg);
+    AddrError (const std::string & msg);
   };
+
+
+  struct LexerError : Rd_UtilsError {
+
+    uint32_t line;
+
+    LexerError(uint32_t line, const std::string& msg);
+
+  };
+
+  struct ConfigError : Rd_UtilsError {
+    ConfigError ();
+  };
+
+  class FileError : public utils::Rd_UtilsError {
+  public:
+    FileError(const std::string& msg);
+  };
+
 
 }

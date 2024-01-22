@@ -99,7 +99,7 @@ namespace rd_utils::net {
 			if (valread == -1) {
 				this-> _error = true;
 			} else {
-				if (valread == 0) this-> _error = true;
+				if (valread == 0) { this-> _error = true; }
 				buffer [valread] = 0;
 				return valread;
 			}

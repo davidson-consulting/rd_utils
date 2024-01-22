@@ -12,7 +12,7 @@ namespace rd_utils::concurrency {
   {
     if (create) {
       int pipes[2];
-      ::pipe (pipes);
+      auto ig = ::pipe (pipes);
 
       this-> _read = pipes [0];
       this-> _write = pipes [1];
