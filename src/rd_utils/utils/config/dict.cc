@@ -15,7 +15,13 @@ namespace rd_utils::utils::config {
     return (it != this-> _nodes.end ());
   }
 
+
+  const std::set <std::string> & Dict::getKeys () const {
+    return this-> _keys;
+  }
+
   void Dict::insert (const std::string & key, std::shared_ptr<ConfigNode> value) {
+    this-> _keys.insert (key);
     this-> _nodes.emplace (key, value);
   }
 

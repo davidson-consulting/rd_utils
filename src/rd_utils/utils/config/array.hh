@@ -21,6 +21,11 @@ namespace rd_utils::utils::config {
     const ConfigNode& operator[] (uint32_t i) const override;
 
     /**
+     * @returns: the number of elements in the array
+     */
+    uint32_t getLen () const;
+
+    /**
      * Insert a node in the array
      */
     void insert (std::shared_ptr<ConfigNode> node);

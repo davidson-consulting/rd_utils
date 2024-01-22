@@ -2,7 +2,7 @@
 
 #include "base.hh"
 #include <map>
-
+#include <set>
 
 namespace rd_utils::utils::config {
 
@@ -12,6 +12,8 @@ namespace rd_utils::utils::config {
 
     // The dictionnary content
     std::map <std::string, std::shared_ptr<ConfigNode> > _nodes;
+
+    std::set <std::string> _keys;
 
   public:
 
@@ -26,6 +28,11 @@ namespace rd_utils::utils::config {
      * @returns: true iif the dictionnary contains the key 'key'
      */
     bool contains (const std::string & key) const override;
+
+    /**
+     * @returns: the list of keys in the dict
+     */
+    const std::set <std::string> & getKeys () const;
 
     /**
      * Insert a value in the dictionnary

@@ -5,9 +5,13 @@
 
 namespace rd_utils::utils::toml {
 
-  std::shared_ptr <config::ConfigNode> parse (const std::string & content);
-  std::shared_ptr <config::ConfigNode> parseFile (const std::string & content);
+  std::shared_ptr<config::ConfigNode> parse (const std::string & content);
+  std::shared_ptr<config::ConfigNode> parseFile (const std::string & content);
 
+  /**
+   * Dump toml to string
+   */
+  std::string dump (const config::ConfigNode & node);
 
   class TomlParser {
   private :
@@ -24,6 +28,11 @@ namespace rd_utils::utils::toml {
      * @returns: the config storing the toml content
      */
     std::shared_ptr<config::ConfigNode> parse (const std::string & content);
+
+    /**
+     * Dump a config in toml format
+     */
+    void dump (std::stringstream & ss, const config::ConfigNode & node, bool global = true, int indent = 0);
 
   private:
 
@@ -79,6 +88,26 @@ namespace rd_utils::utils::toml {
      * Read the next word if it is in 'values', else do nothing
      */
     Word readIf (const std::vector <std::string> & values);
+
+  private :
+
+    void dumpDict (std::stringstream & ss, const config::Dict & d, bool global, int indent);
+
+    void dumpSuperDict (std::stringstream & ss, const std::string & base, const config::Dict & d);
+
+    void dumpGlobalDict (std::stringstream & ss, const config::Dict & d, int indent);
+
+    void dumpLocalDict (std::stringstream & ss, const config::Dict & d, int indent);
+
+    void dumpArray (std::stringstream & ss, const config::Array & a, int indent);
+
+    void dumpString (std::stringstream & ss, const config::String & s);
+
+    void dumpInt (std::stringstream & ss, const config::Int & i);
+
+    void dumpBool (std::stringstream & ss, const config::Bool & b);
+
+    void dumpFloat (std::stringstream & ss, const config::Float & f);
 
   } ;
 

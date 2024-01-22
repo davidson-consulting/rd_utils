@@ -24,6 +24,13 @@ namespace rd_utils::utils::toml {
     return parse (buffer.str ());
   }
 
+  std::string dump (const ConfigNode & node) {
+    TomlParser p;
+    std::stringstream ss;
+    p.dump (ss, node, true, -1);
+    return ss.str ();
+  }
+
   TomlParser::TomlParser () {}
 
   std::shared_ptr <config::ConfigNode> TomlParser::parse (const std::string & content) {
@@ -35,10 +42,38 @@ namespace rd_utils::utils::toml {
     return this-> parseGlobal ();
   }
 
+  void TomlParser::dump (std::stringstream & ss, const ConfigNode & node, bool global, int indent) {
+    match (node) {
+      of (config::Dict, d) {
+        if (indent == -1) this-> dumpSuperDict (ss, "", *d);
+        else {
+          this-> dumpDict (ss, *d, global, indent);
+        }
+      }
+      elof (config::Array, a) {
+        this-> dumpArray (ss, *a, indent);
+      }
+      elof (config::Int, i) {
+        this-> dumpInt (ss, *i);
+      }
+      elof (config::Bool, b) {
+        this-> dumpBool (ss, *b);
+      }
+      elof (config::Float, f) {
+        this-> dumpFloat (ss, *f);
+      }
+      elof (config::String, s) {
+        this-> dumpString (ss, *s);
+      } elfo {
+        throw ConfigError ();
+      }
+    }
+  }
+
   std::shared_ptr<config::ConfigNode> TomlParser::parseGlobal () {
     std::shared_ptr <config::Dict> glob = std::make_shared<Dict> ();
     while (true) {
-      if (this-> assertRead ({"["}, true).str == "[") {
+      if (this-> readIf ({"["}).str == "[") {
         auto name = this-> _lex.next ();
         std::vector <std::string> names = tokenize (name.str, {"."}, {".", " ", "\t", "\n", "\r"});
 
@@ -62,7 +97,15 @@ namespace rd_utils::utils::toml {
         }
 
         currentDict-> insert (currentName, value);
-      } else break;
+      } else {
+        auto n = this-> _lex.next ();
+        if (n.eof) break;
+        else {
+          this-> assertRead ({"="});
+          auto value = this-> parseValue ();
+          glob-> insert (n.str, value);
+        }
+      }
     }
 
     return glob;
@@ -189,6 +232,122 @@ namespace rd_utils::utils::toml {
     return {.str = "", .line = 0, .col = 0, .eof = true};
   }
 
+
+  void TomlParser::dumpDict (std::stringstream & ss, const config::Dict & dict, bool global, int indent) {
+    if (global) {
+      this-> dumpGlobalDict (ss, dict, 0);
+    } else {
+      this-> dumpLocalDict (ss, dict, indent);
+    }
+  }
+
+  void TomlParser::dumpSuperDict (std::stringstream & ss, const std::string & baseName, const config::Dict & dict) {
+    std::stringstream innerStream;
+    std::stringstream superStream;
+    for (auto & k : dict.getKeys ()) {
+      match (dict [k]) {
+        of (config::Dict, j) {
+          bool others = false;
+          for (auto & ik : j-> getKeys ()) {
+            match ((*j)[ik]) {
+              of (config::Dict, d) {}
+              elfo { others = true; break; }
+            }
+          }
+
+          if (others) {
+            innerStream << "\n[" << baseName + k << "]\n";
+            this-> dumpGlobalDict (innerStream, *j, 0);
+          } else {
+            this-> dumpSuperDict (innerStream, baseName + k + ".", *j);
+          }
+        } elof (config::ConfigNode, n) {
+          superStream << k << " = ";
+          this-> dump (superStream, *n, false, 0);
+          superStream << "\n";
+        } elfo {
+          throw ConfigError ();
+        }
+      }
+    }
+
+    ss << superStream.str () << innerStream.str ();
+  }
+
+  void TomlParser::dumpGlobalDict (std::stringstream & ss, const config::Dict & d, int indent) {
+    int z = 0;
+    for (auto & k : d.getKeys ()) {
+      if (z != 0) {
+        for (uint32_t i = 0 ; i < indent ; i++) ss << " ";
+      }
+
+      ss << k << " = ";
+      this-> dump (ss, d [k], false, indent + k.length () + 3);
+      ss << std::endl;
+      z += 1;
+    }
+  }
+
+  void TomlParser::dumpLocalDict (std::stringstream & ss, const config::Dict & d, int indent) {
+    ss << "{";
+    int z = 0;
+    for (auto & k : d.getKeys ()) {
+      if (z != 0) { ss << ", "; }
+
+      ss << k << " = ";
+      this-> dump (ss, d [k], false, indent + k.length () + 3);
+      z += 1;
+    }
+    ss << "}";
+  }
+
+  void TomlParser::dumpArray (std::stringstream & ss, const config::Array & a, int indent) {
+    ss << "[";
+    int z = 0;
+    bool returned = false;
+    for (uint32_t i = 0 ; i < a.getLen () ; i++) {
+      if (z != 0) {
+        ss << ", ";
+        if (returned) {
+          ss << "\n";
+          for (uint32_t j = 0 ; j < indent + 1; j++) ss << " ";
+        }
+      }
+
+      match (a [i]) {
+        of (config::Array, ai) {
+          returned = true;
+        }
+        elof (config::String, s) {
+          returned = true;
+        }
+        elof (config::Dict, d) {
+          returned = true;
+        } fo;
+      };
+
+      this-> dump (ss, a [i], false, indent + 1);
+      z += 1;
+    }
+
+    ss << "]";
+  }
+
+  void TomlParser::dumpString (std::stringstream & ss, const config::String & s) {
+    ss << "\"" << s.getStr () << "\"";
+  }
+
+  void TomlParser::dumpInt (std::stringstream & ss, const config::Int & i) {
+    ss << i.getI ();
+  }
+
+  void TomlParser::dumpBool (std::stringstream & ss, const config::Bool & b) {
+    if (b.isTrue ()) ss << "true"; else ss << "false";
+  }
+
+  void TomlParser::dumpFloat (std::stringstream & ss, const config::Float & f) {
+    ss << f.getF ();
+  }
 
 
 }

@@ -7,6 +7,10 @@ namespace rd_utils::utils::config {
     return *this-> _nodes [i];
   }
 
+  uint32_t Array::getLen () const {
+    return this-> _nodes.size ();
+  }
+
   void Array::insert (std::shared_ptr<ConfigNode> node) {
     this-> _nodes.push_back (node);
   }
