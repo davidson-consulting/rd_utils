@@ -148,7 +148,8 @@ namespace rd_utils::utils::toml {
   }
 
   std::shared_ptr<ConfigNode> TomlParser::parseInt () {
-    int32_t i = std::stoi (this-> _lex.next ().str);
+    auto l = this-> _lex.next ();
+    int32_t i = std::stoi (l.str);
     return std::make_shared<Int> (i);
   }
 

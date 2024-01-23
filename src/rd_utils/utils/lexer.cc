@@ -163,6 +163,11 @@ namespace rd_utils::utils {
             } else { col += wd.len; }
         }
 
+        if (len > 0) { auto ret = std::string (data, len);
+            this-> _wordInfos.push_back ({.len = len, .skip = false, .commentEnd = ""});
+            this-> _words.push_back ({.str = ret, .line = line, .col = col, .eof = false});
+        }
+
         this-> _words.shrink_to_fit ();
         this-> _wordInfos.shrink_to_fit ();
     }
