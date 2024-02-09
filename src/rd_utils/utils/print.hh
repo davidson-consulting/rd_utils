@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <list>
 #include <unordered_map>
 
 template <typename T>
@@ -16,6 +17,21 @@ std::ostream& operator<< (std::ostream& stream, const std::vector<T> & vec) {
     stream << "]";
     return stream;
 }
+
+
+template <typename T>
+std::ostream& operator<< (std::ostream& stream, const std::list<T> & vec) {
+    stream << "(";
+    uint64_t i = 0;
+    for (auto & it : vec) {
+        if (i != 0) stream << ";";
+        else i += 1;
+        stream << it;
+    }
+    stream << ")";
+    return stream;
+}
+
 
 std::ostream& operator<< (std::ostream& stream, const std::vector<char> & vec);
 
