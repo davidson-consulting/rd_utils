@@ -114,6 +114,11 @@ namespace rd_utils::utils {
     std::string get_extension (const std::string & path);
 
     /**
+     * @returns: the file path without the extension
+     */
+    std::string strip_extension (const std::string & path);
+
+    /**
      * @returns: the filename part of the path
      */
     std::string get_filename (const std::string & path);

@@ -151,6 +151,15 @@ namespace rd_utils::utils {
 		}
 	}
 
+	std::string strip_extension (const std::string & path) {
+		auto i = path.find_last_of ('.');
+		if (i == std::string::npos) {
+			return path;
+		} else {
+			return path.substr (0, i);
+		}
+	}
+
 	std::string get_filename (const std::string& path) {
 		auto i = path.find_last_of('/');
 		if (i != std::string::npos) {
