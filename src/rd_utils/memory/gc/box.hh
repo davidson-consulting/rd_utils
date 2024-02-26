@@ -11,7 +11,7 @@ namespace rd_utils::memory {
   }
 
   template <typename T>
-  class Box {
+  class GCGCBox {
 
     // The value inside the box
     T * _value;
@@ -19,16 +19,16 @@ namespace rd_utils::memory {
   public:
 
     template <typename ... A>
-    Box (A ... args) {
+    GCBox (A ... args) {
       this-> _value = new (GC) T (args...);
     }
 
-    Box (T && val) {
+    GCBox (T && val) {
       this-> _value = new (GC) T (std::move (val));
       GC_register_finalizer (this-> _value, destruct_class<T>, nullptr, nullptr, nullptr);
     }
 
-    Box (const T & val) {
+    GCBox (const T & val) {
       this-> _value = new (GC) T (val);
       GC_register_finalizer (this-> _value, destruct_class<T>, nullptr, nullptr, nullptr);
     }

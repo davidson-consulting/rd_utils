@@ -55,6 +55,13 @@ file(
 
 file(
   GLOB
+  HEADER_MEMORY_GC
+  src/rd_utils/memory/gc/*.hh
+  )
+
+
+file(
+  GLOB
   HEADER_ROOT
   src/rd_utils/*.hh
   )
@@ -78,6 +85,7 @@ install (FILES ${HEADER_NET} DESTINATION /usr/include/rd_utils/net)
 install (FILES ${HEADER_UTILS} DESTINATION /usr/include/rd_utils/utils)
 install (FILES ${HEADER_FOREIGN} DESTINATION /usr/include/rd_utils/foreign)
 install (FILES ${HEADER_MEMORY} DESTINATION /usr/include/rd_utils/memory)
+install (FILES ${HEADER_MEMORY_GC} DESTINATION /usr/include/rd_utils/memory/gc)
 install (FILES ${HEADER_MEMORY_CACHE} DESTINATION /usr/include/rd_utils/memory/cache)
 install (FILES ${HEADER_CONFIG} DESTINATION /usr/include/rd_utils/utils/config)
 install (FILES ${HEADER_ROOT} DESTINATION /usr/include/rd_utils/)

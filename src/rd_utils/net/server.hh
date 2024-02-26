@@ -2,7 +2,6 @@
 
 #include <rd_utils/concurrency/tpipe.hh>
 #include <rd_utils/concurrency/_.hh>
-#include <rd_utils/memory/box.hh>
 #include <rd_utils/net/listener.hh>
 #include <map>
 #include <tuple>

@@ -1,0 +1,196 @@
+#include "allocator.hh"
+#include <cstring>
+#include <rd_utils/concurrency/timer.hh>
+#include <rd_utils/utils/log.hh>
+
+namespace rd_utils::memory::cache {
+
+  Allocator* Allocator::__GLOBAL__;
+
+  concurrency::mutex Allocator::__GLOBAL_MUTEX__;
+
+  Allocator::Allocator (uint64_t totalSize, uint32_t blockSize) :
+    _max_blocks (totalSize / blockSize)
+    , _block_size (blockSize)
+  {}
+
+  Allocator* Allocator::instance () {
+    WITH_LOCK (__GLOBAL_MUTEX__) {
+      if (__GLOBAL__ == nullptr) {
+        // 1 GB, from 1024 blocks of 1MB
+        __GLOBAL__ = new Allocator (512 * 512 * 4, 512 * 512);
+      }
+
+      return __GLOBAL__;
+    }
+  }
+
+  /**
+   * ============================================================================
+   * ============================================================================
+   * =============================    ALLOCATIONS   =============================
+   * ============================================================================
+   * ============================================================================
+   * */
+
+  bool Allocator::allocate (uint32_t size, AllocatedSegment & alloc) {
+    if (size > this-> _block_size) {
+      LOG_ERROR ("Cannot allocate more than ", this-> _block_size, "B at a time");
+      return false;
+    }
+
+    uint32_t offset;
+    for (auto & [it, mem] : this-> _loaded) {
+      if (free_list_allocate (reinterpret_cast <free_list_instance*> (mem), size, offset)) {
+        auto & bl = this-> _blocks [it];
+        bl.max_size = free_list_max_size (reinterpret_cast <free_list_instance*> (mem));
+        bl.lru = time (NULL);
+        alloc = {.blockAddr = it, .offset = offset};
+        return true;
+      }
+    }
+
+    for (auto & [it, info] : this-> _blocks) {
+      if (info.max_size >= size) { // no need to load a block whose size is not big enough for the allocation
+        auto mem = this-> load (it);
+        if (free_list_allocate (mem, size, offset)) {
+          info.max_size = free_list_max_size (mem);
+          alloc = {.blockAddr = it, .offset = offset};
+          return true;
+        }
+      }
+    }
+
+    uint32_t addr;
+    auto mem = this-> allocateNewBlock (addr);
+    if (free_list_allocate (reinterpret_cast <free_list_instance*> (mem), size, offset)) {
+      auto & bl = this-> _blocks [addr];
+      bl.max_size = free_list_max_size (reinterpret_cast <free_list_instance*> (mem));
+      bl.lru = time (NULL);
+
+      alloc = {.blockAddr = addr, .offset = offset};
+      return true;
+    } else {
+      LOG_ERROR ("Failed to allocate ", size, ", possible corruption ?");
+      return false;
+    }
+  }
+
+  void Allocator::free (AllocatedSegment alloc) {
+    auto mem = this-> load (alloc.blockAddr);
+    free_list_free (mem, alloc.offset);
+
+    if (free_list_empty (mem)) {
+      this-> freeBlock (alloc.blockAddr);
+    } else {
+      auto & bl = this-> _blocks [alloc.blockAddr];
+      bl.max_size = free_list_max_size (mem);
+    }
+  }
+
+  /**
+   * =============================================================================
+   * =============================================================================
+   * =============================    INPUT/OUTPUT   =============================
+   * =============================================================================
+   * =============================================================================
+   * */
+
+  void Allocator::read (AllocatedSegment alloc, void * data, uint32_t offset, uint32_t size) {
+    auto mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
+    memcpy (data, mem + alloc.offset + offset, size);
+  }
+
+  void Allocator::write (AllocatedSegment alloc, const void * data, uint32_t offset, uint32_t size) {
+    auto mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
+    memcpy (mem + alloc.offset + offset, data, size);
+  }
+
+  /**
+   * ===========================================================================
+   * ===========================================================================
+   * =============================    MANAGEMENT   =============================
+   * ===========================================================================
+   * ===========================================================================
+   * */
+
+  uint8_t * Allocator::allocateNewBlock (uint32_t & addr) {
+    if (this-> _loaded.size () == this-> _max_blocks) {
+      this-> evictSome (1);
+    }
+
+    auto mem = new uint8_t [this-> _block_size];
+    free_list_create (reinterpret_cast<free_list_instance*> (mem), this-> _block_size);
+
+    this-> _last_block += 1;
+    addr = this-> _last_block;
+
+    BlockInfo info = {.lru = (uint32_t) (time (NULL)), .max_size = (uint32_t) (this-> _block_size - sizeof (free_list_instance))};
+    this-> _blocks.emplace (addr, info);
+    this-> _loaded.emplace (addr, mem);
+
+    return mem;
+  }
+
+  free_list_instance * Allocator::load (uint32_t addr) {
+    auto memory = this-> _loaded.find (addr);
+    if (memory == this-> _loaded.end ()) {
+      if (this-> _loaded.size () == this-> _max_blocks) {
+        this-> evictSome (1);
+      }
+
+      uint8_t * out = new uint8_t [this-> _block_size];
+      this-> _perister.load (addr, out, this-> _block_size);
+      this-> _loaded.emplace (addr, out);
+      this-> _blocks [addr].lru = time (NULL);
+
+      return (free_list_instance*) out;
+    } else {
+      this-> _blocks [addr].lru = time (NULL);
+      return (free_list_instance*) (memory-> second);
+    }
+  }
+
+  void Allocator::evictSome (uint32_t nb) {
+    for (size_t i = 0 ; i < nb ; i++) {
+      auto min = time (NULL) + 10;
+      uint32_t addr = 0;
+      uint8_t * mem = nullptr;
+
+      for (auto & [it, ld_mem] : this-> _loaded) {
+        auto bl = this-> _blocks.find (it);
+        if (bl-> second.lru < min) {
+          addr = it;
+          min = bl-> second.lru;
+          mem = ld_mem;
+        }
+      }
+
+      if (mem != nullptr) {
+        this-> _perister.save (addr, mem, this-> _block_size);
+        delete [] mem;
+        this-> _loaded.erase (addr);
+      }
+      else {
+        concurrency::timer::sleep (0.1);
+        evictSome (nb - i);
+        return ;
+      }
+    }
+  }
+
+  void Allocator::freeBlock (uint32_t addr) {
+    auto loaded = this-> _loaded.find (addr);
+    if (loaded != this-> _loaded.end ()) {
+      delete [] loaded-> second;
+      this-> _loaded.erase (addr);
+    } else {
+      this-> _perister.erase (addr);
+    }
+
+    this-> _blocks.erase (addr);
+  }
+
+
+
+}
