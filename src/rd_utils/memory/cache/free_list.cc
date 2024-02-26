@@ -19,7 +19,6 @@ namespace rd_utils::memory::cache {
     //                                 \-------------^
   }
 
-
   bool free_list_find_best_fit (const free_list_instance * inst, uint32_t size, uint32_t & offset, uint32_t & prevOffset) {
     auto memory = reinterpret_cast <const uint8_t*> (inst);
     uint32_t nodeOffset = inst-> head;
@@ -79,15 +78,18 @@ namespace rd_utils::memory::cache {
 
       return true;
     }
+  }
 
-    return false;
+  uint32_t free_list_real_size (uint32_t size) {
+    uint32_t reqSize = size + sizeof (uint32_t);
+    if (reqSize < sizeof (free_list_node)) reqSize = sizeof (free_list_node);
+    return reqSize;
   }
 
   bool free_list_allocate (free_list_instance * inst, uint32_t size, uint32_t & offset) {
     uint8_t * memory = reinterpret_cast <uint8_t*> (inst);
-    uint32_t reqSize = size + sizeof (uint32_t);
+    uint32_t reqSize = free_list_real_size (size);
 
-    if (reqSize < sizeof (free_list_node)) reqSize = sizeof (free_list_node);
     if (free_list_allocate_inner (inst, reqSize, offset)) {
       *reinterpret_cast<uint32_t*> (memory + offset) = reqSize;
       offset += sizeof (uint32_t);
@@ -198,7 +200,7 @@ namespace rd_utils::memory::cache {
     uint32_t max = 0;
     while (nodeOffset != 0) {
       auto node = reinterpret_cast <const free_list_node *> (memory + nodeOffset);
-      if (node-> size > max) max = node-> size;
+      if (node-> size - sizeof (uint32_t) > max) max = node-> size - sizeof (uint32_t);
       nodeOffset = node-> next;
     }
 

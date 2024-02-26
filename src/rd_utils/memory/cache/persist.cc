@@ -10,7 +10,7 @@ namespace rd_utils::memory::cache {
   {}
 
   void BlockPersister::load (uint64_t addr, uint8_t * memory, uint64_t size) {
-    std::cout << "Loading : " << addr << std::endl;
+    // std::cout << "Load : " << addr << std::endl;
     char buffer [255];
     int nb = snprintf (buffer, sizeof (buffer), "%s%ld", this-> _path.c_str (), addr);
     buffer [nb] = '\0';
@@ -24,6 +24,7 @@ namespace rd_utils::memory::cache {
   }
 
   void BlockPersister::save (uint64_t addr, uint8_t * memory, uint64_t size) {
+    // std::cout << "Save : " << addr << std::endl;
     char buffer [255];
     int nb = snprintf (buffer, sizeof (buffer), "%s%ld", this-> _path.c_str (), addr);
     buffer [nb] = '\0';
@@ -35,7 +36,6 @@ namespace rd_utils::memory::cache {
   }
 
   void BlockPersister::erase (uint64_t addr) {
-    std::cout << "Erasing : " << addr << std::endl;
     char buffer [255];
     int nb = snprintf (buffer, sizeof (buffer), "%s%ld", this-> _path.c_str (), addr);
     buffer [nb] = '\0';

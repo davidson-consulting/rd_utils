@@ -21,7 +21,7 @@ namespace rd_utils::memory::cache {
      * @params:
      *    - path: the directory in which block will be persisted
      */
-    BlockPersister (const std::string & path = "/tmp/");
+    BlockPersister (const std::string & path = "./");
 
     /**
      * Load a block from disk

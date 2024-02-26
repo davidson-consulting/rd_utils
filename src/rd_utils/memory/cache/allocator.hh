@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <list>
+#include <map>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -29,6 +30,9 @@ namespace rd_utils::memory::cache {
 
         // The size of a block
         uint32_t _block_size;
+
+        // The maximum size allocable in a block
+        uint32_t _max_allocable;
 
         // The list of block currently in memory (id-> memory)
         std::unordered_map <uint32_t, uint8_t*> _loaded;
@@ -71,6 +75,14 @@ namespace rd_utils::memory::cache {
         bool allocate (uint32_t size, AllocatedSegment & alloc);
 
         /**
+         * Allocate a list of memory segment (if size does not fit in only one segment)
+         * @returns:
+         *    - true iif a segment was found
+         *    - alloc: the allocated segment
+         */
+        bool allocateSegments (uint64_t size, std::vector <AllocatedSegment> & alloc, std::vector <uint32_t> & sizes);
+
+        /**
          * Read an allocated segment into memory
          * @params:
          *    - alloc: the allocated segment to read
@@ -96,9 +108,19 @@ namespace rd_utils::memory::cache {
         void free (AllocatedSegment alloc);
 
         /**
+         * Free a list of segments
+         */
+        void free (const std::vector <AllocatedSegment> & allocs);
+
+        /**
          * @returns: the global instance of the allocator
          */
         static Allocator* instance ();
+
+
+        friend std::ostream & operator<< (std::ostream & s, rd_utils::memory::cache::Allocator & alloc);
+
+        void printLoaded () const;
 
     private:
 

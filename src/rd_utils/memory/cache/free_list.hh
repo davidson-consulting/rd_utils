@@ -29,6 +29,11 @@ namespace rd_utils::memory::cache {
   bool free_list_allocate (free_list_instance * inst, uint32_t size, uint32_t & offset);
 
   /**
+   * @returns: the size that will be allocated to store an object of size size
+   */
+  uint32_t free_list_real_size (uint32_t size);
+
+  /**
    * Free the segment of memory at offset
    * @params:
    *    - offset: the offset to free
