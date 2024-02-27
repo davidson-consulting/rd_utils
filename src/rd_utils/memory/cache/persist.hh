@@ -15,6 +15,12 @@ namespace rd_utils::memory::cache {
     // The root path of the persister
     std::string _path;
 
+    // The number of time a block had to be loaded
+    uint32_t _nbLoaded;
+
+    // The number of times a block was saved to disk
+    uint32_t _nbSaved;
+
   public:
 
     /**
@@ -27,7 +33,7 @@ namespace rd_utils::memory::cache {
      * Load a block from disk
      * @warning: delete the block from disk
      */
-    void load (uint64_t addr, uint8_t* memory, uint64_t size);
+    bool load (uint64_t addr, uint8_t* memory, uint64_t size);
 
     /**
      * Save a block to disk
@@ -38,6 +44,8 @@ namespace rd_utils::memory::cache {
      * Delete a block from disk
      */
     void erase (uint64_t addr);
+
+    void printInfo () const;
 
   };
 

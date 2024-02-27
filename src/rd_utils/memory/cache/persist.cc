@@ -1,6 +1,9 @@
 #include "persist.hh"
 #include <iostream>
 #include <rd_utils/utils/base64.hh>
+#include <rd_utils/utils/log.hh>
+
+#include "free_list.hh"
 
 namespace rd_utils::memory::cache {
 
@@ -9,8 +12,9 @@ namespace rd_utils::memory::cache {
     _path (path)
   {}
 
-  void BlockPersister::load (uint64_t addr, uint8_t * memory, uint64_t size) {
+  bool BlockPersister::load (uint64_t addr, uint8_t * memory, uint64_t size) {
     // std::cout << "Load : " << addr << std::endl;
+    this-> _nbLoaded += 1;
     char buffer [255];
     int nb = snprintf (buffer, sizeof (buffer), "%s%ld", this-> _path.c_str (), addr);
     buffer [nb] = '\0';
@@ -19,12 +23,18 @@ namespace rd_utils::memory::cache {
     if (file != nullptr) {
       fread (memory, size, 1, file);
       fclose (file);
+      remove (buffer);
+
+      return true;
+    } else {
+      return false;
     }
-    remove (buffer);
   }
 
   void BlockPersister::save (uint64_t addr, uint8_t * memory, uint64_t size) {
     // std::cout << "Save : " << addr << std::endl;
+
+    this-> _nbSaved += 1;
     char buffer [255];
     int nb = snprintf (buffer, sizeof (buffer), "%s%ld", this-> _path.c_str (), addr);
     buffer [nb] = '\0';
@@ -41,6 +51,10 @@ namespace rd_utils::memory::cache {
     buffer [nb] = '\0';
 
     remove (buffer);
+  }
+
+  void BlockPersister::printInfo () const {
+    LOG_INFO ("Save : ", this-> _nbSaved, ", Load ", this-> _nbLoaded);
   }
 
 }
