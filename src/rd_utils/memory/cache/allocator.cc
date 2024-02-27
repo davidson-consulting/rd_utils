@@ -9,7 +9,7 @@ namespace rd_utils::memory::cache {
 #define BLOCK_SIZE 4 * 1024 * 1024
 #define NB_BLOCKS 256 // 1GB
 
-  Allocator* Allocator::__GLOBAL__;
+  Allocator Allocator::__GLOBAL__ (NB_BLOCKS * (uint64_t) BLOCK_SIZE, BLOCK_SIZE);
 
   concurrency::mutex Allocator::__GLOBAL_MUTEX__;
 
@@ -19,16 +19,7 @@ namespace rd_utils::memory::cache {
     , _max_allocable (blockSize - sizeof (free_list_instance) - sizeof (uint32_t))
   {}
 
-  Allocator* Allocator::instance () {
-    if (__GLOBAL__ == nullptr) {
-      WITH_LOCK (__GLOBAL_MUTEX__) {
-        if (__GLOBAL__ == nullptr) {
-          // 1 GB, from 1024 blocks of 1MB
-          __GLOBAL__ = new Allocator ((uint64_t) NB_BLOCKS * (uint64_t) BLOCK_SIZE, BLOCK_SIZE);
-        }
-      }
-    }
-
+  Allocator& Allocator::instance () {
     return __GLOBAL__;
   }
 
@@ -331,7 +322,13 @@ namespace rd_utils::memory::cache {
 
     this-> _loaded.erase (addr);
     while (this-> _blocks.size () != 0) {
-      if (this-> _blocks.back ().max_size == this-> _max_allocable) {
+      auto & bl = this-> _blocks.back ();
+      if (bl.max_size == this-> _max_allocable) {
+        if (bl.mem != nullptr) {
+          delete [] bl.mem;
+          bl.mem = nullptr;
+        }
+
         this-> _blocks.pop_back ();
       } else break;
     }

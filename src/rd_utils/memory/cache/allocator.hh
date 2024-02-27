@@ -53,7 +53,7 @@ namespace rd_utils::memory::cache {
         public:
 
                 // The global allocator
-                static Allocator * __GLOBAL__;
+                static Allocator __GLOBAL__;
 
                 static concurrency::mutex __GLOBAL_MUTEX__;
 
@@ -126,7 +126,7 @@ namespace rd_utils::memory::cache {
                 /**
                  * @returns: the global instance of the allocator
                  */
-                static Allocator* instance ();
+                static Allocator& instance ();
 
 
                 friend std::ostream & operator<< (std::ostream & s, rd_utils::memory::cache::Allocator & alloc);

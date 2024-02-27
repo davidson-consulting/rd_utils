@@ -37,7 +37,7 @@ namespace rd_utils::memory::cache {
     CacheArray (uint32_t size) :
       _size (size)
     {
-      Allocator::instance ()-> allocateSegments (size * sizeof (T), this-> _rest, this-> _fstBlockAddr, this-> _nbBlocks, this-> _sizePerBlock);
+      Allocator::instance ().allocateSegments (size * sizeof (T), this-> _rest, this-> _fstBlockAddr, this-> _nbBlocks, this-> _sizePerBlock);
     }
 
     /**
@@ -56,15 +56,15 @@ namespace rd_utils::memory::cache {
       }
 
       if constexpr (sizeof (T) == 8) {
-        Allocator::__GLOBAL__-> write_8 (seg, *reinterpret_cast<const uint64_t*> (&val), offset);
+        Allocator::instance ().write_8 (seg, *reinterpret_cast<const uint64_t*> (&val), offset);
       } else if constexpr (sizeof (T) == 4) {
-        Allocator::__GLOBAL__-> write_4 (seg, *reinterpret_cast<const uint32_t*> (&val), offset);
+        Allocator::instance ().write_4 (seg, *reinterpret_cast<const uint32_t*> (&val), offset);
       } else if constexpr (sizeof (T) == 2) {
-        Allocator::__GLOBAL__-> write_2 (seg, *reinterpret_cast<const uint16_t*> (&val), offset);
+        Allocator::instance ().write_2 (seg, *reinterpret_cast<const uint16_t*> (&val), offset);
       } else if constexpr (sizeof (T) == 1) {
-        Allocator::__GLOBAL__-> write_1 (seg, *reinterpret_cast<const uint8_t*> (&val), offset);
+        Allocator::instance ().write_1 (seg, *reinterpret_cast<const uint8_t*> (&val), offset);
       } else {
-        Allocator::__GLOBAL__-> write (seg, &val, offset, sizeof (T));
+        Allocator::instance ().write (seg, &val, offset, sizeof (T));
       }
     }
 
@@ -72,7 +72,6 @@ namespace rd_utils::memory::cache {
      * Access an element in the array
      */
     inline T get (uint32_t i) const {
-      char buffer [sizeof (T)];
       uint32_t absolute = i * sizeof (T);
       AllocatedSegment seg = this-> _rest;
 
@@ -85,18 +84,27 @@ namespace rd_utils::memory::cache {
       }
 
       if constexpr (sizeof (T) == 8) {
-        Allocator::__GLOBAL__-> read_8 (seg, reinterpret_cast<uint64_t*> (buffer), offset);
+        uint64_t buffer;
+        Allocator::instance ().read_8 (seg, &buffer, offset);
+        return *reinterpret_cast<T*> (&buffer);
+        return buffer;
       } else if constexpr (sizeof (T) == 4) {
-        Allocator::__GLOBAL__-> read_4 (seg, reinterpret_cast<uint32_t*> (buffer), offset);
+        uint32_t buffer;
+        Allocator::instance ().read_4 (seg, &buffer, offset);
+        return *reinterpret_cast<T*> (&buffer);
       } else if constexpr (sizeof (T) == 2) {
-        Allocator::__GLOBAL__-> read_2 (seg, reinterpret_cast<uint16_t*> (buffer), offset);
+        uint16_t buffer;
+        Allocator::instance ().read_2 (seg, &buffer, offset);
+        return *reinterpret_cast<T*> (&buffer);
       } else if constexpr (sizeof (T) == 1) {
-        Allocator::__GLOBAL__-> read_1 (seg, reinterpret_cast<uint8_t*> (buffer), offset);
+        uint8_t buffer;
+        Allocator::instance ().read_1 (seg, &buffer, offset);
+        return *reinterpret_cast<T*> (&buffer);
       } else {
-        Allocator::__GLOBAL__-> read (seg, buffer, offset, sizeof (T));
+        char buffer [sizeof (T)];
+        Allocator::instance ().read (seg, buffer, offset, sizeof (T));
+        return *reinterpret_cast<T*> (buffer);
       }
-
-      return *reinterpret_cast<T*> (buffer);
     }
 
     inline uint32_t len () const {
@@ -113,8 +121,8 @@ namespace rd_utils::memory::cache {
         segs.push_back ({.blockAddr = addr, .offset = sizeof (free_list_instance) + sizeof (uint32_t)});
       }
 
-      Allocator::instance ()-> free (segs);
-      Allocator::instance ()-> getPersister ().printInfo ();
+      Allocator::instance ().free (segs);
+      // Allocator::instance ()-> getPersister ().printInfo ();
     }
 
   };
