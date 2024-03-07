@@ -1,9 +1,10 @@
+
 #pragma once
 
-#include "allocator.hh"
+#include <rd_utils/memory/cache/allocator.hh>
 #include <rd_utils/utils/_.hh>
 
-namespace rd_utils::memory::cache {
+namespace rd_utils::memory::cache::collection {
 
   template <typename T>
   class CacheArray {
@@ -16,13 +17,15 @@ namespace rd_utils::memory::cache {
     uint32_t _fstBlockAddr;
 
     // The nb of blocks allocated especially for this array
-    uint32_t _nbBlocks;
+    int32_t _nbBlocks;
 
     // The size of the array
     uint32_t _size;
 
     // The size per block (without considering the rest)
     uint32_t _sizePerBlock;
+
+    uint32_t _sizeDividePerBlock;
 
   private:
 
@@ -37,7 +40,17 @@ namespace rd_utils::memory::cache {
     CacheArray (uint32_t size) :
       _size (size)
     {
-      Allocator::instance ().allocateSegments (size * sizeof (T), this-> _rest, this-> _fstBlockAddr, this-> _nbBlocks, this-> _sizePerBlock);
+      uint32_t nbBl;
+      Allocator::instance ().allocateSegments (size * sizeof (T), this-> _rest, this-> _fstBlockAddr, nbBl, this-> _sizePerBlock);
+      if (nbBl == 0) {
+        this-> _nbBlocks = -1;
+        this-> _sizeDividePerBlock = 1;
+        this-> _sizePerBlock = 0;
+      }
+      else {
+        this-> _nbBlocks = nbBl;
+        this-> _sizeDividePerBlock = this-> _sizePerBlock;
+      }
     }
 
     /**
@@ -47,7 +60,7 @@ namespace rd_utils::memory::cache {
       uint32_t absolute = i * sizeof (T);
       AllocatedSegment seg = this-> _rest;
 
-      auto index = absolute / (this-> _sizePerBlock);
+      int32_t index = absolute / (this-> _sizeDividePerBlock);
       uint32_t offset = absolute - (index * this-> _sizePerBlock);
 
       if (index <= this-> _nbBlocks) {
@@ -75,7 +88,7 @@ namespace rd_utils::memory::cache {
       uint32_t absolute = i * sizeof (T);
       AllocatedSegment seg = this-> _rest;
 
-      auto index = absolute / (this-> _sizePerBlock);
+      int32_t index = absolute / (this-> _sizeDividePerBlock);
       uint32_t offset = absolute - (index * this-> _sizePerBlock);
 
       if (index <= this-> _nbBlocks) {
@@ -107,6 +120,52 @@ namespace rd_utils::memory::cache {
       }
     }
 
+    inline void setNb (uint32_t i, T * buffer, uint32_t nb) {
+      uint32_t absolute = i * sizeof (T);
+      AllocatedSegment seg = this-> _rest;
+
+      int32_t index = absolute / (this-> _sizeDividePerBlock);
+      uint32_t offset = absolute - (index * this-> _sizePerBlock);
+      if (index <= this-> _nbBlocks) {
+        seg.blockAddr = index + this-> _fstBlockAddr;
+        seg.offset = sizeof (free_list_instance) + sizeof (uint32_t);
+
+        auto end = nb * sizeof (T) + offset;
+        if (end > this-> _sizePerBlock) {
+          auto rest = (end - this-> _sizePerBlock) / sizeof (T);
+          nb = nb - rest;
+          setNb (i + nb, buffer + nb, rest);
+        }
+
+        Allocator::instance ().write (seg, buffer, offset, sizeof (T) * nb);
+      } else {
+        Allocator::instance ().write (seg, buffer, offset, sizeof (T) * nb);
+      }
+    }
+
+    inline void getNb (uint32_t i, T * buffer, uint32_t nb) {
+      uint32_t absolute = i * sizeof (T);
+      AllocatedSegment seg = this-> _rest;
+
+      int32_t index = absolute / (this-> _sizeDividePerBlock);
+      uint32_t offset = absolute - (index * this-> _sizePerBlock);
+      if (index <= this-> _nbBlocks) {
+        seg.blockAddr = index + this-> _fstBlockAddr;
+        seg.offset = sizeof (free_list_instance) + sizeof (uint32_t);
+
+        auto end = nb * sizeof (T) + offset;
+        if (end > this-> _sizePerBlock) {
+          auto rest = (end - this-> _sizePerBlock) / sizeof (T);
+          nb = nb - rest;
+          getNb (i + nb, buffer + nb, rest);
+        }
+
+        Allocator::instance ().read (seg, buffer, offset, sizeof (T) * nb);
+      } else {
+        Allocator::instance ().read (seg, buffer, offset, sizeof (T) * nb);
+      }
+    }
+
     inline uint32_t len () const {
       return this-> _size;
     }
@@ -127,4 +186,24 @@ namespace rd_utils::memory::cache {
 
   };
 
+}
+
+template <typename T>
+std::ostream& operator << (std::ostream & s, rd_utils::memory::cache::collection::CacheArray<T> & array) {
+  uint32_t BLK_SIZE = 8192;
+  T val [BLK_SIZE];
+  auto len = array.len ();
+  int z = 0;
+  s << "[";
+  for (uint32_t i = 0 ; i < len ; i += BLK_SIZE) {
+    auto nb_read = len - i >= BLK_SIZE ? BLK_SIZE : len - i;
+    array.getNb (i, val, nb_read);
+    for (uint32_t j = 0 ; j < nb_read ; j++) {
+      if (z != 0) s << ", ";
+      s << val [j];
+      z += 1;
+    }
+  }
+  s << "]";
+  return s;
 }

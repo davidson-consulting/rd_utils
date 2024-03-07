@@ -3,11 +3,12 @@
 #include <rd_utils/concurrency/timer.hh>
 #include <rd_utils/utils/log.hh>
 #include "free_list.hh"
+#include <sys/time.h>
 
 namespace rd_utils::memory::cache {
 
-#define BLOCK_SIZE 4 * 1024 * 1024
-#define NB_BLOCKS 256 // 1GB
+#define BLOCK_SIZE 1024 * 1024 * 4
+#define NB_BLOCKS 10 // 1GB
 
   Allocator Allocator::__GLOBAL__ (NB_BLOCKS * (uint64_t) BLOCK_SIZE, BLOCK_SIZE);
 
@@ -45,7 +46,9 @@ namespace rd_utils::memory::cache {
         if (bl.max_size >= realSize) {
           if (free_list_allocate (reinterpret_cast <free_list_instance*> (mem), size, offset)) {
             bl.max_size = free_list_max_size (reinterpret_cast <free_list_instance*> (mem));
-            bl.lru = time (NULL);
+            timeval start;
+            gettimeofday (&start, NULL);
+            bl.lru = (start.tv_sec % 1000) * 1000 + start.tv_usec;
             alloc = {.blockAddr = addr, .offset = offset};
             return true;
           }
@@ -70,7 +73,10 @@ namespace rd_utils::memory::cache {
     if (free_list_allocate (reinterpret_cast <free_list_instance*> (mem), size, offset)) {
       auto & bl = this-> _blocks [addr - 1];
       bl.max_size = free_list_max_size (reinterpret_cast <free_list_instance*> (mem));
-      bl.lru = time (NULL);
+
+      timeval start;
+      gettimeofday (&start, NULL);
+      bl.lru = (start.tv_sec % 1000) * 1000 + start.tv_usec;
 
       alloc = {.blockAddr = addr, .offset = offset};
       return true;
@@ -241,7 +247,7 @@ namespace rd_utils::memory::cache {
 
   uint8_t * Allocator::allocateNewBlock (uint32_t & addr) {
     if (this-> _loaded.size () == this-> _max_blocks) {
-      //this-> printLoaded ();
+      // this-> printLoaded ();
       this-> evictSome (1);
       //this-> printLoaded ();
     }
@@ -251,7 +257,11 @@ namespace rd_utils::memory::cache {
 
     addr = this-> _blocks.size () + 1;
 
-    BlockInfo info = {.mem = mem, .lru = (uint32_t) (time (NULL)), .max_size = this-> _max_allocable};
+    timeval start;
+    gettimeofday (&start, NULL);
+    uint32_t lru = (start.tv_sec % 1000) * 1000 + start.tv_usec;
+
+    BlockInfo info = {.mem = mem, .lru = lru, .max_size = this-> _max_allocable};
     this-> _blocks.push_back (info);
     this-> _loaded.emplace (addr, mem);
 
@@ -260,6 +270,11 @@ namespace rd_utils::memory::cache {
 
   free_list_instance * Allocator::load (uint32_t addr) {
     auto & memory = this-> _blocks [addr - 1];
+
+    timeval start;
+    gettimeofday (&start, NULL);
+    auto lru = (start.tv_sec % 1000) * 1000 + start.tv_usec;
+
     if (memory.mem == nullptr) {
       if (this-> _loaded.size () == this-> _max_blocks) {
         //this-> printLoaded ();
@@ -273,12 +288,13 @@ namespace rd_utils::memory::cache {
       }
 
       this-> _loaded.emplace (addr, out);
-      memory.lru = time (NULL);
+
+      memory.lru = lru;
       memory.mem = out;
 
       return (free_list_instance*) out;
     } else {
-      memory.lru = time (NULL);
+      memory.lru = lru;
       return (free_list_instance*) (memory.mem);
     }
   }
@@ -337,7 +353,8 @@ namespace rd_utils::memory::cache {
   void Allocator::printLoaded () const {
     std::cout << "=============" << std::endl;
     for (auto & it : this-> _loaded) {
-      std::cout << it.first << " " << ((uint32_t*) (it.second)) << std::endl;
+      auto info = this-> _blocks [it.first - 1];
+      std::cout << it.first << " " << ((uint32_t*) (it.second)) << " " << info.lru << std::endl;
     }
     std::cout << "=============" << std::endl;
   }

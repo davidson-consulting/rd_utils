@@ -13,7 +13,8 @@ namespace rd_utils::memory::cache {
   {}
 
   bool BlockPersister::load (uint64_t addr, uint8_t * memory, uint64_t size) {
-    // std::cout << "Load : " << addr << std::endl;
+    //std::cout << "Load : " << addr << std::endl;
+
     this-> _nbLoaded += 1;
     char buffer [255];
     int nb = snprintf (buffer, sizeof (buffer), "%s%ld", this-> _path.c_str (), addr);
@@ -21,7 +22,7 @@ namespace rd_utils::memory::cache {
 
     auto file = fopen (buffer, "r");
     if (file != nullptr) {
-      fread (memory, size, 1, file);
+      auto ignore = fread (memory, size, 1, file);
       fclose (file);
       remove (buffer);
 

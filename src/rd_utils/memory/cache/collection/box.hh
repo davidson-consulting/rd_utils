@@ -1,10 +1,10 @@
 #pragma once
 
-#include "allocator.hh"
+#include <rd_utils/memory/cache/allocator.hh>
 #include <rd_utils/utils/log.hh>
 
 
-namespace rd_utils::memory::cache {
+namespace rd_utils::memory::cache::collection {
 
   template <typename T>
   class CacheBox {
