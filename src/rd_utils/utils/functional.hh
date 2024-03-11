@@ -1,10 +1,13 @@
 #pragma once
 #include <iostream>
+#include <functional>
 
 namespace rd_utils::utils {
 
+  class func_ptr_base {};
+
   template <typename Z, typename ... T>
-  class func_ptr {
+  class func_ptr : func_ptr_base {
   protected:
 	    
     Z (* _func)(T...args); 
@@ -115,6 +118,6 @@ namespace rd_utils::utils {
 
   };
 
-	
-}
 
+
+}

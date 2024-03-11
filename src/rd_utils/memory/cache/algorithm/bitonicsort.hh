@@ -3,10 +3,9 @@
 
 #include <rd_utils/memory/cache/collection/array.hh>
 #include <cstdint>
+#include "common.hh"
 
 namespace rd_utils::memory::cache::algorithm {
-
-#define BUFFER_SIZE 1024
 
   uint32_t flp2 (uint32_t x)
   {
@@ -106,9 +105,26 @@ namespace rd_utils::memory::cache::algorithm {
 
   template <typename T>
   void bitonicSort (collection::CacheArray<T> & arr) {
-    T * buffer = reinterpret_cast <T*> (malloc (BUFFER_SIZE * sizeof (T)));
-    bitonicSort (buffer, BUFFER_SIZE, arr, 0, arr.len (), 1);
+    T * buffer = reinterpret_cast <T*> (malloc (ARRAY_BUFFER_SIZE * sizeof (T)));
+    bitonicSort (buffer, ARRAY_BUFFER_SIZE, arr, 0, arr.len (), 1);
     free (buffer);
+  }
+
+
+  template <typename T>
+  void bitonicSortVec (T * data, uint32_t low, uint32_t nb, uint32_t dir) {
+    if (nb > 1) {
+      int k = nb / 2;
+      bitonicSortVec (data, low, k, !dir);
+      bitonicSortVec (data, low + k, nb - k, dir);
+
+      bitonicMergeBlock (data, low, nb, dir);
+    }
+  }
+
+  template <typename T>
+  void bitonicSort (std::vector<T> & vec) {
+    bitonicSortVec (vec.data (), 0, vec.size (), 1);
   }
 
 }

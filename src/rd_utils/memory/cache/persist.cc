@@ -7,7 +7,6 @@
 
 namespace rd_utils::memory::cache {
 
-
   BlockPersister::BlockPersister (const std::string & path) :
     _path (path)
   {}
@@ -15,6 +14,7 @@ namespace rd_utils::memory::cache {
   bool BlockPersister::load (uint64_t addr, uint8_t * memory, uint64_t size) {
     //std::cout << "Load : " << addr << std::endl;
 
+    this-> _t.reset ();
     this-> _nbLoaded += 1;
     char buffer [255];
     int nb = snprintf (buffer, sizeof (buffer), "%s%ld", this-> _path.c_str (), addr);
@@ -26,8 +26,11 @@ namespace rd_utils::memory::cache {
       fclose (file);
       remove (buffer);
 
+      this-> _loadElapsed += this-> _t.time_since_start ();
       return true;
     } else {
+
+      this-> _loadElapsed += this-> _t.time_since_start ();
       return false;
     }
   }
@@ -35,6 +38,7 @@ namespace rd_utils::memory::cache {
   void BlockPersister::save (uint64_t addr, uint8_t * memory, uint64_t size) {
     // std::cout << "Save : " << addr << std::endl;
 
+    this-> _t.reset ();
     this-> _nbSaved += 1;
     char buffer [255];
     int nb = snprintf (buffer, sizeof (buffer), "%s%ld", this-> _path.c_str (), addr);
@@ -44,6 +48,7 @@ namespace rd_utils::memory::cache {
     fwrite (memory, size, 1, file);
 
     fclose (file);
+    this-> _saveElapsed += this-> _t.time_since_start ();
   }
 
   void BlockPersister::erase (uint64_t addr) {
@@ -55,7 +60,7 @@ namespace rd_utils::memory::cache {
   }
 
   void BlockPersister::printInfo () const {
-    LOG_INFO ("Save : ", this-> _nbSaved, ", Load ", this-> _nbLoaded);
+    LOG_INFO ("Save : ", this-> _nbSaved, "(", this-> _saveElapsed, "s), Load ", this-> _nbLoaded, "(", this-> _loadElapsed, "s)");
   }
 
 }

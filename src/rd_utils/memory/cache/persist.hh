@@ -2,6 +2,7 @@
 
 #include <string>
 #include <cstdio>
+#include <rd_utils/concurrency/timer.hh>
 
 namespace rd_utils::memory::cache {
 
@@ -20,6 +21,14 @@ namespace rd_utils::memory::cache {
 
     // The number of times a block was saved to disk
     uint32_t _nbSaved;
+
+    // Time taken by loads
+    float _loadElapsed;
+
+    // Time taken by saves
+    float _saveElapsed;
+
+    concurrency::timer _t;
 
   public:
 

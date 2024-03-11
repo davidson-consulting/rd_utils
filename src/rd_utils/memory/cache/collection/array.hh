@@ -25,6 +25,7 @@ namespace rd_utils::memory::cache::collection {
     // The size per block (without considering the rest)
     uint32_t _sizePerBlock;
 
+    // The size per block (or 1, if there is only this-> _rest)
     uint32_t _sizeDividePerBlock;
 
   private:
@@ -33,6 +34,49 @@ namespace rd_utils::memory::cache::collection {
     void operator=(const CacheArray<T>&);
 
   public:
+
+    CacheArray (CacheArray <T> && other) :
+      _rest (other._rest)
+      , _fstBlockAddr (other._fstBlockAddr)
+      , _nbBlocks (other._nbBlocks)
+      , _size (other._size)
+      , _sizePerBlock (other._sizePerBlock)
+      , _sizeDividePerBlock (other._sizeDividePerBlock)
+    {
+      other._rest = {0, 0};
+      other._fstBlockAddr = 0;
+      other._nbBlocks = 0;
+      other._size = 0;
+      other._sizeDividePerBlock = 0;
+      other._sizePerBlock = 0;
+    }
+
+    void operator= (CacheArray<T> && other) {
+      this-> dispose ();
+
+      this-> _rest = other._rest;
+      this-> _fstBlockAddr = other._fstBlockAddr;
+      this-> _nbBlocks = other._nbBlocks;
+      this-> _size = other._size;
+      this-> _sizePerBlock = other._sizePerBlock;
+      this-> _sizeDividePerBlock = other._sizeDividePerBlock;
+
+      other._rest = {0, 0};
+      other._fstBlockAddr = 0;
+      other._nbBlocks = 0;
+      other._size = 0;
+      other._sizeDividePerBlock = 0;
+      other._sizePerBlock = 0;
+    }
+
+    CacheArray () :
+      _rest ({0, 0})
+      , _fstBlockAddr (0)
+      , _nbBlocks (0)
+      , _size (0)
+      , _sizePerBlock (0)
+      , _sizeDividePerBlock (0)
+    {}
 
     /**
      * Create a new array of a fixed size
@@ -43,7 +87,7 @@ namespace rd_utils::memory::cache::collection {
       uint32_t nbBl;
       Allocator::instance ().allocateSegments (size * sizeof (T), this-> _rest, this-> _fstBlockAddr, nbBl, this-> _sizePerBlock);
       if (nbBl == 0) {
-        this-> _nbBlocks = -1;
+        this-> _nbBlocks = 0;
         this-> _sizeDividePerBlock = 1;
         this-> _sizePerBlock = 0;
       }
@@ -63,7 +107,7 @@ namespace rd_utils::memory::cache::collection {
       int32_t index = absolute / (this-> _sizeDividePerBlock);
       uint32_t offset = absolute - (index * this-> _sizePerBlock);
 
-      if (index <= this-> _nbBlocks) {
+      if (index < this-> _nbBlocks) {
         seg.blockAddr = index + this-> _fstBlockAddr;
         seg.offset = sizeof (free_list_instance) + sizeof (uint32_t);
       }
@@ -91,7 +135,7 @@ namespace rd_utils::memory::cache::collection {
       int32_t index = absolute / (this-> _sizeDividePerBlock);
       uint32_t offset = absolute - (index * this-> _sizePerBlock);
 
-      if (index <= this-> _nbBlocks) {
+      if (index < this-> _nbBlocks) {
         seg.blockAddr = index + this-> _fstBlockAddr;
         seg.offset = sizeof (free_list_instance) + sizeof (uint32_t);
       }
@@ -126,7 +170,8 @@ namespace rd_utils::memory::cache::collection {
 
       int32_t index = absolute / (this-> _sizeDividePerBlock);
       uint32_t offset = absolute - (index * this-> _sizePerBlock);
-      if (index <= this-> _nbBlocks) {
+
+      if (index < this-> _nbBlocks) {
         seg.blockAddr = index + this-> _fstBlockAddr;
         seg.offset = sizeof (free_list_instance) + sizeof (uint32_t);
 
@@ -149,7 +194,7 @@ namespace rd_utils::memory::cache::collection {
 
       int32_t index = absolute / (this-> _sizeDividePerBlock);
       uint32_t offset = absolute - (index * this-> _sizePerBlock);
-      if (index <= this-> _nbBlocks) {
+      if (index < this-> _nbBlocks) {
         seg.blockAddr = index + this-> _fstBlockAddr;
         seg.offset = sizeof (free_list_instance) + sizeof (uint32_t);
 
@@ -170,18 +215,39 @@ namespace rd_utils::memory::cache::collection {
       return this-> _size;
     }
 
+    inline uint32_t nbBlocks () const {
+      if (this-> _size != 0) {
+        return this-> _nbBlocks + 1;
+      } else return 0;
+    }
+
     /**
      * Free the array allocation
      */
-    ~CacheArray () {
-      std::vector <AllocatedSegment> segs;
-      if (this-> _rest.blockAddr != 0) { segs.push_back (this-> _rest); }
-      for (uint32_t addr = this-> _fstBlockAddr ; addr <= this-> _fstBlockAddr + this-> _nbBlocks ; addr++) {
-        segs.push_back ({.blockAddr = addr, .offset = sizeof (free_list_instance) + sizeof (uint32_t)});
-      }
+    void dispose () {
+      if (this-> _rest.blockAddr != 0) {
+        if (this-> _nbBlocks != 0) {
+          std::vector <AllocatedSegment> segs;
+          segs.push_back (this-> _rest);
+          for (uint32_t index = 0 ; index < this-> _nbBlocks ; index ++) {
+            segs.push_back ({.blockAddr = this-> _fstBlockAddr + index, .offset = sizeof (free_list_instance) + sizeof (uint32_t)});
+          }
+          Allocator::instance ().free (segs);
+        } else {
+          Allocator::instance ().free (this-> _rest);
+        }
 
-      Allocator::instance ().free (segs);
-      // Allocator::instance ()-> getPersister ().printInfo ();
+        this-> _rest = {0, 0};
+        this-> _fstBlockAddr = 0;
+        this-> _nbBlocks = 0;
+        this-> _size = 0;
+        this-> _sizeDividePerBlock = 0;
+        this-> _sizePerBlock = 0;
+      }
+    }
+
+    ~CacheArray () {
+      this-> dispose ();
     }
 
   };

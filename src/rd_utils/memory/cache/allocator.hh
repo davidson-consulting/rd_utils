@@ -44,6 +44,8 @@ namespace rd_utils::memory::cache {
                 // The persister to store blocks to disk
                 BlockPersister _perister;
 
+                uint32_t _lastLRU = 1;
+
         private:
 
                 Allocator (const Allocator&);
@@ -133,17 +135,21 @@ namespace rd_utils::memory::cache {
 
                 void printLoaded () const;
 
+                void printBlocks () const;
+
                 /**
                  * @returns: the block persister
                  */
                 const BlockPersister & getPersister () const;
 
-        private:
 
                 /**
                  * Evict a number of blocks from the loaded blocks
                  */
                 void evictSome (uint32_t nb);
+
+        private:
+
 
                 /**
                  * Load a block into memory
