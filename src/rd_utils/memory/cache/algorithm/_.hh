@@ -5,3 +5,4 @@
 #include "mergesort.hh"
 #include "quicksort.hh"
 #include "map.hh"
+#include "reduce.hh"

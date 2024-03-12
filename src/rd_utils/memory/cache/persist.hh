@@ -56,7 +56,7 @@ namespace rd_utils::memory::cache {
          */
         void erase (uint64_t addr);
 
-        // void printInfo () const;
+        void printInfo () const;
 
         ~BlockPersister ();
 

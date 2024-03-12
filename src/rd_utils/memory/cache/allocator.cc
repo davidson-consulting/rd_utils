@@ -6,8 +6,8 @@
 
 namespace rd_utils::memory::cache {
 
-#define BLOCK_SIZE 1024 * 1024 * 1
-#define NB_BLOCKS 8192 // 1GB
+#define BLOCK_SIZE 1024 * 1024 * 32
+#define NB_BLOCKS 4 // 1GB
 
   Allocator Allocator::__GLOBAL__ (NB_BLOCKS * (uint64_t) BLOCK_SIZE, BLOCK_SIZE);
 
