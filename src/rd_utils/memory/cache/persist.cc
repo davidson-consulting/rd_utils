@@ -9,58 +9,46 @@ namespace rd_utils::memory::cache {
 
   BlockPersister::BlockPersister (const std::string & path) :
     _path (path)
-  {}
+  {
+    this-> _buffer = new char [255];
+  }
 
   bool BlockPersister::load (uint64_t addr, uint8_t * memory, uint64_t size) {
-    //std::cout << "Load : " << addr << std::endl;
+    // this-> _nbLoaded += 1;
+    int nb = snprintf (this-> _buffer, 255, "%s%ld", this-> _path.c_str (), addr);
+    this-> _buffer [nb] = '\0';
 
-    this-> _t.reset ();
-    this-> _nbLoaded += 1;
-    char buffer [255];
-    int nb = snprintf (buffer, sizeof (buffer), "%s%ld", this-> _path.c_str (), addr);
-    buffer [nb] = '\0';
-
-    auto file = fopen (buffer, "r");
+    auto file = fopen (this-> _buffer, "r");
     if (file != nullptr) {
       auto ignore = fread (memory, size, 1, file);
       fclose (file);
-      remove (buffer);
-
-      this-> _loadElapsed += this-> _t.time_since_start ();
+      // remove (buffer);
       return true;
     } else {
-
-      this-> _loadElapsed += this-> _t.time_since_start ();
       return false;
     }
   }
 
   void BlockPersister::save (uint64_t addr, uint8_t * memory, uint64_t size) {
-    // std::cout << "Save : " << addr << std::endl;
+    // this-> _nbSaved += 1;
+    int nb = snprintf (this-> _buffer, 255, "%s%ld", this-> _path.c_str (), addr);
+    this-> _buffer [nb] = '\0';
 
-    this-> _t.reset ();
-    this-> _nbSaved += 1;
-    char buffer [255];
-    int nb = snprintf (buffer, sizeof (buffer), "%s%ld", this-> _path.c_str (), addr);
-    buffer [nb] = '\0';
-
-    auto file = fopen (buffer, "w");
+    auto file = fopen (this-> _buffer, "w");
     fwrite (memory, size, 1, file);
 
     fclose (file);
-    this-> _saveElapsed += this-> _t.time_since_start ();
   }
 
   void BlockPersister::erase (uint64_t addr) {
-    char buffer [255];
-    int nb = snprintf (buffer, sizeof (buffer), "%s%ld", this-> _path.c_str (), addr);
-    buffer [nb] = '\0';
+    int nb = snprintf (this-> _buffer, 255, "%s%ld", this-> _path.c_str (), addr);
+    this-> _buffer [nb] = '\0';
 
-    remove (buffer);
+    remove (this-> _buffer);
+    fflush (nullptr);
   }
 
-  void BlockPersister::printInfo () const {
-    LOG_INFO ("Save : ", this-> _nbSaved, "(", this-> _saveElapsed, "s), Load ", this-> _nbLoaded, "(", this-> _loadElapsed, "s)");
+  BlockPersister::~BlockPersister () {
+    delete [] this-> _buffer;
   }
-
 }

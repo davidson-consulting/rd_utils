@@ -40,7 +40,7 @@ namespace rd_utils::memory::cache::collection {
     class Pusher {
     private:
 
-      collection::CacheArray<T> & _context;
+      collection::CacheArray<T> * _context;
 
       uint32_t _beg;
 
@@ -52,7 +52,7 @@ namespace rd_utils::memory::cache::collection {
 
     public:
 
-      Pusher (collection::CacheArray<T> & context, uint32_t i, T * buffer, uint32_t bufferSize) :
+      Pusher (collection::CacheArray<T> * context, uint32_t i, T * buffer, uint32_t bufferSize) :
         _context (context)
         , _beg (i)
         , _i (0)
@@ -88,14 +88,16 @@ namespace rd_utils::memory::cache::collection {
       bool commitForce () {
         auto write = std::min (this-> _i, this-> _bufferSize);
         if (write != 0) {
-          this-> _context.setNb (this-> _beg, this-> _buffer, write);
+          this-> _context-> setNb (this-> _beg, this-> _buffer, write);
           this-> _beg += this-> _i;
-          this-> _bufferSize = std::min (this-> _bufferSize, this-> _context.len () - this-> _beg);
+          this-> _bufferSize = std::min (this-> _bufferSize, this-> _context-> len () - this-> _beg);
           this-> _i = 0;
+          return true;
         } else {
           this-> _bufferSize = 0;
           this-> _i = 0;
           this-> _beg = 0;
+          return false;
         }
       }
 
@@ -104,7 +106,7 @@ namespace rd_utils::memory::cache::collection {
     class Puller {
     private:
 
-      collection::CacheArray<T> & _context;
+      collection::CacheArray<T> * _context;
 
       uint32_t _beg;
 
@@ -116,7 +118,7 @@ namespace rd_utils::memory::cache::collection {
 
     public:
 
-      Puller (collection::CacheArray<T> & context, uint32_t i, T * buffer, uint32_t bufferSize) :
+      Puller (collection::CacheArray<T> * context, uint32_t i, T * buffer, uint32_t bufferSize) :
         _context (context)
         , _beg (i)
         , _i (bufferSize - 1)
@@ -136,13 +138,20 @@ namespace rd_utils::memory::cache::collection {
         return true;
       }
 
+      void printBuffer () {
+        for (uint32_t i = 0 ; i < this-> _bufferSize ; i++) {
+          std::cout << this-> _buffer [i] << ", ";
+        }
+        std::cout << std::endl;
+      }
+
     private:
 
       bool retreive () {
-        auto read = std::min (this-> _bufferSize, this-> _context.len () - this-> _beg);
+        auto read = std::min (this-> _bufferSize, this-> _context-> len () - this-> _beg);
         if (read == 0) return false;
 
-        this-> _context.getNb (this-> _beg, this-> _buffer, read);
+        this-> _context-> getNb (this-> _beg, this-> _buffer, read);
         this-> _beg += read;
         this-> _bufferSize = read;
         this-> _i = 0;
@@ -156,24 +165,24 @@ namespace rd_utils::memory::cache::collection {
 
       friend CacheArray<T>;
 
-      CacheArray<T> & _context;
+      CacheArray<T> * _context;
 
       uint32_t _beg, _len;
 
     public:
 
-      Slice (CacheArray<T> & context, uint32_t beg, uint32_t len):
+      Slice (CacheArray<T> * context, uint32_t beg, uint32_t len):
         _context (context)
         , _beg (beg)
         , _len (len)
       {}
 
       inline void set (uint32_t i, const T & val) {
-        this-> _context.set (i + this-> _beg, val);
+        this-> _context-> set (i + this-> _beg, val);
       }
 
       inline T get (uint32_t i) {
-        return this-> _context.get (i + this-> _beg);
+        return this-> _context-> get (i + this-> _beg);
       }
 
       inline uint32_t len () const {
@@ -181,27 +190,39 @@ namespace rd_utils::memory::cache::collection {
       }
 
       inline void setNb (uint32_t i, T * buffer, uint32_t nb) {
-        this-> _context.setNb (i + this-> _beg, buffer, nb);
+        this-> _context-> setNb (i + this-> _beg, buffer, nb);
       }
 
       inline void getNb (uint32_t i, T * buffer, uint32_t nb) {
-        this-> _context.getNb (i + this-> _beg, buffer, nb);
+        this-> _context-> getNb (i + this-> _beg, buffer, nb);
       }
 
       inline void copy (collection::CacheArray<T>::Slice aux, T * buffer, uint32_t bufferSize) {
-        this-> _context.copy (this-> _beg, aux._context, aux._beg, std::min (this-> _len, aux._len), buffer, bufferSize);
+        this-> _context-> copy (this-> _beg, aux-> _context, aux-> _beg, std::min (this-> _len, aux-> _len), buffer, bufferSize);
       }
 
       inline void copy (collection::CacheArray<T>::Slice aux) {
-        this-> _context.copy (this-> _beg, aux._context, aux._beg, std::min (this-> _len, aux._len));
+        this-> _context-> copy (this-> _beg, aux-> _context, aux-> _beg, std::min (this-> _len, aux-> _len));
       }
 
       collection::CacheArray<T>::Puller puller (T * buffer, uint32_t bufferSize) {
-        return collection::CacheArray<T>::Puller (this-> _context, this-> _beg, buffer, bufferSize);
+        return this-> _context-> puller (this-> _beg, buffer, bufferSize);
       }
 
       collection::CacheArray<T>::Pusher pusher (T * buffer, uint32_t bufferSize) {
-        return collection::CacheArray<T>::Puller (this-> _context, this-> _beg, buffer, bufferSize);
+        return this-> _context-> pusher (this-> _beg, buffer, bufferSize);
+      }
+
+      bool equals (const std::vector <T> & vec, T * buffer, uint32_t nb) {
+        auto puller = this-> puller (buffer, nb);
+        puller.next ();
+
+        for (auto & it : vec) {
+          if (it != puller.current ()) return false;
+          puller.next ();
+        }
+
+        return true;
       }
 
     };
@@ -271,15 +292,15 @@ namespace rd_utils::memory::cache::collection {
     }
 
     collection::CacheArray<T>::Slice slice (uint32_t start, uint32_t end) {
-      return collection::CacheArray<T>::Slice (*this, start, end - start);
+      return collection::CacheArray<T>::Slice (this, start, end - start);
     }
 
     collection::CacheArray<T>::Puller puller (uint32_t start, T * buffer, uint32_t bufferSize) {
-      return collection::CacheArray<T>::Puller (*this, start, buffer, bufferSize);
+      return collection::CacheArray<T>::Puller (this, start, buffer, bufferSize);
     }
 
     collection::CacheArray<T>::Pusher pusher (uint32_t start, T * buffer, uint32_t bufferSize) {
-      return collection::CacheArray<T>::Pusher (*this, start, buffer, bufferSize);
+      return collection::CacheArray<T>::Pusher (this, start, buffer, bufferSize);
     }
 
     /**
@@ -404,6 +425,19 @@ namespace rd_utils::memory::cache::collection {
       this-> copy (i, aux._context, aux._beg, std::min (aux._len, this-> _size - i));
     }
 
+    bool equals (const std::vector <T> & vec, T * buffer, uint32_t nb) {
+        auto puller = this-> puller (0, buffer, nb);
+        puller.next ();
+
+        for (auto & it : vec) {
+          if (it != puller.current ()) return false;
+          puller.next ();
+        }
+
+        return true;
+      }
+
+
     inline uint32_t len () const {
       return this-> _size;
     }
@@ -454,7 +488,7 @@ namespace rd_utils::memory::cache::collection {
      *    - buffer: the buffer used to make the copy
      *    - bufferSize the size of the buffer used for the copy
      */
-    void copy (uint32_t i, collection::CacheArray<T> & aux, uint32_t j, uint32_t nb, T * buffer, uint32_t bufferSize) {
+    void copy (uint32_t i, collection::CacheArray<T> * aux, uint32_t j, uint32_t nb, T * buffer, uint32_t bufferSize) {
       if (bufferSize == 0 || bufferSize == 1) {
         this-> copy (i, aux, j, nb);
       }
@@ -463,12 +497,12 @@ namespace rd_utils::memory::cache::collection {
       auto rest = nb - aligned;
 
       for (uint32_t k = 0 ; k < aligned ; k += bufferSize) {
-        aux.getNb (k + j, buffer, bufferSize);
+        aux-> getNb (k + j, buffer, bufferSize);
         this-> setNb (k + i, buffer, bufferSize);
       }
 
       if (rest != 0) {
-        aux.getNb (aligned + j, buffer, rest);
+        aux-> getNb (aligned + j, buffer, rest);
         this-> setNb (aligned + i, buffer, rest);
       }
     }
@@ -480,9 +514,9 @@ namespace rd_utils::memory::cache::collection {
      *    - j: the index where to get the data (in aux)
      *    - nb: the number of elements to copy
      */
-    void copy (uint32_t i, collection::CacheArray<T> & aux, uint32_t j, uint32_t nb) {
+    void copy (uint32_t i, collection::CacheArray<T> * aux, uint32_t j, uint32_t nb) {
       for (uint32_t k = 0 ; k < nb ; k++) {
-        this-> set (k + i, aux.get (k + j));
+        this-> set (k + i, aux-> get (k + j));
       }
     }
 
@@ -490,22 +524,43 @@ namespace rd_utils::memory::cache::collection {
 
 }
 
+std::ostream& operator << (std::ostream & s, rd_utils::memory::cache::collection::CacheArray<uint32_t>::Slice array) {
+  uint32_t BLK_SIZE = 8192;
+  uint32_t * buffer = new uint32_t [BLK_SIZE];
+  auto len = array.len ();
+  uint32_t i = 0;
+  auto p = array.puller (buffer, BLK_SIZE);
+  s << "[";
+  p.next ();
+  while (i < len) {
+    if (i != 0) s << ", ";
+    s << p.current ();
+    p.next ();
+    i ++;
+  }
+  s << "]";
+
+  delete [] buffer;
+  return s;
+}
+
 template <typename T>
 std::ostream& operator << (std::ostream & s, rd_utils::memory::cache::collection::CacheArray<T> & array) {
   uint32_t BLK_SIZE = 8192;
-  T val [BLK_SIZE];
+  T * buffer = new T [BLK_SIZE];
   auto len = array.len ();
-  int z = 0;
+  uint32_t i = 0;
+  auto p = array.puller (0, buffer, BLK_SIZE);
   s << "[";
-  for (uint32_t i = 0 ; i < len ; i += BLK_SIZE) {
-    auto nb_read = len - i >= BLK_SIZE ? BLK_SIZE : len - i;
-    array.getNb (i, val, nb_read);
-    for (uint32_t j = 0 ; j < nb_read ; j++) {
-      if (z != 0) s << ", ";
-      s << val [j];
-      z += 1;
-    }
+  p.next ();
+  while (i < len) {
+    if (i != 0) s << ", ";
+    s << p.current ();
+    p.next ();
+    i ++;
   }
   s << "]";
+
+  delete [] buffer;
   return s;
 }

@@ -1,7 +1,6 @@
 #include "allocator.hh"
 #include <cstring>
 #include <rd_utils/concurrency/timer.hh>
-#include <rd_utils/utils/log.hh>
 #include "free_list.hh"
 #include <sys/time.h>
 
@@ -35,7 +34,7 @@ namespace rd_utils::memory::cache {
   bool Allocator::allocate (uint32_t size, AllocatedSegment & alloc, bool newBlock) {
     auto realSize = free_list_real_size (size);
     if (realSize > this-> _max_allocable) {
-      LOG_ERROR ("Cannot allocate more than ", this-> _max_allocable, "B at a time");
+      //LOG_ERROR ("Cannot allocate more than ", this-> _max_allocable, "B at a time");
       return false;
     }
 
@@ -77,7 +76,7 @@ namespace rd_utils::memory::cache {
       alloc = {.blockAddr = addr, .offset = offset};
       return true;
     } else {
-      LOG_ERROR ("Failed to allocate ", size, ", possible corruption ?");
+      //LOG_ERROR ("Failed to allocate ", size, ", possible corruption ?");
       return false;
     }
   }
@@ -243,13 +242,14 @@ namespace rd_utils::memory::cache {
    * */
 
   uint8_t * Allocator::allocateNewBlock (uint32_t & addr) {
+    uint8_t * mem = nullptr;
     if (this-> _loaded.size () == this-> _max_blocks) {
-      this-> evictSome (std::min (3, std::max (1, NB_BLOCKS - 1)));
+      mem = this-> evictSome (std::min (1, std::max (1, NB_BLOCKS - 1)));
+    } else {
+      mem = (uint8_t*) malloc (this-> _block_size);
     }
 
-    auto mem = new uint8_t [this-> _block_size];
     free_list_create (reinterpret_cast<free_list_instance*> (mem), this-> _block_size);
-
     addr = this-> _blocks.size () + 1;
 
     uint32_t lru = this-> _lastLRU++;
@@ -265,11 +265,13 @@ namespace rd_utils::memory::cache {
     auto lru = this-> _lastLRU++;
 
     if (memory.mem == nullptr) {
+      uint8_t * out = nullptr;
       if (this-> _loaded.size () == this-> _max_blocks) {
-        this-> evictSome (std::min (3, std::max (1, NB_BLOCKS - 1)));
+        out = this-> evictSome (std::min (1, std::max (1, NB_BLOCKS - 1)));
+      } else {
+        out = (uint8_t*) malloc (this-> _block_size);
       }
 
-      uint8_t * out = new uint8_t [this-> _block_size];
       if (!this-> _perister.load (addr, out, this-> _block_size)) {
         free_list_create (reinterpret_cast <free_list_instance*> (out), this-> _block_size);
       }
@@ -286,7 +288,7 @@ namespace rd_utils::memory::cache {
     }
   }
 
-  void Allocator::evictSome (uint32_t nb) {
+  uint8_t * Allocator::evictSome (uint32_t nb) {
     for (size_t i = 0 ; i < nb ; i++) {
       auto min = time (NULL) + 10;
       uint32_t addr = 0;
@@ -302,33 +304,39 @@ namespace rd_utils::memory::cache {
       if (addr != 0) {
         auto mem = this-> _loaded [addr];
         this-> _perister.save (addr, mem, this-> _block_size);
-        delete [] mem;
         this-> _loaded.erase (addr);
         this-> _blocks [addr - 1].mem = nullptr;
+        if (i != nb - 1) {
+          ::free (mem);
+          mem = nullptr;
+        }
+        else {
+          return mem;
+        }
       }
       else {
         concurrency::timer::sleep (0.1);
-        evictSome (nb - i);
-        return ;
+        return evictSome (nb - i);
       }
     }
+
+    return nullptr;
   }
 
   void Allocator::freeBlock (uint32_t addr) {
     auto & bl = this-> _blocks [addr - 1];
     if (bl.mem != nullptr) {
-      delete [] bl.mem;
+      ::free (bl.mem);
       bl.mem = nullptr;
-    } else {
-      this-> _perister.erase (addr);
     }
 
+    this-> _perister.erase (addr);
     this-> _loaded.erase (addr);
     while (this-> _blocks.size () != 0) {
       auto & bl = this-> _blocks.back ();
       if (bl.max_size == this-> _max_allocable) {
         if (bl.mem != nullptr) {
-          delete [] bl.mem;
+          ::free (bl.mem);
           bl.mem = nullptr;
         }
 
