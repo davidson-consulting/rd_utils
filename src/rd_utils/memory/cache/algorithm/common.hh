@@ -1,3 +1,3 @@
 #pragma once
 
-#define ARRAY_BUFFER_SIZE 8192
+#define ARRAY_BUFFER_SIZE 16

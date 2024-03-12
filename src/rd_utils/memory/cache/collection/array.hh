@@ -33,6 +33,179 @@ namespace rd_utils::memory::cache::collection {
     CacheArray (const CacheArray<T> &);
     void operator=(const CacheArray<T>&);
 
+
+  public:
+
+
+    class Pusher {
+    private:
+
+      collection::CacheArray<T> & _context;
+
+      uint32_t _beg;
+
+      uint32_t _i;
+
+      T * _buffer;
+
+      uint32_t _bufferSize;
+
+    public:
+
+      Pusher (collection::CacheArray<T> & context, uint32_t i, T * buffer, uint32_t bufferSize) :
+        _context (context)
+        , _beg (i)
+        , _i (0)
+        , _buffer (buffer)
+        , _bufferSize (bufferSize)
+      {}
+
+      bool push (const T & val) {
+        this-> _buffer [this-> _i] = val;
+        this-> _i++;
+        if (this-> _i >= this-> _bufferSize) {
+          return this-> commit ();
+        }
+
+        return true;
+      }
+
+      bool commit () {
+        if (this-> _i != 0) {
+          return this-> commitForce ();
+        }
+        return true;
+      }
+
+      ~Pusher () {
+        if (this-> _i != 0) {
+          this-> commitForce ();
+        }
+      }
+
+    private:
+
+      bool commitForce () {
+        auto write = std::min (this-> _i, this-> _bufferSize);
+        if (write != 0) {
+          this-> _context.setNb (this-> _beg, this-> _buffer, write);
+          this-> _beg += this-> _i;
+          this-> _bufferSize = std::min (this-> _bufferSize, this-> _context.len () - this-> _beg);
+          this-> _i = 0;
+        } else {
+          this-> _bufferSize = 0;
+          this-> _i = 0;
+          this-> _beg = 0;
+        }
+      }
+
+    };
+
+    class Puller {
+    private:
+
+      collection::CacheArray<T> & _context;
+
+      uint32_t _beg;
+
+      uint32_t _i;
+
+      T * _buffer;
+
+      uint32_t _bufferSize;
+
+    public:
+
+      Puller (collection::CacheArray<T> & context, uint32_t i, T * buffer, uint32_t bufferSize) :
+        _context (context)
+        , _beg (i)
+        , _i (bufferSize - 1)
+        , _buffer (buffer)
+        , _bufferSize (bufferSize)
+      {}
+
+      T current () {
+        return this-> _buffer [this-> _i];
+      }
+
+      bool next () {
+        this-> _i++;
+        if (this-> _i >= this-> _bufferSize) {
+          return this-> retreive ();
+        }
+        return true;
+      }
+
+    private:
+
+      bool retreive () {
+        auto read = std::min (this-> _bufferSize, this-> _context.len () - this-> _beg);
+        if (read == 0) return false;
+
+        this-> _context.getNb (this-> _beg, this-> _buffer, read);
+        this-> _beg += read;
+        this-> _bufferSize = read;
+        this-> _i = 0;
+        return true;
+      }
+
+    };
+
+    class Slice {
+    private:
+
+      friend CacheArray<T>;
+
+      CacheArray<T> & _context;
+
+      uint32_t _beg, _len;
+
+    public:
+
+      Slice (CacheArray<T> & context, uint32_t beg, uint32_t len):
+        _context (context)
+        , _beg (beg)
+        , _len (len)
+      {}
+
+      inline void set (uint32_t i, const T & val) {
+        this-> _context.set (i + this-> _beg, val);
+      }
+
+      inline T get (uint32_t i) {
+        return this-> _context.get (i + this-> _beg);
+      }
+
+      inline uint32_t len () const {
+        return this-> _len;
+      }
+
+      inline void setNb (uint32_t i, T * buffer, uint32_t nb) {
+        this-> _context.setNb (i + this-> _beg, buffer, nb);
+      }
+
+      inline void getNb (uint32_t i, T * buffer, uint32_t nb) {
+        this-> _context.getNb (i + this-> _beg, buffer, nb);
+      }
+
+      inline void copy (collection::CacheArray<T>::Slice aux, T * buffer, uint32_t bufferSize) {
+        this-> _context.copy (this-> _beg, aux._context, aux._beg, std::min (this-> _len, aux._len), buffer, bufferSize);
+      }
+
+      inline void copy (collection::CacheArray<T>::Slice aux) {
+        this-> _context.copy (this-> _beg, aux._context, aux._beg, std::min (this-> _len, aux._len));
+      }
+
+      collection::CacheArray<T>::Puller puller (T * buffer, uint32_t bufferSize) {
+        return collection::CacheArray<T>::Puller (this-> _context, this-> _beg, buffer, bufferSize);
+      }
+
+      collection::CacheArray<T>::Pusher pusher (T * buffer, uint32_t bufferSize) {
+        return collection::CacheArray<T>::Puller (this-> _context, this-> _beg, buffer, bufferSize);
+      }
+
+    };
+
   public:
 
     CacheArray (CacheArray <T> && other) :
@@ -95,6 +268,18 @@ namespace rd_utils::memory::cache::collection {
         this-> _nbBlocks = nbBl;
         this-> _sizeDividePerBlock = this-> _sizePerBlock;
       }
+    }
+
+    collection::CacheArray<T>::Slice slice (uint32_t start, uint32_t end) {
+      return collection::CacheArray<T>::Slice (*this, start, end - start);
+    }
+
+    collection::CacheArray<T>::Puller puller (uint32_t start, T * buffer, uint32_t bufferSize) {
+      return collection::CacheArray<T>::Puller (*this, start, buffer, bufferSize);
+    }
+
+    collection::CacheArray<T>::Pusher pusher (uint32_t start, T * buffer, uint32_t bufferSize) {
+      return collection::CacheArray<T>::Pusher (*this, start, buffer, bufferSize);
     }
 
     /**
@@ -211,6 +396,14 @@ namespace rd_utils::memory::cache::collection {
       }
     }
 
+    inline void copy (uint32_t i, collection::CacheArray<T>::Slice aux, T * buffer, uint32_t bufferSize) {
+      this-> copy (i, aux._context, aux._beg, std::min (aux._len, this-> _size - i), buffer, bufferSize);
+    }
+
+    inline void copy (uint32_t i, collection::CacheArray<T>::Slice aux) {
+      this-> copy (i, aux._context, aux._beg, std::min (aux._len, this-> _size - i));
+    }
+
     inline uint32_t len () const {
       return this-> _size;
     }
@@ -248,6 +441,49 @@ namespace rd_utils::memory::cache::collection {
 
     ~CacheArray () {
       this-> dispose ();
+    }
+
+  private :
+
+    /**
+     * Copy elements from the aux array into this array using a buffer to accelerate the copy and minimize the number of allocator access
+     * @params:
+     *    - i: the index where to place the data (in this)
+     *    - j: the index where to get the data (in aux)
+     *    - nb: the number of elements to copy
+     *    - buffer: the buffer used to make the copy
+     *    - bufferSize the size of the buffer used for the copy
+     */
+    void copy (uint32_t i, collection::CacheArray<T> & aux, uint32_t j, uint32_t nb, T * buffer, uint32_t bufferSize) {
+      if (bufferSize == 0 || bufferSize == 1) {
+        this-> copy (i, aux, j, nb);
+      }
+
+      auto aligned = (nb / bufferSize) * bufferSize;
+      auto rest = nb - aligned;
+
+      for (uint32_t k = 0 ; k < aligned ; k += bufferSize) {
+        aux.getNb (k + j, buffer, bufferSize);
+        this-> setNb (k + i, buffer, bufferSize);
+      }
+
+      if (rest != 0) {
+        aux.getNb (aligned + j, buffer, rest);
+        this-> setNb (aligned + i, buffer, rest);
+      }
+    }
+
+    /**
+     * Copy elements from the aux array into this array without an acceleration buffer
+     * @params:
+     *    - i: the index where to place the data (in this)
+     *    - j: the index where to get the data (in aux)
+     *    - nb: the number of elements to copy
+     */
+    void copy (uint32_t i, collection::CacheArray<T> & aux, uint32_t j, uint32_t nb) {
+      for (uint32_t k = 0 ; k < nb ; k++) {
+        this-> set (k + i, aux.get (k + j));
+      }
     }
 
   };

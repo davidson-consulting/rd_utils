@@ -55,6 +55,18 @@ file(
 
 file(
   GLOB
+  HEADER_MEMORY_CACHE_COLL
+  src/rd_utils/memory/cache/collection/*.hh
+  )
+  
+file(
+  GLOB
+  HEADER_MEMORY_CACHE_ALGOS
+  src/rd_utils/memory/cache/algorithm/*.hh
+  )
+
+file(
+  GLOB
   HEADER_MEMORY_GC
   src/rd_utils/memory/gc/*.hh
   )
@@ -87,6 +99,8 @@ install (FILES ${HEADER_FOREIGN} DESTINATION /usr/include/rd_utils/foreign)
 install (FILES ${HEADER_MEMORY} DESTINATION /usr/include/rd_utils/memory)
 install (FILES ${HEADER_MEMORY_GC} DESTINATION /usr/include/rd_utils/memory/gc)
 install (FILES ${HEADER_MEMORY_CACHE} DESTINATION /usr/include/rd_utils/memory/cache)
+install (FILES ${HEADER_MEMORY_CACHE_COLL} DESTINATION /usr/include/rd_utils/memory/cache/collection)
+install (FILES ${HEADER_MEMORY_CACHE_ALGOS} DESTINATION /usr/include/rd_utils/memory/cache/algorithm)
 install (FILES ${HEADER_CONFIG} DESTINATION /usr/include/rd_utils/utils/config)
 install (FILES ${HEADER_ROOT} DESTINATION /usr/include/rd_utils/)
 
