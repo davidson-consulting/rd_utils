@@ -19,6 +19,7 @@ namespace rd_utils::memory::cache {
 
         struct BlockInfo {
                 uint8_t * mem;
+                bool lock;
                 uint32_t lru;
                 uint32_t max_size;
         };
@@ -77,7 +78,7 @@ namespace rd_utils::memory::cache {
                  *    - true iif a segment was found
                  *    - alloc: the allocated segment
                  */
-                bool allocate (uint32_t size, AllocatedSegment & alloc, bool newBlock = false);
+                bool allocate (uint32_t size, AllocatedSegment & alloc, bool newBlock = false, bool lock = true);
 
                 /**
                  * Allocate a list of memory segment (if size does not fit in only one segment)
@@ -96,10 +97,6 @@ namespace rd_utils::memory::cache {
                  *    - size: the size to read
                  */
                 void read (AllocatedSegment alloc, void * data, uint32_t offset, uint32_t size);
-                void read_8 (AllocatedSegment alloc, uint64_t * data, uint32_t offset);
-                void read_4 (AllocatedSegment alloc, uint32_t * data, uint32_t offset);
-                void read_2 (AllocatedSegment alloc, uint16_t * data, uint32_t offset);
-                void read_1 (AllocatedSegment alloc, uint8_t * data, uint32_t offset);
 
                 /**
                  * Write onto an allocated segment into memory
@@ -110,10 +107,6 @@ namespace rd_utils::memory::cache {
                  *    - size: the size to read
                  */
                 void write (AllocatedSegment alloc, const void * data, uint32_t offset, uint32_t size);
-                void write_8 (AllocatedSegment alloc, uint64_t data, uint32_t offset);
-                void write_4 (AllocatedSegment alloc, uint32_t data, uint32_t offset);
-                void write_2 (AllocatedSegment alloc, uint16_t data, uint32_t offset);
-                void write_1 (AllocatedSegment alloc, uint8_t data, uint32_t offset);
 
                 /**
                  * Free an allocated memory segment

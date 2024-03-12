@@ -28,7 +28,7 @@ namespace rd_utils::memory::cache::algorithm {
   template <typename T>
   void insert_sort (T * array, uint32_t low, uint32_t end) {
     int64_t i, j;
-
+    
     for (i = low ; i < end ; i++) {
       T key = array [i];
       j = i - 1;

@@ -18,16 +18,18 @@ namespace rd_utils {
 	    
 			mutex ();
 
+
+			void lock ();
+
+			void unlock ();
+
+
 			~mutex ();
 
 		private:
 
 			friend mutex_locker;
 			friend condition;
-
-			void lock ();
-
-			void unlock ();
 
 		};
 

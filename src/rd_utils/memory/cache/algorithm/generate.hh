@@ -14,14 +14,12 @@ namespace rd_utils::memory::cache::algorithm {
     collection::CacheArray<Z> result (len);
     if (len > 0) {
       Z * buffer = reinterpret_cast <Z*> (malloc (ARRAY_BUFFER_SIZE * sizeof (Z)));
-      for (uint32_t i = 0 ; i < len ; i += ARRAY_BUFFER_SIZE) {
-        auto nb_write = len - i >= ARRAY_BUFFER_SIZE ? ARRAY_BUFFER_SIZE : len - i;
-        for (uint32_t j = 0 ; j < nb_write ; j++) {
-          buffer [j] = func (i + j);
+      {
+        auto p = result.pusher (0, buffer, ARRAY_BUFFER_SIZE);
+        for (uint32_t i = 0 ; i < len ; i++) {
+          p.push (func (i));
         }
-
-        result.setNb (i, buffer, nb_write);
-      }
+      } // p.commit ();
 
       free (buffer);
     }
@@ -34,14 +32,12 @@ namespace rd_utils::memory::cache::algorithm {
     collection::CacheArray<Z> result (len);
     if (len > 0) {
       Z * buffer = reinterpret_cast <Z*> (malloc (ARRAY_BUFFER_SIZE * sizeof (Z)));
-      for (uint32_t i = 0 ; i < len ; i += ARRAY_BUFFER_SIZE) {
-        auto nb_write = len - i >= ARRAY_BUFFER_SIZE ? ARRAY_BUFFER_SIZE : len - i;
-        for (uint32_t j = 0 ; j < nb_write ; j++) {
-          buffer [j] = (x->* (func)) (i + j);
+      {
+        auto p = result.pusher (0, buffer, ARRAY_BUFFER_SIZE);
+        for (uint32_t i = 0 ; i < len ; i++) {
+          p.push ((x->* (func)) (i));
         }
-
-        result.setNb (i, buffer, nb_write);
-      }
+      } // p.commit ();
 
       free (buffer);
     }
@@ -54,14 +50,12 @@ namespace rd_utils::memory::cache::algorithm {
     collection::CacheArray<Z> result (len);
     if (len > 0) {
       Z * buffer = reinterpret_cast <Z*> (malloc (ARRAY_BUFFER_SIZE * sizeof (Z)));
-      for (uint32_t i = 0 ; i < len ; i += ARRAY_BUFFER_SIZE) {
-        auto nb_write = len - i >= ARRAY_BUFFER_SIZE ? ARRAY_BUFFER_SIZE : len - i;
-        for (uint32_t j = 0 ; j < nb_write ; j++) {
-          buffer [j] = func (i + j);
+      {
+        auto p = result.pusher (0, buffer, ARRAY_BUFFER_SIZE);
+        for (uint32_t i = 0 ; i < len  ; i++) {
+          p.push (func (i));
         }
-        result.setNb (i, buffer, nb_write);
-      }
-
+      } // p.commit ();
       free (buffer);
     }
 

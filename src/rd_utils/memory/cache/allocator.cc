@@ -7,7 +7,7 @@
 namespace rd_utils::memory::cache {
 
 #define BLOCK_SIZE 1024 * 1024 * 1
-#define NB_BLOCKS 1024 // 1GB
+#define NB_BLOCKS 8192 // 1GB
 
   Allocator Allocator::__GLOBAL__ (NB_BLOCKS * (uint64_t) BLOCK_SIZE, BLOCK_SIZE);
 
@@ -31,7 +31,7 @@ namespace rd_utils::memory::cache {
    * ============================================================================
    * */
 
-  bool Allocator::allocate (uint32_t size, AllocatedSegment & alloc, bool newBlock) {
+  bool Allocator::allocate (uint32_t size, AllocatedSegment & alloc, bool newBlock, bool lock) {
     auto realSize = free_list_real_size (size);
     if (realSize > this-> _max_allocable) {
       //LOG_ERROR ("Cannot allocate more than ", this-> _max_allocable, "B at a time");
@@ -40,6 +40,7 @@ namespace rd_utils::memory::cache {
 
     uint32_t offset;
     if (!newBlock) {
+      if (lock) __GLOBAL_MUTEX__.lock ();
       for (auto & [addr, mem] : this-> _loaded) {
         auto & bl = this-> _blocks [addr - 1];
         if (bl.max_size >= realSize) {
@@ -47,6 +48,7 @@ namespace rd_utils::memory::cache {
             bl.max_size = free_list_max_size (reinterpret_cast <free_list_instance*> (mem));
             bl.lru = this-> _lastLRU++;
             alloc = {.blockAddr = addr, .offset = offset};
+            if (lock) __GLOBAL_MUTEX__.unlock ();
             return true;
           }
         }
@@ -59,6 +61,7 @@ namespace rd_utils::memory::cache {
           if (free_list_allocate (mem, size, offset)) {
             bl.max_size = free_list_max_size (mem);
             alloc = {.blockAddr = (uint32_t) addr, .offset = offset};
+            if (lock) __GLOBAL_MUTEX__.unlock ();
             return true;
           }
         }
@@ -66,6 +69,7 @@ namespace rd_utils::memory::cache {
     }
 
     uint32_t addr;
+    if (lock) __GLOBAL_MUTEX__.lock ();
     auto mem = this-> allocateNewBlock (addr);
     if (free_list_allocate (reinterpret_cast <free_list_instance*> (mem), size, offset)) {
       auto & bl = this-> _blocks [addr - 1];
@@ -74,43 +78,48 @@ namespace rd_utils::memory::cache {
       bl.lru = this-> _lastLRU++;
 
       alloc = {.blockAddr = addr, .offset = offset};
+      if (lock) __GLOBAL_MUTEX__.unlock ();
       return true;
     } else {
+      if (lock) __GLOBAL_MUTEX__.unlock ();
       //LOG_ERROR ("Failed to allocate ", size, ", possible corruption ?");
       return false;
     }
   }
 
   bool Allocator::allocateSegments (uint64_t size, AllocatedSegment & rest, uint32_t & fstBlock, uint32_t & nbBlocks, uint32_t & blockSize) {
-    AllocatedSegment seg;
-    bool fst = true;
-    nbBlocks = 0;
+    WITH_LOCK (__GLOBAL_MUTEX__) {
+      AllocatedSegment seg;
+      bool fst = true;
+      nbBlocks = 0;
 
-    while (size >= this-> _max_allocable) {
-      auto toAlloc = this-> _max_allocable - sizeof (uint32_t);
-      blockSize = this-> _max_allocable;
-      this-> allocate (toAlloc, seg, true);
-      if (fst) { fstBlock = seg.blockAddr; fst = false; }
-      nbBlocks += 1;
-      size -= toAlloc;
+      while (size >= this-> _max_allocable) {
+        auto toAlloc = this-> _max_allocable - sizeof (uint32_t);
+        blockSize = this-> _max_allocable;
+        this-> allocate (toAlloc, seg, true, false);
+        if (fst) { fstBlock = seg.blockAddr; fst = false; }
+        nbBlocks += 1;
+        size -= toAlloc;
+      }
+
+      if (size > 0) {
+        this-> allocate (size, rest, false, false);
+      }
     }
-
-    if (size > 0) {
-      this-> allocate (size, rest);
-    }
-
     return true;
   }
 
   void Allocator::free (AllocatedSegment alloc) {
-    auto mem = this-> load (alloc.blockAddr);
-    free_list_free (mem, alloc.offset);
+    WITH_LOCK (__GLOBAL_MUTEX__) {
+      auto mem = this-> load (alloc.blockAddr);
+      free_list_free (mem, alloc.offset);
 
-    auto & bl = this-> _blocks [alloc.blockAddr - 1];
-    bl.max_size = free_list_max_size (mem);
+      auto & bl = this-> _blocks [alloc.blockAddr - 1];
+      bl.max_size = free_list_max_size (mem);
 
-    if (free_list_empty (mem)) {
-      this-> freeBlock (alloc.blockAddr);
+      if (free_list_empty (mem)) {
+        this-> freeBlock (alloc.blockAddr);
+      }
     }
   }
 
@@ -118,7 +127,10 @@ namespace rd_utils::memory::cache {
     std::vector <AllocatedSegment> copy = segments;
     int i = 0;
     for (auto it : segments) { // Start by freeing already loaded blocks
+      __GLOBAL_MUTEX__.lock ();
       auto lt = this-> _loaded.find (it.blockAddr) ;
+      __GLOBAL_MUTEX__.unlock ();
+
       if (lt != this-> _loaded.end ()) {
         this-> free (it);
         copy.erase (copy.begin () + i);
@@ -141,96 +153,26 @@ namespace rd_utils::memory::cache {
    * */
 
   void Allocator::read (AllocatedSegment alloc, void * data, uint32_t offset, uint32_t size) {
-    auto mem = this-> _blocks [alloc.blockAddr - 1].mem;
-    if (mem == nullptr) {
-      mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
+    WITH_LOCK (__GLOBAL_MUTEX__) {
+      auto & bl = this-> _blocks [alloc.blockAddr - 1];
+      auto mem = bl.mem;
+      if (mem == nullptr) {
+        mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
+      }
+      memcpy (data, mem + alloc.offset + offset, size);
     }
-    memcpy (data, mem + alloc.offset + offset, size);
-  }
-
-  void Allocator::read_8 (AllocatedSegment alloc, uint64_t * data, uint32_t offset) {
-    auto mem = this-> _blocks [alloc.blockAddr - 1].mem;
-    if (mem == nullptr) {
-      mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
-    }
-
-    auto z = reinterpret_cast<uint64_t*> (mem + alloc.offset + offset);
-    *data = *z;
-  }
-
-  void Allocator::read_4 (AllocatedSegment alloc, uint32_t * data, uint32_t offset) {
-    auto mem = this-> _blocks [alloc.blockAddr - 1].mem;
-    if (mem == nullptr) {
-      mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
-    }
-
-    auto z = reinterpret_cast<uint32_t*> (mem + alloc.offset + offset);
-    *data = *z;
-  }
-
-  void Allocator::read_2 (AllocatedSegment alloc, uint16_t * data, uint32_t offset) {
-    auto mem = this-> _blocks [alloc.blockAddr - 1].mem;
-    if (mem == nullptr) {
-      mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
-    }
-
-    auto z = reinterpret_cast<uint16_t*> (mem + alloc.offset + offset);
-    *data = *z;
-  }
-
-  void Allocator::read_1 (AllocatedSegment alloc, uint8_t * data, uint32_t offset) {
-    auto mem = this-> _blocks [alloc.blockAddr - 1].mem;
-    if (mem == nullptr) {
-      mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
-    }
-
-    auto z = reinterpret_cast<uint8_t*> (mem + alloc.offset + offset);
-    *data = *z;
   }
 
   void Allocator::write (AllocatedSegment alloc, const void * data, uint32_t offset, uint32_t size) {
-    auto mem = this-> _blocks [alloc.blockAddr - 1].mem;
-    if (mem == nullptr) {
-      mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
-    }
-    // this-> printBlocks ();
-    memcpy (mem + alloc.offset + offset, data, size);
-  }
+    WITH_LOCK (__GLOBAL_MUTEX__) {
+      auto & bl =  this-> _blocks [alloc.blockAddr - 1];
+      auto mem = bl.mem;
+      if (mem == nullptr) {
+        mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
+      }
 
-  void Allocator::write_8 (AllocatedSegment alloc, uint64_t data, uint32_t offset) {
-    auto mem = this-> _blocks [alloc.blockAddr - 1].mem;
-    if (mem == nullptr) {
-      mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
+      memcpy (mem + alloc.offset + offset, data, size);
     }
-    auto z = reinterpret_cast <uint64_t*> (mem + alloc.offset + offset);
-    *z = data;
-  }
-
-  void Allocator::write_4 (AllocatedSegment alloc, uint32_t data, uint32_t offset) {
-    auto mem = this-> _blocks [alloc.blockAddr - 1].mem;
-    if (mem == nullptr) {
-      mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
-    }
-    auto z = reinterpret_cast <uint32_t*> (mem + alloc.offset + offset);
-    *z = data;
-  }
-
-  void Allocator::write_2 (AllocatedSegment alloc, uint16_t data, uint32_t offset) {
-    auto mem = this-> _blocks [alloc.blockAddr - 1].mem;
-    if (mem == nullptr) {
-      mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
-    }
-    auto z = reinterpret_cast <uint16_t*> (mem + alloc.offset + offset);
-    *z = data;
-  }
-
-  void Allocator::write_1 (AllocatedSegment alloc, uint8_t data, uint32_t offset) {
-    auto mem = this-> _blocks [alloc.blockAddr - 1].mem;
-    if (mem == nullptr) {
-      mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
-    }
-    auto z = reinterpret_cast <uint8_t*> (mem + alloc.offset + offset);
-    *z = data;
   }
 
   /**
@@ -251,11 +193,11 @@ namespace rd_utils::memory::cache {
 
     free_list_create (reinterpret_cast<free_list_instance*> (mem), this-> _block_size);
     addr = this-> _blocks.size () + 1;
-
     uint32_t lru = this-> _lastLRU++;
-    BlockInfo info = {.mem = mem, .lru = lru, .max_size = this-> _max_allocable};
+    BlockInfo info = {.mem = mem, .lock = false, .lru = lru, .max_size = this-> _max_allocable};
     this-> _blocks.push_back (info);
     this-> _loaded.emplace (addr, mem);
+
 
     return mem;
   }
@@ -266,6 +208,7 @@ namespace rd_utils::memory::cache {
 
     if (memory.mem == nullptr) {
       uint8_t * out = nullptr;
+
       if (this-> _loaded.size () == this-> _max_blocks) {
         out = this-> evictSome (std::min (1, std::max (1, NB_BLOCKS - 1)));
       } else {
@@ -289,13 +232,15 @@ namespace rd_utils::memory::cache {
   }
 
   uint8_t * Allocator::evictSome (uint32_t nb) {
+    // We don't lock the mutex, we can only enter here if we are already locked
+
     for (size_t i = 0 ; i < nb ; i++) {
       auto min = time (NULL) + 10;
       uint32_t addr = 0;
 
       for (auto & [it, ld_mem] : this-> _loaded) {
         auto & bl = this-> _blocks [it - 1];
-        if (bl.lru < min) {
+        if (bl.lru < min && !bl.lock) {
           addr = it;
           min = bl.lru;
         }
@@ -306,6 +251,7 @@ namespace rd_utils::memory::cache {
         this-> _perister.save (addr, mem, this-> _block_size);
         this-> _loaded.erase (addr);
         this-> _blocks [addr - 1].mem = nullptr;
+
         if (i != nb - 1) {
           ::free (mem);
           mem = nullptr;
@@ -315,6 +261,7 @@ namespace rd_utils::memory::cache {
         }
       }
       else {
+        std::cout << "Waiting unlock ?" << std::endl;
         concurrency::timer::sleep (0.1);
         return evictSome (nb - i);
       }
@@ -324,6 +271,7 @@ namespace rd_utils::memory::cache {
   }
 
   void Allocator::freeBlock (uint32_t addr) {
+    // No need to lock, only called within lock
     auto & bl = this-> _blocks [addr - 1];
     if (bl.mem != nullptr) {
       ::free (bl.mem);
@@ -332,6 +280,7 @@ namespace rd_utils::memory::cache {
 
     this-> _perister.erase (addr);
     this-> _loaded.erase (addr);
+
     while (this-> _blocks.size () != 0) {
       auto & bl = this-> _blocks.back ();
       if (bl.max_size == this-> _max_allocable) {

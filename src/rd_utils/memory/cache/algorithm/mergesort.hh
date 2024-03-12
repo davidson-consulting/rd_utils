@@ -9,7 +9,7 @@ namespace rd_utils::memory::cache::algorithm {
 
   template <typename T>
   void merge(T * buffer, T * buffer2, collection::CacheArray<T> * a, collection::CacheArray<T> * aux, int64_t left, int64_t mid, int64_t right) {
-    auto HALF_SIZE = ARRAY_BUFFER_SIZE / 2;
+    const auto HALF_SIZE = ARRAY_BUFFER_SIZE / 2;
 
     int64_t lSub = mid - left;
     int64_t rSub = right - mid;

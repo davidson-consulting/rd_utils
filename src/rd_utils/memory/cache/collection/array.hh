@@ -86,11 +86,12 @@ namespace rd_utils::memory::cache::collection {
     private:
 
       bool commitForce () {
-        auto write = std::min (this-> _i, this-> _bufferSize);
+        auto write = this-> _i < this-> _bufferSize ? this-> _i : this-> _bufferSize;
         if (write != 0) {
           this-> _context-> setNb (this-> _beg, this-> _buffer, write);
           this-> _beg += this-> _i;
-          this-> _bufferSize = std::min (this-> _bufferSize, this-> _context-> len () - this-> _beg);
+          auto restLen = this-> _context-> len () - this-> _beg;
+          this-> _bufferSize = this-> _bufferSize < restLen ? this-> _bufferSize : restLen;
           this-> _i = 0;
           return true;
         } else {
@@ -318,17 +319,7 @@ namespace rd_utils::memory::cache::collection {
         seg.offset = sizeof (free_list_instance) + sizeof (uint32_t);
       }
 
-      if constexpr (sizeof (T) == 8) {
-        Allocator::instance ().write_8 (seg, *reinterpret_cast<const uint64_t*> (&val), offset);
-      } else if constexpr (sizeof (T) == 4) {
-        Allocator::instance ().write_4 (seg, *reinterpret_cast<const uint32_t*> (&val), offset);
-      } else if constexpr (sizeof (T) == 2) {
-        Allocator::instance ().write_2 (seg, *reinterpret_cast<const uint16_t*> (&val), offset);
-      } else if constexpr (sizeof (T) == 1) {
-        Allocator::instance ().write_1 (seg, *reinterpret_cast<const uint8_t*> (&val), offset);
-      } else {
-        Allocator::instance ().write (seg, &val, offset, sizeof (T));
-      }
+      Allocator::instance ().write (seg, &val, offset, sizeof (T));
     }
 
     /**
@@ -346,28 +337,9 @@ namespace rd_utils::memory::cache::collection {
         seg.offset = sizeof (free_list_instance) + sizeof (uint32_t);
       }
 
-      if constexpr (sizeof (T) == 8) {
-        uint64_t buffer;
-        Allocator::instance ().read_8 (seg, &buffer, offset);
-        return *reinterpret_cast<T*> (&buffer);
-        return buffer;
-      } else if constexpr (sizeof (T) == 4) {
-        uint32_t buffer;
-        Allocator::instance ().read_4 (seg, &buffer, offset);
-        return *reinterpret_cast<T*> (&buffer);
-      } else if constexpr (sizeof (T) == 2) {
-        uint16_t buffer;
-        Allocator::instance ().read_2 (seg, &buffer, offset);
-        return *reinterpret_cast<T*> (&buffer);
-      } else if constexpr (sizeof (T) == 1) {
-        uint8_t buffer;
-        Allocator::instance ().read_1 (seg, &buffer, offset);
-        return *reinterpret_cast<T*> (&buffer);
-      } else {
-        char buffer [sizeof (T)];
-        Allocator::instance ().read (seg, buffer, offset, sizeof (T));
-        return *reinterpret_cast<T*> (buffer);
-      }
+      char buffer [sizeof (T)];
+      Allocator::instance ().read (seg, buffer, offset, sizeof (T));
+      return *reinterpret_cast<T*> (buffer);
     }
 
     inline void setNb (uint32_t i, T * buffer, uint32_t nb) {
