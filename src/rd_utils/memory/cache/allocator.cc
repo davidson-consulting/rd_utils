@@ -6,8 +6,9 @@
 
 namespace rd_utils::memory::cache {
 
-#define BLOCK_SIZE 1024 * 1024 * 32
-#define NB_BLOCKS 4 // 1GB
+#define BLOCK_SIZE 1024 * 1024 * 4
+#define NB_BLOCKS 1024 // 1GB
+
 
   Allocator Allocator::__GLOBAL__ (NB_BLOCKS * (uint64_t) BLOCK_SIZE, BLOCK_SIZE);
 
@@ -16,7 +17,7 @@ namespace rd_utils::memory::cache {
   Allocator::Allocator (uint64_t totalSize, uint32_t blockSize) :
     _max_blocks (totalSize / blockSize)
     , _block_size (blockSize)
-    , _max_allocable (blockSize - sizeof (free_list_instance) - sizeof (uint32_t))
+    , _max_allocable (blockSize - ALLOC_HEAD_SIZE)
   {}
 
   Allocator& Allocator::instance () {
@@ -74,7 +75,6 @@ namespace rd_utils::memory::cache {
     if (free_list_allocate (reinterpret_cast <free_list_instance*> (mem), size, offset)) {
       auto & bl = this-> _blocks [addr - 1];
       bl.max_size = free_list_max_size (reinterpret_cast <free_list_instance*> (mem));
-
       bl.lru = this-> _lastLRU++;
 
       alloc = {.blockAddr = addr, .offset = offset};
@@ -95,7 +95,7 @@ namespace rd_utils::memory::cache {
 
       while (size >= this-> _max_allocable) {
         auto toAlloc = this-> _max_allocable - sizeof (uint32_t);
-        blockSize = this-> _max_allocable;
+        blockSize = toAlloc;
         this-> allocate (toAlloc, seg, true, false);
         if (fst) { fstBlock = seg.blockAddr; fst = false; }
         nbBlocks += 1;
@@ -106,6 +106,7 @@ namespace rd_utils::memory::cache {
         this-> allocate (size, rest, false, false);
       }
     }
+
     return true;
   }
 
@@ -159,6 +160,7 @@ namespace rd_utils::memory::cache {
       if (mem == nullptr) {
         mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
       }
+
       memcpy (data, mem + alloc.offset + offset, size);
     }
   }
@@ -172,6 +174,30 @@ namespace rd_utils::memory::cache {
       }
 
       memcpy (mem + alloc.offset + offset, data, size);
+    }
+  }
+
+  void Allocator::copy (AllocatedSegment left, AllocatedSegment right, uint32_t size) {
+    WITH_LOCK (__GLOBAL_MUTEX__) {
+      auto & lBl = this-> _blocks [left.blockAddr - 1];
+      auto & rBl = this-> _blocks [right.blockAddr - 1];
+      auto lMem = lBl.mem;
+      auto rMem = rBl.mem;
+      if (lMem == nullptr) {
+        lMem = reinterpret_cast<uint8_t*> (this-> load (left.blockAddr));
+      }
+      if (rMem == nullptr) {
+        rMem = reinterpret_cast <uint8_t*> (this-> load (right.blockAddr));
+      }
+
+      memcpy (rMem + right.offset, lMem + left.offset, size);
+    }
+  }
+
+  bool Allocator::isLoaded (uint32_t blockAddr) const {
+    WITH_LOCK (__GLOBAL_MUTEX__) {
+      auto & bl = this-> _blocks [blockAddr - 1];
+      return bl.mem != nullptr;
     }
   }
 

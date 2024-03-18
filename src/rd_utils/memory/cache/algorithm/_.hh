@@ -6,3 +6,4 @@
 #include "quicksort.hh"
 #include "map.hh"
 #include "reduce.hh"
+#include "copy.hh"

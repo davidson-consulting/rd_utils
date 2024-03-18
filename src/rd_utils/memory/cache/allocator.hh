@@ -12,6 +12,8 @@
 
 namespace rd_utils::memory::cache {
 
+#define ALLOC_HEAD_SIZE (sizeof (free_list_instance) + sizeof (uint32_t))
+
         struct AllocatedSegment {
                 uint32_t blockAddr;
                 uint32_t offset;
@@ -107,6 +109,21 @@ namespace rd_utils::memory::cache {
                  *    - size: the size to read
                  */
                 void write (AllocatedSegment alloc, const void * data, uint32_t offset, uint32_t size);
+
+
+                /**
+                 * Copy data from an allocated segment to another
+                 * @params:
+                 *    - input: the segment in which we read data
+                 *    - right: the segment in which we write data
+                 *    - size: the size in bytes to copy
+                 */
+                void copy (AllocatedSegment input, AllocatedSegment output, uint32_t size);
+
+                /**
+                 * @returns: true if the block /addr/ is loaded
+                 */
+                bool isLoaded (uint32_t addr) const;
 
                 /**
                  * Free an allocated memory segment
