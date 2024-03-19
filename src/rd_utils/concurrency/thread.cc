@@ -27,7 +27,6 @@ namespace rd_utils {
 				dg_thread_launcher * dg = (dg_thread_launcher*)(inner);
 				dg-> run ();
 				dg-> dispose ();
-				std::cout << "End ?" << std::endl;
 				delete (dg_thread_launcher*) inner;
 				return nullptr;
 			}

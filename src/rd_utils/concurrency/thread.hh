@@ -78,7 +78,6 @@ namespace rd_utils {
 				}
 
 				void dispose () {
-					std::cout << "Dispose ?" << std::endl;
 					delete this-> content.pipe;
 				}
 			};
