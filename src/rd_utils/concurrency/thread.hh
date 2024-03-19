@@ -24,6 +24,10 @@ namespace rd_utils {
 			class fake {};
 
 			class dg_thread_launcher {
+			protected:
+
+				dg_thread_launcher ();
+
 			public:
 				Thread content;
 				fake* closure;
@@ -37,6 +41,10 @@ namespace rd_utils {
 			};
 
 			class fn_thread_launcher {
+			protected:
+
+				fn_thread_launcher ();
+
 			public:
 				Thread content;
 				void (*func) (Thread);
@@ -57,7 +65,7 @@ namespace rd_utils {
 				void (fake::*func) (Thread, T...);
 
 				dg_thread_launcher_template (fake* closure, void (fake::*func) (Thread, T...), T... args) :
-					dg_thread_launcher (nullptr, nullptr),
+					dg_thread_launcher (),
 					content (0, new ThreadPipe (true)),
 					closure (closure), func (func), datas (std::make_tuple (args...))
 				{}
@@ -70,6 +78,7 @@ namespace rd_utils {
 				}
 
 				void dispose () {
+					std::cout << "Dispose ?" << std::endl;
 					delete this-> content.pipe;
 				}
 			};
@@ -82,7 +91,7 @@ namespace rd_utils {
 				std::tuple <T...> datas;
 
 				fn_thread_launcher_template (void (*func) (Thread, T...), T... args) :
-					fn_thread_launcher (nullptr),
+					fn_thread_launcher (),
 					content (0, new ThreadPipe (true)), func (func), datas (std::make_tuple (args...))
 				{}
 

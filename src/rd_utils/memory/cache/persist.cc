@@ -56,6 +56,14 @@ namespace rd_utils::memory::cache {
     std::cout << "Load " << this-> _nbLoaded << " (" << this-> _loadElapsed << "), Save " << this-> _nbSaved << "(" << this-> _saveElapsed << ")\n";
   }
 
+  void BlockPersister::getInfo (uint64_t & nbWrites, double & writeTime, uint64_t & nbReads, double & readTime) const {
+    nbWrites = this-> _nbSaved;
+    nbReads = this-> _nbLoaded;
+
+    readTime = this-> _loadElapsed;
+    writeTime = this-> _saveElapsed;
+  }
+
   BlockPersister::~BlockPersister () {
     delete [] this-> _buffer;
   }

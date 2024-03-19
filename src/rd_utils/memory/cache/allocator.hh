@@ -140,6 +140,11 @@ namespace rd_utils::memory::cache {
                  */
                 static Allocator& instance ();
 
+                /**
+                 * Configure the size of the allocator
+                 * @warning: only works if there is no allocations alive
+                 */
+                void configure (uint32_t nbBlocks, uint32_t blockSize);
 
                 friend std::ostream & operator<< (std::ostream & s, rd_utils::memory::cache::Allocator & alloc);
 

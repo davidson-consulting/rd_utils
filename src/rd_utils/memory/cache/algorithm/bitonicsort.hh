@@ -7,15 +7,7 @@
 
 namespace rd_utils::memory::cache::algorithm {
 
-  uint32_t flp2 (uint32_t x)
-  {
-    x = x | (x >> 1);
-    x = x | (x >> 2);
-    x = x | (x >> 4);
-    x = x | (x >> 8);
-    x = x | (x >> 16);
-    return x - (x >> 1);
-  }
+  uint32_t flp2 (uint32_t x);
 
   template <typename T>
   void compAndSwap (T * a, T * b, uint32_t i, uint32_t dir) {

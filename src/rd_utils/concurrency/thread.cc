@@ -19,7 +19,7 @@ namespace rd_utils {
 				fn_thread_launcher * fn = (fn_thread_launcher*)(inner);
 				fn-> run ();
 				fn-> dispose ();
-				delete (char*) inner;
+				delete (fn_thread_launcher*) inner;
 				return nullptr;
 			}
 
@@ -27,9 +27,16 @@ namespace rd_utils {
 				dg_thread_launcher * dg = (dg_thread_launcher*)(inner);
 				dg-> run ();
 				dg-> dispose ();
-				delete (char*) inner;
+				std::cout << "End ?" << std::endl;
+				delete (dg_thread_launcher*) inner;
 				return nullptr;
 			}
+
+			dg_thread_launcher::dg_thread_launcher () :
+				closure (nullptr),
+				func (nullptr),
+				content (0, nullptr)
+			{}
 
 			dg_thread_launcher::dg_thread_launcher (fake* closure, void (fake::*func) (Thread)) :
 				closure (closure),
@@ -42,8 +49,14 @@ namespace rd_utils {
 			}
 
 			void dg_thread_launcher::dispose () {
+				std::cout << "Delete pipe" << std::endl;
 				delete this-> content.pipe;
 			}
+
+			fn_thread_launcher::fn_thread_launcher () :
+				func (nullptr),
+				content (0, nullptr)
+			{}
 
 			fn_thread_launcher::fn_thread_launcher (void (*func) (Thread)) :
 				func (func),

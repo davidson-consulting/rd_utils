@@ -330,7 +330,7 @@ void printArray(T A[], int size)
         seg.offset = ALLOC_HEAD_SIZE;
       }
 
-      Allocator::instance ().read (seg, &val, offset * sizeof (T), sizeof (T));
+      Allocator::instance ().write (seg, &val, offset * sizeof (T), sizeof (T));
     }
 
     /**
@@ -670,26 +670,6 @@ void printArray(T A[], int size)
 
   };
 
-}
-
-std::ostream& operator << (std::ostream & s, rd_utils::memory::cache::collection::CacheArray<uint32_t>::Slice array) {
-  uint32_t BLK_SIZE = 8192;
-  uint32_t * buffer = new uint32_t [BLK_SIZE];
-  auto len = array.len ();
-  uint32_t i = 0;
-  auto p = array.puller (buffer, BLK_SIZE);
-  s << "[";
-  p.next ();
-  while (i < len) {
-    if (i != 0) s << ", ";
-    s << p.current ();
-    p.next ();
-    i ++;
-  }
-  s << "]";
-
-  delete [] buffer;
-  return s;
 }
 
 template <typename T>

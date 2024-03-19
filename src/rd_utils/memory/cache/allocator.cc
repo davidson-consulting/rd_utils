@@ -24,6 +24,19 @@ namespace rd_utils::memory::cache {
     return __GLOBAL__;
   }
 
+
+  void Allocator::configure (uint32_t nbBlocks, uint32_t blockSize) {
+    WITH_LOCK (__GLOBAL_MUTEX__) {
+      if (this-> _blocks.size () != 0) {
+        throw std::runtime_error ("Cannot change size when there are already allocations");
+      }
+
+      this-> _max_blocks = nbBlocks;
+      this-> _block_size = blockSize;
+      this-> _max_allocable = blockSize - ALLOC_HEAD_SIZE;
+    }
+  }
+
   /**
    * ============================================================================
    * ============================================================================
