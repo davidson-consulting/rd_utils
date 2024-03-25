@@ -507,7 +507,7 @@ void printArray(T A[], int size)
       for (uint32_t i = 0 ; i < this-> _nbBlocks ; i++) {
         seg.blockAddr = this-> _fstBlockAddr + i;
         auto auxSeg = aux._fstBlockAddr + i;
-        if (Allocator::instance ().isLoaded (seg.blockAddr) && Allocator::instance ().isLoaded (auxSeg)) {
+        if (Allocator::instance ().isLoaded (seg.blockAddr) || Allocator::instance ().isLoaded (auxSeg)) {
           Allocator::instance ().copy ({.blockAddr = auxSeg, .offset = seg.offset}, seg, this-> _sizePerBlock);
         } else { toLoad.push_back (i); }
       }
@@ -556,15 +556,12 @@ void printArray(T A[], int size)
     void dispose () {
       if (this-> _rest.blockAddr != 0) {
         if (this-> _nbBlocks != 0) {
-          std::vector <AllocatedSegment> segs;
-          segs.push_back (this-> _rest);
           for (uint32_t index = 0 ; index < this-> _nbBlocks ; index ++) {
-            segs.push_back ({.blockAddr = this-> _fstBlockAddr + index, .offset = ALLOC_HEAD_SIZE});
+            Allocator::instance ().freeFast (this-> _fstBlockAddr + index);
           }
-          Allocator::instance ().free (segs);
-        } else {
-          Allocator::instance ().free (this-> _rest);
         }
+
+        Allocator::instance ().free (this-> _rest);
 
         this-> _rest = {0, 0};
         this-> _fstBlockAddr = 0;

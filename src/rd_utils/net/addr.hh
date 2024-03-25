@@ -20,10 +20,11 @@ namespace rd_utils {
 
 		public :
 
+			Ipv4Address (const std::string & addr);
+
 			Ipv4Address (int full);
 
 			Ipv4Address (unsigned char a, unsigned char b, unsigned char c, unsigned char d);
-
 
 			/**
 			 * Store the four part of the ip A.B.C.D in a single u64 (A << 24 | B << 16 | C << 8 | D)

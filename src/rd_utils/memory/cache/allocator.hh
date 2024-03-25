@@ -7,7 +7,7 @@
 #include <unordered_set>
 
 #include "free_list.hh"
-#include "persist.hh"
+#include <rd_utils/memory/cache/remote/persist.hh>
 #include <rd_utils/concurrency/mutex.hh>
 
 namespace rd_utils::memory::cache {
@@ -45,7 +45,7 @@ namespace rd_utils::memory::cache {
                 std::vector <BlockInfo> _blocks;
 
                 // The persister to store blocks to disk
-                BlockPersister _perister;
+                remote::BlockPersister * _persister;
 
                 uint32_t _lastLRU = 1;
 
@@ -66,10 +66,18 @@ namespace rd_utils::memory::cache {
 
                 /**
                  * @params:
-                 *    - totalSize: the maximum available size of the local memory
+                 *    - nbBlocks: the maximal number of blocks that can be loaded into RAM at the same time
                  *    - blockSize: the size of a block (defining the number of block that can be loaded at the same time)
+                 * @info: nbBlocks * blockSize is the maximal amount of memory the allocator can allocate to store blocks into memory
+                 * @warning:
+                 * ======
+                 * the allocator itself uses some memory to store block
+                 * informations, this memory is small but still exists making
+                 * the actual memory usage of the allocator higher than nbBlocks
+                 *  blockSize
+                 * ======
                  */
-                Allocator (uint64_t totalSize, uint32_t blockSize = 1024 * 1024);
+                Allocator (uint32_t nbBlocks, uint32_t blockSize = 1024 * 1024);
 
                 /**
                  * Allocate a segment of memory
@@ -110,7 +118,6 @@ namespace rd_utils::memory::cache {
                  */
                 void write (AllocatedSegment alloc, const void * data, uint32_t offset, uint32_t size);
 
-
                 /**
                  * Copy data from an allocated segment to another
                  * @params:
@@ -131,6 +138,11 @@ namespace rd_utils::memory::cache {
                 void free (AllocatedSegment alloc);
 
                 /**
+                 * Free a full block
+                 */
+                void freeFast (uint32_t blockAddr);
+
+                /**
                  * Free a list of segments
                  */
                 void free (const std::vector <AllocatedSegment> & allocs);
@@ -146,22 +158,42 @@ namespace rd_utils::memory::cache {
                  */
                 void configure (uint32_t nbBlocks, uint32_t blockSize);
 
+                /**
+                 * Configure the size of the allocator
+                 * @warning: only works if there is no allocations alive
+                 */
+                void configure (uint32_t nbBlocks, uint32_t blockSize, net::SockAddrV4 remotePersist);
+
+                /**
+                 * Dump the allocator debugging informations to the stream
+                 */
                 friend std::ostream & operator<< (std::ostream & s, rd_utils::memory::cache::Allocator & alloc);
 
+                /**
+                 * Debugging information about allocated blocks currently loaded into memory
+                 */
                 void printLoaded () const;
 
+                /**
+                 * Debugging information about allocated blocks
+                 */
                 void printBlocks () const;
 
                 /**
                  * @returns: the block persister
                  */
-                const BlockPersister & getPersister () const;
+                const remote::BlockPersister & getPersister () const;
 
 
                 /**
                  * Evict a number of blocks from the loaded blocks
                  */
                 uint8_t * evictSome (uint32_t nb);
+
+
+                void dispose ();
+
+                ~Allocator ();
 
         private:
 

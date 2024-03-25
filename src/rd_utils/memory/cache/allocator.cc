@@ -1,29 +1,29 @@
 #include "allocator.hh"
 #include <cstring>
 #include <rd_utils/concurrency/timer.hh>
+#include <rd_utils/utils/log.hh>
 #include "free_list.hh"
 #include <sys/time.h>
 
 namespace rd_utils::memory::cache {
 
+  using namespace rd_utils::memory::cache::remote;
+
 #define BLOCK_SIZE 1024 * 1024 * 4
 #define NB_BLOCKS 1024 // 1GB
 
 
-  Allocator Allocator::__GLOBAL__ (NB_BLOCKS * (uint64_t) BLOCK_SIZE, BLOCK_SIZE);
+  Allocator Allocator::__GLOBAL__ (NB_BLOCKS, BLOCK_SIZE);
 
   concurrency::mutex Allocator::__GLOBAL_MUTEX__;
 
-  Allocator::Allocator (uint64_t totalSize, uint32_t blockSize) :
-    _max_blocks (totalSize / blockSize)
-    , _block_size (blockSize)
-    , _max_allocable (blockSize - ALLOC_HEAD_SIZE)
-  {}
+  Allocator::Allocator (uint32_t nbBlocks, uint32_t blockSize) {
+    this-> configure (nbBlocks, blockSize);
+  }
 
   Allocator& Allocator::instance () {
     return __GLOBAL__;
   }
-
 
   void Allocator::configure (uint32_t nbBlocks, uint32_t blockSize) {
     WITH_LOCK (__GLOBAL_MUTEX__) {
@@ -34,8 +34,33 @@ namespace rd_utils::memory::cache {
       this-> _max_blocks = nbBlocks;
       this-> _block_size = blockSize;
       this-> _max_allocable = blockSize - ALLOC_HEAD_SIZE;
+      if (this-> _persister != nullptr) {
+        delete this-> _persister;
+        this-> _persister = nullptr;
+      }
+
+      this-> _persister = new LocalPersister ();
     }
   }
+
+  void Allocator::configure (uint32_t nbBlocks, uint32_t blockSize, net::SockAddrV4 addr) {
+    WITH_LOCK (__GLOBAL_MUTEX__) {
+      if (this-> _blocks.size () != 0) {
+        throw std::runtime_error ("Cannot change size when there are already allocations");
+      }
+
+      this-> _max_blocks = nbBlocks;
+      this-> _block_size = blockSize;
+      this-> _max_allocable = blockSize - ALLOC_HEAD_SIZE;
+      if (this-> _persister != nullptr) {
+        delete this-> _persister;
+        this-> _persister = nullptr;
+      }
+
+      this-> _persister = new RemotePersister (addr);
+    }
+  }
+
 
   /**
    * ============================================================================
@@ -135,6 +160,10 @@ namespace rd_utils::memory::cache {
         this-> freeBlock (alloc.blockAddr);
       }
     }
+  }
+
+  void Allocator::freeFast (uint32_t blockAddr) {
+    this-> freeBlock (blockAddr);
   }
 
   void Allocator::free (const std::vector <AllocatedSegment> & segments) {
@@ -254,10 +283,7 @@ namespace rd_utils::memory::cache {
         out = (uint8_t*) malloc (this-> _block_size);
       }
 
-      if (!this-> _perister.load (addr, out, this-> _block_size)) {
-        free_list_create (reinterpret_cast <free_list_instance*> (out), this-> _block_size);
-      }
-
+      this-> _persister-> load (addr, out, this-> _block_size);
       this-> _loaded.emplace (addr, out);
 
       memory.lru = lru;
@@ -287,7 +313,7 @@ namespace rd_utils::memory::cache {
 
       if (addr != 0) {
         auto mem = this-> _loaded [addr];
-        this-> _perister.save (addr, mem, this-> _block_size);
+        this-> _persister-> save (addr, mem, this-> _block_size);
         this-> _loaded.erase (addr);
         this-> _blocks [addr - 1].mem = nullptr;
 
@@ -317,7 +343,7 @@ namespace rd_utils::memory::cache {
       bl.mem = nullptr;
     }
 
-    this-> _perister.erase (addr);
+    this-> _persister-> erase (addr);
     this-> _loaded.erase (addr);
 
     while (this-> _blocks.size () != 0) {
@@ -353,7 +379,19 @@ namespace rd_utils::memory::cache {
   }
 
   const BlockPersister & Allocator::getPersister () const {
-    return this-> _perister;
+    return *this-> _persister;
+  }
+
+
+  void Allocator::dispose () {
+    if (this-> _persister != nullptr) {
+      delete this-> _persister;
+      this-> _persister = nullptr;
+    }
+  }
+
+  Allocator::~Allocator () {
+    this-> dispose ();
   }
 
   std::ostream & operator<< (std::ostream & s, rd_utils::memory::cache::Allocator & alloc) {

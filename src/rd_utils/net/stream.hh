@@ -131,7 +131,7 @@ namespace rd_utils {
 			/**
 			 * Receive a message from the stream
 			 */
-			std::string receive ();
+			std::string receive (char until = '\0');
 
 			/**
 			 * Receive an int from the stream
@@ -142,6 +142,11 @@ namespace rd_utils {
 			 * this-> close ();
 			 */
 			~TcpStream ();
+
+
+		private:
+
+			std::string receiveUntil (char until);
 
 		};
 

@@ -108,7 +108,8 @@ namespace rd_utils::net {
 		return 0;
 	}
 
-	std::string TcpStream::receive () {
+	std::string TcpStream::receive (char until) {
+		if (until != '\0') return this-> receiveUntil (until);
 		if (this-> _sockfd != 0 && !this-> _error) {
 			std::string res;
 			long bufferSize = 100;
@@ -129,6 +130,30 @@ namespace rd_utils::net {
 
 			if (res.length () == 0) { this-> _error = true; }
 			return res;
+		}
+
+		return "";
+	}
+
+	std::string TcpStream::receiveUntil (char until) {
+		if (this-> _sockfd != 0 && !this-> _error) {
+			std::stringstream res;
+			char buffer;
+			ssize_t valread = 0;
+
+			do {
+				valread = recv(this-> _sockfd, &buffer, 1, 0);
+				std::cout << (uint32_t) buffer << " " << valread << std::endl;
+				if (buffer == until) { break; }
+				if(valread == -1) {
+					this-> _error = true;
+					break;
+				}
+
+				res << buffer;
+			} while (valread != 0);
+
+			return res.str ();
 		}
 
 		return "";

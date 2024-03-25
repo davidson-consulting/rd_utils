@@ -67,6 +67,12 @@ file(
 
 file(
   GLOB
+  HEADER_MEMORY_CACHE_REPO
+  src/rd_utils/memory/cache/remote/*.hh
+  )
+
+file(
+  GLOB
   HEADER_MEMORY_GC
   src/rd_utils/memory/gc/*.hh
   )
@@ -101,6 +107,7 @@ install (FILES ${HEADER_MEMORY_GC} DESTINATION /usr/include/rd_utils/memory/gc)
 install (FILES ${HEADER_MEMORY_CACHE} DESTINATION /usr/include/rd_utils/memory/cache)
 install (FILES ${HEADER_MEMORY_CACHE_COLL} DESTINATION /usr/include/rd_utils/memory/cache/collection)
 install (FILES ${HEADER_MEMORY_CACHE_ALGOS} DESTINATION /usr/include/rd_utils/memory/cache/algorithm)
+install (FILES ${HEADER_MEMORY_CACHE_REPO} DESTINATION /usr/include/rd_utils/memory/cache/remote)
 install (FILES ${HEADER_CONFIG} DESTINATION /usr/include/rd_utils/utils/config)
 install (FILES ${HEADER_ROOT} DESTINATION /usr/include/rd_utils/)
 

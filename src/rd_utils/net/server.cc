@@ -8,9 +8,19 @@
 #include <string.h>
 #include <sys/epoll.h>
 #include <rd_utils/utils/_.hh>
-
+#include <thread>
 
 namespace rd_utils::net {
+
+  uint32_t getNbThreads (uint32_t nb) {
+    if (nb == -1) {
+      auto nb = (std::thread::hardware_concurrency() / 2) ;
+      if (nb == 0) return 1;
+      else return nb;
+    } else {
+      return nb;
+    }
+  }
 
   TcpServer::TcpServer () :
     _context (SockAddrV4 (0, 0))
@@ -22,7 +32,7 @@ namespace rd_utils::net {
   TcpServer::TcpServer (SockAddrV4 v4, int nbThreads, int maxCon) :
     _context (v4)
     ,_trigger (true)
-    ,_nbThreads (nbThreads)
+    ,_nbThreads (getNbThreads (nbThreads))
     ,_th (0, nullptr)
     ,_maxConn (maxCon)
   {}
@@ -133,6 +143,7 @@ namespace rd_utils::net {
 
     epoll_event event;
     while (this-> _started) {
+      std::cout << "Waiting ?" << std::endl;
       int event_count = epoll_wait (this-> _epoll_fd, &event, 1, -1);
       if (event_count == 0) {
         throw utils::Rd_UtilsError ("Error while tcp waiting");
@@ -143,7 +154,9 @@ namespace rd_utils::net {
       // New socket
       if (event.data.fd == this-> _context._sockfd) {
         try {
+          std::cout << "Accepting ?" << std::endl;
           TcpStream cl = std::move (this-> _context.accept ());
+
           // Reject connection if there are too much clients
           if (this-> _openSockets.size () + 1 > this-> _maxConn && this-> _maxConn != -1) {
             cl.close ();
@@ -155,8 +168,8 @@ namespace rd_utils::net {
             this-> submit (TcpSessionKind::NEW, stream);
           }
         } catch (utils::Rd_UtilsError err) {
-          // std::cout << this-> _openSockets.size () << std::endl;
-          // std::cout << "IN ERROR ??? " << std::endl;
+          std::cout << this-> _openSockets.size () << std::endl;
+          std::cout << "IN ERROR ??? " << strerror (errno) << std::endl;
 
         } // accept can fail
       }
@@ -190,6 +203,7 @@ namespace rd_utils::net {
   }
 
   void TcpServer::delEpoll (int fd) {
+    std::cout << "Del Epoll ?" << std::endl;
     epoll_event event;
     event.data.fd = fd;
     auto i = epoll_ctl (this-> _epoll_fd, EPOLL_CTL_DEL, fd, &event);
