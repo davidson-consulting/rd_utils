@@ -214,14 +214,16 @@ namespace rd_utils::memory::cache {
     }
   }
 
-  bool Allocator::allocateSegments (uint64_t size, AllocatedSegment & rest, uint32_t & fstBlock, uint32_t & nbBlocks, uint32_t & blockSize) {
+  bool Allocator::allocateSegments (uint32_t elemSize, uint64_t size, AllocatedSegment & rest, uint32_t & fstBlock, uint32_t & nbBlocks, uint32_t & blockSize) {
     WITH_LOCK (__GLOBAL_MUTEX__) {
       AllocatedSegment seg;
       bool fst = true;
       nbBlocks = 0;
 
       while (size >= this-> _max_allocable) {
-        auto toAlloc = this-> _max_allocable - sizeof (uint32_t);
+        auto allocable = this-> _max_allocable - sizeof (uint32_t);
+        auto toAlloc = allocable - (allocable % elemSize);
+
         blockSize = toAlloc;
         this-> allocate (toAlloc, seg, true, false);
         if (fst) { fstBlock = seg.blockAddr; fst = false; }
@@ -229,8 +231,12 @@ namespace rd_utils::memory::cache {
         size -= toAlloc;
       }
 
-      if (size > 0) {
+      while (size > 0) {
+        auto allocable = size;
+        auto toAlloc = allocable - (allocable % elemSize);
+
         this-> allocate (size, rest, false, false);
+        size -= toAlloc;
       }
     }
 
@@ -243,6 +249,7 @@ namespace rd_utils::memory::cache {
       free_list_free (mem, alloc.offset);
 
       auto & bl = this-> _blocks [alloc.blockAddr - 1];
+      std::cout << alloc.blockAddr - 1 << ' ' << this-> _blocks.size () << std::endl;
       bl.maxSize = free_list_max_size (mem);
 
       if (free_list_empty (mem)) {
@@ -296,7 +303,6 @@ namespace rd_utils::memory::cache {
   void Allocator::write (AllocatedSegment alloc, const void * data, uint32_t offset, uint32_t size) {
     WITH_LOCK (__GLOBAL_MUTEX__) {
       auto mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
-
       memcpy (mem + alloc.offset + offset, data, size);
     }
   }

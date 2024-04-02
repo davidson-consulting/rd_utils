@@ -146,7 +146,7 @@ namespace rd_utils::memory::cache {
                  *    - true iif a segment was found
                  *    - alloc: the allocated segment
                  */
-                bool allocateSegments (uint64_t size, AllocatedSegment & rest, uint32_t & fstBlock, uint32_t & nbBlocks, uint32_t & blockSize);
+                bool allocateSegments (uint32_t elemSize, uint64_t size, AllocatedSegment & rest, uint32_t & fstBlock, uint32_t & nbBlocks, uint32_t & blockSize);
 
                 /**
                  * @returns: true if the block /addr/ is loaded

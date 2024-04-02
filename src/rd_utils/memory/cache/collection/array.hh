@@ -291,7 +291,7 @@ void printArray(T A[], int size)
       _size (size)
     {
       uint32_t nbBl;
-      Allocator::instance ().allocateSegments (size * sizeof (T), this-> _rest, this-> _fstBlockAddr, nbBl, this-> _sizePerBlock);
+      Allocator::instance ().allocateSegments (sizeof (T), size * sizeof (T), this-> _rest, this-> _fstBlockAddr, nbBl, this-> _sizePerBlock);
       if (nbBl == 0) {
         this-> _nbBlocks = 0;
         this-> _sizeDividePerBlock = 1;
@@ -328,6 +328,8 @@ void printArray(T A[], int size)
       if (index < this-> _nbBlocks) {
         seg.blockAddr = index + this-> _fstBlockAddr;
         seg.offset = ALLOC_HEAD_SIZE;
+      } else if (this-> _sizeDividePerBlock == 1) {
+        offset = index;
       }
 
       Allocator::instance ().write (seg, &val, offset * sizeof (T), sizeof (T));
@@ -346,6 +348,8 @@ void printArray(T A[], int size)
       if (index < this-> _nbBlocks) {
         seg.blockAddr = index + this-> _fstBlockAddr;
         seg.offset = ALLOC_HEAD_SIZE;
+      } else if (this-> _sizeDividePerBlock == 1) {
+        offset = index;
       }
 
       char buffer [sizeof (T)];
@@ -373,11 +377,15 @@ void printArray(T A[], int size)
 
         Allocator::instance ().write (seg, buffer, offset * sizeof (T), sizeof (T) * nb);
       } else {
+        if (this-> _sizeDividePerBlock == 1) {
+          offset = index;
+        }
+
         Allocator::instance ().write (seg, buffer, offset * sizeof (T), sizeof (T) * nb);
       }
     }
 
-    inline void getNb (uint32_t i, T * buffer, uint32_t nb) {
+    inline void getNb (uint32_t i, T * buffer, uint32_t nb) const {
       uint32_t absolute = i;
       AllocatedSegment seg = this-> _rest;
 
@@ -397,6 +405,9 @@ void printArray(T A[], int size)
 
         Allocator::instance ().read (seg, buffer, offset * sizeof (T), sizeof (T) * nb);
       } else {
+        if (this-> _sizeDividePerBlock == 1) {
+          offset = index;
+        }
         Allocator::instance ().read (seg, buffer, offset * sizeof (T), sizeof (T) * nb);
       }
     }
