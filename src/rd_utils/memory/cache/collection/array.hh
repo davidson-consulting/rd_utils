@@ -138,7 +138,7 @@ void printArray(T A[], int size)
         , _bufferSize (bufferSize)
       {}
 
-      T current () {
+      const T & current () {
         return this-> _buffer [this-> _i];
       }
 
@@ -459,10 +459,10 @@ void printArray(T A[], int size)
       }
     }
 
-    template <typename F>
-    T reduce (T * buffer, uint32_t bufferSize, F func) {
-      T * result = (T*) malloc (sizeof (T)), *tmp = (T*) malloc (sizeof (T));
-      bool fst = true;
+    template <typename F, typename Z>
+    Z reduce (T * buffer, uint32_t bufferSize, F func, Z fst) {
+      Z result = fst;
+
       std::list <uint32_t> toLoad;
       AllocatedSegment seg = {.blockAddr = 0, .offset = ALLOC_HEAD_SIZE};
       uint64_t globIndex = 0, read = 0;
@@ -470,13 +470,7 @@ void printArray(T A[], int size)
         seg.blockAddr = this-> _fstBlockAddr + i;
         if (Allocator::instance ().isLoaded (seg.blockAddr)) {
           globIndex = i * (this-> _sizePerBlock / sizeof (T));
-          if (fst) {
-            fst = false;
-            this-> reduceBlock (seg, globIndex, this-> _sizePerBlock / sizeof (T), *result, buffer, bufferSize, func);
-          } else {
-            this-> reduceBlock (seg, globIndex, this-> _sizePerBlock / sizeof (T), *tmp, buffer, bufferSize, func);
-            *result = func (*tmp, *result);
-          }
+          this-> reduceBlock (seg, globIndex, this-> _sizePerBlock / sizeof (T), result, buffer, bufferSize, func);
           read += (this-> _sizePerBlock / sizeof (T));
         } else {
           toLoad.push_back (this-> _fstBlockAddr + i);
@@ -484,31 +478,15 @@ void printArray(T A[], int size)
       }
 
       globIndex = this-> _nbBlocks * (this-> _sizePerBlock / sizeof (T));
-      if (fst) {
-        this-> reduceBlock (this-> _rest, globIndex, this-> _size - (globIndex), *result, buffer, bufferSize, func);
-        fst = false;
-      } else {
-        this-> reduceBlock (this-> _rest, globIndex, this-> _size - (globIndex), *tmp, buffer, bufferSize, func);
-        *result = func (*tmp, *result);
-      }
+      this-> reduceBlock (this-> _rest, globIndex, this-> _size - (globIndex), result, buffer, bufferSize, func);
 
       for (auto & it : toLoad) {
         seg.blockAddr = it;
         globIndex = it * (this-> _sizePerBlock / sizeof (T));
-        if (fst) {
-          fst = false;
-          this-> reduceBlock (seg, globIndex, this-> _sizePerBlock / sizeof (T), *result, buffer, bufferSize, func);
-        } else {
-          this-> reduceBlock (seg, globIndex, this-> _sizePerBlock / sizeof (T), *tmp, buffer, bufferSize, func);
-          *result = func (*result, *tmp);
-        }
+        this-> reduceBlock (seg, globIndex, this-> _sizePerBlock / sizeof (T), result, buffer, bufferSize, func);
       }
 
-      T fin = std::move (*result);
-      free (result);
-      free (tmp);
-
-      return fin;
+      return result;
     }
 
 
@@ -656,23 +634,15 @@ void printArray(T A[], int size)
       }
     }
 
-    template <typename F>
-    void reduceBlock (AllocatedSegment seg, uint64_t globIndex, uint32_t nbElements, T & result, T * buffer, uint32_t bufferSize, F func) {
-      bool fst = true;
+    template <typename Z, typename F>
+    void reduceBlock (AllocatedSegment seg, uint64_t globIndex, uint32_t nbElements, Z & result, T * buffer, uint32_t bufferSize, F func) {
       for (uint32_t i = 0 ; i < nbElements ; i += bufferSize) {
         auto nb = (nbElements - i) > bufferSize ? bufferSize : (nbElements - i);
 
         Allocator::instance ().read (seg, buffer,  i * sizeof (T), sizeof (T) * nb);
-        uint32_t j = 0;
-        T last = buffer [0];
-        for (j = 1 ; j < nb ; j++) {
-          last = func (last, buffer [j]);
+        for (uint64_t j = 0 ; j < nb ; j++) {
+          result = func (result, buffer [j]);
         }
-
-        if (fst) {
-          result = last;
-          fst = false;
-        } else { result = func (last, result); }
       }
     }
 

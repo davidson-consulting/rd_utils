@@ -7,21 +7,22 @@
 
 namespace rd_utils::memory::cache::algorithm {
 
-  template <typename T, typename F>
-  T reduce (collection::CacheArray<T> & array, F func) {
-    if (array.len () == 0) throw std::runtime_error ("Cannot reduce empty array");
+  template <typename Z, typename T, typename F>
+  Z reduce (collection::CacheArray<T> & array, F func, Z fst = Z ()) {
+    if (array.len () == 0) return fst;
+
     T * buffer = reinterpret_cast <T*> (malloc (ARRAY_BUFFER_SIZE * sizeof (T)));
-    auto res = array.reduce (buffer, ARRAY_BUFFER_SIZE, func);
+    auto res = array.reduce (buffer, ARRAY_BUFFER_SIZE, func, fst);
     free (buffer);
 
     return res;
   }
 
-  template <typename T, typename F>
-  T reduce (const std::vector <T> & array, F func) {
-    T current = array [0];
-    for (size_t i = 1 ; i < array.size () ; i++) {
-      current = func (current, array [i]);
+  template <typename Z, typename T, typename F>
+  Z reduce (const std::vector <T> & array, F func, Z fst = Z ()) {
+    Z current = fst;
+    for (size_t i = 0 ; i < array.size () ; i++) {
+      current = func (fst, array [i]);
     }
     return current;
   }

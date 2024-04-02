@@ -249,7 +249,6 @@ namespace rd_utils::memory::cache {
       free_list_free (mem, alloc.offset);
 
       auto & bl = this-> _blocks [alloc.blockAddr - 1];
-      std::cout << alloc.blockAddr - 1 << ' ' << this-> _blocks.size () << std::endl;
       bl.maxSize = free_list_max_size (mem);
 
       if (free_list_empty (mem)) {
@@ -414,7 +413,6 @@ namespace rd_utils::memory::cache {
         }
       }
       else {
-        // std::cout << "Waiting unlock ?" << std::endl;
         concurrency::timer::sleep (0.1);
         return evictSome (nb - i);
       }

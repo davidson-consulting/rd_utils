@@ -31,6 +31,10 @@ namespace rd_utils::memory::cache::collection {
       *this = value;
     }
 
+    FlatString (const std::string & value) {
+      *this = value.c_str ();
+    }
+
     /**
      * ============================================================================
      * ============================================================================
@@ -40,14 +44,14 @@ namespace rd_utils::memory::cache::collection {
      * */
 
     void operator=(const char * value) {
-      for (uint32_t i = 0 ; i < N - 1; i++) {
-        this-> _value [i] = value [i];
-        if (value [i] == '\0') {
-          this-> _len = i;
-          break;
-        }
+      uint32_t i = 0;
+      while (i < N && *value) {
+        this-> _value [i] = *value;
+        value ++;
+        i += 1;
       }
-      this-> _value [this-> _len] = 0;
+      this-> _value [i] = 0;
+      this-> _len = i;
     }
 
     void operator=(const std::string & cst) {
@@ -82,71 +86,70 @@ namespace rd_utils::memory::cache::collection {
      * ============================================================================
      * */
 
-    int operator < (const std::string & o) const {
-      return inf (o.c_str (), o.length ());
+    inline bool operator < (const std::string & o) const {
+      return inf (o.c_str ());
     }
 
-    int operator > (const std::string & o) const {
-      return sup (o.c_str (), o.length ());
+    inline bool operator > (const std::string & o) const {
+      return sup (o.c_str ());
     }
 
-    int operator <= (const std::string & o) const {
-      return inf_eq (o.c_str (), o.length ());
+    inline bool operator <= (const std::string & o) const {
+      return inf_eq (o.c_str ());
     }
 
-    int operator >= (const std::string & o) const {
-      return sup_eq (o.c_str (), o.length ());
+    inline bool operator >= (const std::string & o) const {
+      return sup_eq (o.c_str ());
     }
 
-    int operator == (const std::string & o) const {
-      return eq (o.c_str (), o.length ());
+    inline bool operator == (const std::string & o) const {
+      return eq (o.c_str ());
     }
 
-    int operator < (const char * value) const {
-      return inf (value, strlen (value));
+    inline bool operator < (const char * value) const {
+      return inf (value);
     }
 
-    int operator > (const char * value) const {
-      return sup (value, strlen (value));
+    inline bool operator > (const char * value) const {
+      return sup (value);
     }
 
-    int operator <= (const char * value) const {
-      return inf_eq (value, strlen (value));
+    inline bool operator <= (const char * value) const {
+      return inf_eq (value);
     }
 
-    int operator >= (const char * value) const {
-      return sup_eq (value, strlen (value));
+    inline bool operator >= (const char * value) const {
+      return sup_eq (value);
     }
 
-    int operator == (const char * value) const {
-      return eq (value, strlen (value));
-    }
-
-    template <int J>
-    int operator < (const FlatString<J> & o) const {
-      return inf (o.c_str (), o.len ());
+    inline bool operator == (const char * value) const {
+      return eq (value);
     }
 
     template <int J>
-    int operator > (const FlatString<J> & o) const {
-      return sup (o.c_str (), o.len ());
+    inline bool operator < (const FlatString<J> & o) const {
+      return inf (o.c_str ());
     }
 
     template <int J>
-    int operator <= (const FlatString<J> & o) const {
-      return inf_eq (o.c_str (), o.len ());
+    inline bool operator > (const FlatString<J> & o) const {
+      return sup (o.c_str ());
     }
 
     template <int J>
-    int operator >= (const FlatString<J> & o) const {
-      return sup_eq (o.c_str (), o.len ());
+    inline bool operator <= (const FlatString<J> & o) const {
+      return inf_eq (o.c_str ());
     }
 
     template <int J>
-    int operator == (const FlatString<J> & o) const {
-      return eq (o.c_str (), o.len ());
+    inline bool operator >= (const FlatString<J> & o) const {
+      return sup_eq (o.c_str ());
     }
 
+    template <int J>
+    inline bool operator == (const FlatString<J> & o) const {
+      return eq (o.c_str ());
+    }
 
     /**
      * ============================================================================
@@ -164,60 +167,43 @@ namespace rd_utils::memory::cache::collection {
 
   private:
 
-    bool inf (const char * value, uint32_t len) const {
-      auto minLen = this-> _len < len ? this-> _len : len;
-      for (uint32_t i = 0 ; i < minLen ; i++) {
-        if (this-> _value [i] < value [i]) return true;
-        else if (this-> _value [i] > value [i]) return false;
-      }
-
-      if (this-> _len < len) return true;
-      return false;
+    inline bool inf (const char * value) const {
+      return this-> strcmp (this-> _value, value) < 0;
     }
 
-    bool sup (const char * value, uint32_t len) const {
-      auto minLen = this-> _len < len ? this-> _len : len;
-      for (uint32_t i = 0 ; i < minLen ; i++) {
-        if (this-> _value [i] < value [i]) return false;
-        else if (this-> _value [i] > value [i]) return true;
-      }
-
-      if (this-> _len > len) return true;
-      return false;
+    inline bool sup (const char * value) const {
+      return this-> strcmp (this-> _value, value) > 0;
     }
 
-    bool eq (const char * value, uint32_t len) const {
-      if (this-> _len != len) return false;
-      for (uint32_t i = 0 ; i < len ; i++) {
-        if (this-> _value [i] != value [i]) return false;
-      }
-
-      return true;
+    inline bool eq (const char * value) const {
+      return this-> strcmp (this-> _value, value) == 0;
     }
 
-    bool inf_eq (const char * value, uint32_t len) const {
-      auto minLen = this-> _len < len ? this-> _len : len;
-      for (uint32_t i = 0 ; i < minLen ; i++) {
-        if (this-> _value [i] < value [i]) return true;
-        else if (this-> _value [i] > value [i]) return false;
-      }
-
-      if (this-> _len <= len) return true;
-      return false;
+    inline bool inf_eq (const char * value) const {
+      return this-> strcmp (this-> _value, value) <= 0;
     }
 
-    bool sup_eq (const char * value, uint32_t len) const {
-      auto minLen = this-> _len < len ? this-> _len : len;
-      for (uint32_t i = 0 ; i < minLen ; i++) {
-        if (this-> _value [i] < value [i]) return false;
-        else if (this-> _value [i] > value [i]) return true;
+    inline bool sup_eq (const char * value) const {
+      return this-> strcmp (this-> _value, value) >= 0;
+    }
+
+    // Function to implement strcmp function
+    inline int strcmp(const char *X, const char *Y) const {
+      while (*X) {
+        // if characters differ, or end of the second string is reached
+        if (*X != *Y) {
+          break;
+        }
+
+        // move to the next pair of characters
+        X++;
+        Y++;
       }
 
-      if (this-> _len >= len) return true;
-      return false;
+      // return the ASCII difference after converting `char*` to `unsigned char*`
+      return *(const unsigned char*)X - *(const unsigned char*)Y;
     }
 
   };
-
 
 }
