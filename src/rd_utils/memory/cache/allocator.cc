@@ -17,6 +17,14 @@ namespace rd_utils::memory::cache {
 
   concurrency::mutex Allocator::__GLOBAL_MUTEX__;
 
+  /**
+   * ============================================================================
+   * ============================================================================
+   * ================================    CTORS   ================================
+   * ============================================================================
+   * ============================================================================
+   * */
+
   Allocator::Allocator (uint32_t nbBlocks, uint32_t blockSize) {
     this-> configure (nbBlocks, blockSize);
   }
@@ -61,6 +69,71 @@ namespace rd_utils::memory::cache {
     }
   }
 
+  void Allocator::dispose () {
+    if (this-> _persister != nullptr) {
+      delete this-> _persister;
+      this-> _persister = nullptr;
+    }
+  }
+
+  Allocator::~Allocator () {
+    this-> dispose ();
+  }
+
+  /**
+   * ============================================================================
+   * ============================================================================
+   * ============================      GETTERS      =============================
+   * ============================================================================
+   * ============================================================================
+   * */
+
+  const BlockPersister & Allocator::getPersister () const {
+    return *this-> _persister;
+  }
+
+
+  uint32_t Allocator::getMaxNbLoadable () const {
+    return this-> _max_blocks;
+  }
+
+  uint32_t Allocator::getNbLoaded () const {
+    return this-> _loaded.size ();
+  }
+
+  uint32_t Allocator::getNbAllocated () const {
+    return this-> _blocks.size ();
+  }
+
+  uint32_t Allocator::getUniqLoaded () const {
+    return this-> _uniqLoads;
+  }
+
+  /**
+   * ============================================================================
+   * ============================================================================
+   * ============================      SETTERS      =============================
+   * ============================================================================
+   * ============================================================================
+   * */
+
+  void Allocator::resize (uint32_t nbBlocks) {
+    WITH_LOCK (__GLOBAL_MUTEX__) {
+      if (nbBlocks < 2) this-> _max_blocks = 2;
+      else this-> _max_blocks = nbBlocks;
+      while (this-> _loaded.size () > this-> _max_blocks) {
+        auto mem = this-> evictSome (this-> _loaded.size () - this-> _max_blocks);
+        if (mem != nullptr) ::free (mem);
+      }
+    }
+  }
+
+  void Allocator::resetUniqCounter () {
+    WITH_LOCK (__GLOBAL_MUTEX__) {
+      this-> _lruStamp = this-> _lastLRU;
+      this-> _uniqLoads = 0;
+    }
+  }
 
   /**
    * ============================================================================
@@ -82,9 +155,9 @@ namespace rd_utils::memory::cache {
       if (lock) __GLOBAL_MUTEX__.lock ();
       for (auto & [addr, mem] : this-> _loaded) {
         auto & bl = this-> _blocks [addr - 1];
-        if (bl.max_size >= realSize) {
+        if (bl.maxSize >= realSize) {
           if (free_list_allocate (reinterpret_cast <free_list_instance*> (mem), size, offset)) {
-            bl.max_size = free_list_max_size (reinterpret_cast <free_list_instance*> (mem));
+            bl.maxSize = free_list_max_size (reinterpret_cast <free_list_instance*> (mem));
             bl.lru = this-> _lastLRU++;
             alloc = {.blockAddr = addr, .offset = offset};
             if (lock) __GLOBAL_MUTEX__.unlock ();
@@ -95,10 +168,10 @@ namespace rd_utils::memory::cache {
 
       for (size_t addr = 1 ; addr <= this-> _blocks.size () ; addr++) {
         auto & bl = this-> _blocks [addr - 1];
-        if (bl.max_size >= realSize) { // no need to load a block whose size is not big enough for the allocation
+        if (bl.maxSize >= realSize) { // no need to load a block whose size is not big enough for the allocation
           auto mem = this-> load (addr);
           if (free_list_allocate (mem, size, offset)) {
-            bl.max_size = free_list_max_size (mem);
+            bl.maxSize = free_list_max_size (mem);
             alloc = {.blockAddr = (uint32_t) addr, .offset = offset};
             if (lock) __GLOBAL_MUTEX__.unlock ();
             return true;
@@ -112,7 +185,7 @@ namespace rd_utils::memory::cache {
     auto mem = this-> allocateNewBlock (addr);
     if (free_list_allocate (reinterpret_cast <free_list_instance*> (mem), size, offset)) {
       auto & bl = this-> _blocks [addr - 1];
-      bl.max_size = free_list_max_size (reinterpret_cast <free_list_instance*> (mem));
+      bl.maxSize = free_list_max_size (reinterpret_cast <free_list_instance*> (mem));
       bl.lru = this-> _lastLRU++;
 
       alloc = {.blockAddr = addr, .offset = offset};
@@ -154,7 +227,7 @@ namespace rd_utils::memory::cache {
       free_list_free (mem, alloc.offset);
 
       auto & bl = this-> _blocks [alloc.blockAddr - 1];
-      bl.max_size = free_list_max_size (mem);
+      bl.maxSize = free_list_max_size (mem);
 
       if (free_list_empty (mem)) {
         this-> freeBlock (alloc.blockAddr);
@@ -262,7 +335,7 @@ namespace rd_utils::memory::cache {
     free_list_create (reinterpret_cast<free_list_instance*> (mem), this-> _block_size);
     addr = this-> _blocks.size () + 1;
     uint32_t lru = this-> _lastLRU++;
-    BlockInfo info = {.mem = mem, .lock = false, .lru = lru, .max_size = this-> _max_allocable};
+    BlockInfo info = {.mem = mem, .lru = lru, .maxSize = this-> _max_allocable};
     this-> _blocks.push_back (info);
     this-> _loaded.emplace (addr, mem);
 
@@ -286,11 +359,19 @@ namespace rd_utils::memory::cache {
       this-> _persister-> load (addr, out, this-> _block_size);
       this-> _loaded.emplace (addr, out);
 
+      if (memory.lru < this-> _lruStamp) {
+        this-> _uniqLoads += 1;
+      }
+
       memory.lru = lru;
       memory.mem = out;
 
       return (free_list_instance*) out;
     } else {
+      if (memory.lru < this-> _lruStamp) {
+        this-> _uniqLoads += 1;
+      }
+
       memory.lru = lru;
       return (free_list_instance*) (memory.mem);
     }
@@ -305,7 +386,7 @@ namespace rd_utils::memory::cache {
 
       for (auto & [it, ld_mem] : this-> _loaded) {
         auto & bl = this-> _blocks [it - 1];
-        if (bl.lru < min && !bl.lock) {
+        if (bl.lru < min) {
           addr = it;
           min = bl.lru;
         }
@@ -326,7 +407,7 @@ namespace rd_utils::memory::cache {
         }
       }
       else {
-        std::cout << "Waiting unlock ?" << std::endl;
+        // std::cout << "Waiting unlock ?" << std::endl;
         concurrency::timer::sleep (0.1);
         return evictSome (nb - i);
       }
@@ -348,7 +429,7 @@ namespace rd_utils::memory::cache {
 
     while (this-> _blocks.size () != 0) {
       auto & bl = this-> _blocks.back ();
-      if (bl.max_size == this-> _max_allocable) {
+      if (bl.maxSize == this-> _max_allocable) {
         if (bl.mem != nullptr) {
           ::free (bl.mem);
           bl.mem = nullptr;
@@ -358,6 +439,14 @@ namespace rd_utils::memory::cache {
       } else break;
     }
   }
+
+  /**
+   * ============================================================================
+   * ============================================================================
+   * =============================      MISCS      ==============================
+   * ============================================================================
+   * ============================================================================
+   * */
 
   void Allocator::printLoaded () const {
     std::cout << "=============" << std::endl;
@@ -378,27 +467,12 @@ namespace rd_utils::memory::cache {
     std::cout << "=============" << std::endl;
   }
 
-  const BlockPersister & Allocator::getPersister () const {
-    return *this-> _persister;
-  }
-
-
-  void Allocator::dispose () {
-    if (this-> _persister != nullptr) {
-      delete this-> _persister;
-      this-> _persister = nullptr;
-    }
-  }
-
-  Allocator::~Allocator () {
-    this-> dispose ();
-  }
 
   std::ostream & operator<< (std::ostream & s, rd_utils::memory::cache::Allocator & alloc) {
     s << "Allocator {\n";
     for (size_t addr = 1 ; addr <= alloc._blocks.size () ; addr++) {
       auto & info = alloc._blocks [addr - 1];
-      s << "\tBLOCK(" << addr << ", [" << info.lru << "," << info.max_size << "]) {\n";
+      s << "\tBLOCK(" << addr << ", [" << info.lru << "," << info.maxSize << "]) {\n";
       free_list_instance * inst = reinterpret_cast <free_list_instance*> (info.mem);
       if (inst == nullptr) {
         inst = alloc.load (addr);

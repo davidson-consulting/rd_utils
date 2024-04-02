@@ -21,9 +21,8 @@ namespace rd_utils::memory::cache {
 
         struct BlockInfo {
                 uint8_t * mem;
-                bool lock;
                 uint32_t lru;
-                uint32_t max_size;
+                uint32_t maxSize;
         };
 
         class Allocator {
@@ -47,7 +46,14 @@ namespace rd_utils::memory::cache {
                 // The persister to store blocks to disk
                 remote::BlockPersister * _persister;
 
+                // Counter used to compute the ordering of loads
                 uint32_t _lastLRU = 1;
+
+                // The lru used to compute number of uniq loads
+                uint32_t _lruStamp = 0;
+
+                // The number of uniq load between two stamps
+                uint32_t _uniqLoads = 0;
 
         private:
 
@@ -64,6 +70,15 @@ namespace rd_utils::memory::cache {
 
         public:
 
+
+                /**
+                 * ============================================================================
+                 * ============================================================================
+                 * ================================    CTORS   ================================
+                 * ============================================================================
+                 * ============================================================================
+                 * */
+
                 /**
                  * @params:
                  *    - nbBlocks: the maximal number of blocks that can be loaded into RAM at the same time
@@ -78,6 +93,41 @@ namespace rd_utils::memory::cache {
                  * ======
                  */
                 Allocator (uint32_t nbBlocks, uint32_t blockSize = 1024 * 1024);
+
+                /**
+                 * @returns: the global instance of the allocator
+                 */
+                static Allocator& instance ();
+
+                /**
+                 * Configure the size of the allocator
+                 * @warning: only works if there is no allocations alive
+                 */
+                void configure (uint32_t nbBlocks, uint32_t blockSize);
+
+                /**
+                 * Configure the size of the allocator
+                 * @warning: only works if there is no allocations alive
+                 */
+                void configure (uint32_t nbBlocks, uint32_t blockSize, net::SockAddrV4 remotePersist);
+
+                /**
+                 * Remove all allocated blocks
+                 */
+                void dispose ();
+
+                /**
+                 * this-> dispose ();
+                 */
+                ~Allocator ();
+
+                /**
+                 * ============================================================================
+                 * ============================================================================
+                 * =============================    ALLOCATIONS   =============================
+                 * ============================================================================
+                 * ============================================================================
+                 * */
 
                 /**
                  * Allocate a segment of memory
@@ -97,6 +147,34 @@ namespace rd_utils::memory::cache {
                  *    - alloc: the allocated segment
                  */
                 bool allocateSegments (uint64_t size, AllocatedSegment & rest, uint32_t & fstBlock, uint32_t & nbBlocks, uint32_t & blockSize);
+
+                /**
+                 * @returns: true if the block /addr/ is loaded
+                 */
+                bool isLoaded (uint32_t addr) const;
+
+                /**
+                 * Free an allocated memory segment
+                 */
+                void free (AllocatedSegment alloc);
+
+                /**
+                 * Free a full block
+                 */
+                void freeFast (uint32_t blockAddr);
+
+                /**
+                 * Free a list of segments
+                 */
+                void free (const std::vector <AllocatedSegment> & allocs);
+
+                /**
+                 * ============================================================================
+                 * ============================================================================
+                 * ================================     I/O    ================================
+                 * ============================================================================
+                 * ============================================================================
+                 * */
 
                 /**
                  * Read an allocated segment into memory
@@ -127,42 +205,67 @@ namespace rd_utils::memory::cache {
                  */
                 void copy (AllocatedSegment input, AllocatedSegment output, uint32_t size);
 
-                /**
-                 * @returns: true if the block /addr/ is loaded
-                 */
-                bool isLoaded (uint32_t addr) const;
 
                 /**
-                 * Free an allocated memory segment
-                 */
-                void free (AllocatedSegment alloc);
+                 * ============================================================================
+                 * ============================================================================
+                 * ============================      GETTERS      =============================
+                 * ============================================================================
+                 * ============================================================================
+                 * */
 
                 /**
-                 * Free a full block
+                 * @returns: the block persister
                  */
-                void freeFast (uint32_t blockAddr);
+                const remote::BlockPersister & getPersister () const;
 
                 /**
-                 * Free a list of segments
+                 * @returns: the maximum number of loaded blocks
                  */
-                void free (const std::vector <AllocatedSegment> & allocs);
+                uint32_t getMaxNbLoadable () const;
 
                 /**
-                 * @returns: the global instance of the allocator
+                 * @returns: the number of loaded blocks
                  */
-                static Allocator& instance ();
+                uint32_t getNbLoaded () const;
 
                 /**
-                 * Configure the size of the allocator
-                 * @warning: only works if there is no allocations alive
+                 * @returns: the number of allocated blocks
                  */
-                void configure (uint32_t nbBlocks, uint32_t blockSize);
+                uint32_t getNbAllocated () const;
 
                 /**
-                 * Configure the size of the allocator
-                 * @warning: only works if there is no allocations alive
+                 * @returns: the number of uniq block loads since last counter reset
                  */
-                void configure (uint32_t nbBlocks, uint32_t blockSize, net::SockAddrV4 remotePersist);
+                uint32_t getUniqLoaded () const;
+
+                /**
+                 * ============================================================================
+                 * ============================================================================
+                 * ============================      SETTERS      =============================
+                 * ============================================================================
+                 * ============================================================================
+                 * */
+
+                /**
+                 * Change the number of blocks that can be loaded at the same time
+                 * @info: can be done dynamically (with already allocated blocks)
+                 */
+                void resize (uint32_t nbBlocks);
+
+                /**
+                 * Reset the uniq block loading counter
+                 */
+                void resetUniqCounter ();
+
+
+                /**
+                 * ============================================================================
+                 * ============================================================================
+                 * =============================      MISCS      ==============================
+                 * ============================================================================
+                 * ============================================================================
+                 * */
 
                 /**
                  * Dump the allocator debugging informations to the stream
@@ -179,24 +282,7 @@ namespace rd_utils::memory::cache {
                  */
                 void printBlocks () const;
 
-                /**
-                 * @returns: the block persister
-                 */
-                const remote::BlockPersister & getPersister () const;
-
-
-                /**
-                 * Evict a number of blocks from the loaded blocks
-                 */
-                uint8_t * evictSome (uint32_t nb);
-
-
-                void dispose ();
-
-                ~Allocator ();
-
         private:
-
 
                 /**
                  * Load a block into memory
@@ -214,6 +300,12 @@ namespace rd_utils::memory::cache {
                  * Free a block from memory
                  */
                 void freeBlock (uint32_t);
+
+                /**
+                 * Evict a number of blocks from the loaded blocks
+                 */
+                uint8_t * evictSome (uint32_t nb);
+
 
         };
 
