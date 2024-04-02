@@ -230,6 +230,16 @@ namespace rd_utils::memory::cache {
                 uint32_t getNbLoaded () const;
 
                 /**
+                 * @returns: the number of blocks sent persisted
+                 */
+                uint32_t getNbStored () const;
+
+                /**
+                 * @returns: the minimum number of blocks that must be stored on disk (if loaded is full)
+                 */
+                uint32_t getMinNbStorable () const;
+
+                /**
                  * @returns: the number of allocated blocks
                  */
                 uint32_t getNbAllocated () const;

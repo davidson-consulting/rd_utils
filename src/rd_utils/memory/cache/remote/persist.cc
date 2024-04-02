@@ -45,7 +45,7 @@ namespace rd_utils::memory::cache::remote {
   }
 
   void LocalPersister::load (uint64_t addr, uint8_t * memory, uint64_t size) {
-    LOG_INFO ("LOADING block : ", addr);
+    // LOG_INFO ("LOADING block : ", addr);
 
     this-> _nbLoaded += 1;
     int nb = snprintf (this-> _buffer, 255, "%s%ld", this-> _path.c_str (), addr);
@@ -60,7 +60,7 @@ namespace rd_utils::memory::cache::remote {
   }
 
   void LocalPersister::save (uint64_t addr, uint8_t * memory, uint64_t size) {
-    LOG_INFO ("STORING block : ", addr);
+    // LOG_INFO ("STORING block : ", addr);
 
     this-> _nbSaved += 1;
     int nb = snprintf (this-> _buffer, 255, "%s%ld", this-> _path.c_str (), addr);

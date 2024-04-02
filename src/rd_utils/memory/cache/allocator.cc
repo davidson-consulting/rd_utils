@@ -101,6 +101,22 @@ namespace rd_utils::memory::cache {
     return this-> _loaded.size ();
   }
 
+  uint32_t Allocator::getNbStored () const {
+    if (this-> _loaded.size () < this-> _blocks.size ()) {
+      return this-> _blocks.size () - this-> _loaded.size ();
+    }
+
+    return 0;
+  }
+
+  uint32_t Allocator::getMinNbStorable () const {
+    if (this-> _max_blocks < this-> _blocks.size ()) {
+      return this-> _blocks.size () - this-> _max_blocks;
+    }
+
+    return 0;
+  }
+
   uint32_t Allocator::getNbAllocated () const {
     return this-> _blocks.size ();
   }
@@ -236,6 +252,8 @@ namespace rd_utils::memory::cache {
   }
 
   void Allocator::freeFast (uint32_t blockAddr) {
+    auto & bl = this-> _blocks [blockAddr - 1];
+    bl.maxSize = this-> _max_allocable;
     this-> freeBlock (blockAddr);
   }
 
@@ -270,23 +288,14 @@ namespace rd_utils::memory::cache {
 
   void Allocator::read (AllocatedSegment alloc, void * data, uint32_t offset, uint32_t size) {
     WITH_LOCK (__GLOBAL_MUTEX__) {
-      auto & bl = this-> _blocks [alloc.blockAddr - 1];
-      auto mem = bl.mem;
-      if (mem == nullptr) {
-        mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
-      }
-
+      auto mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
       memcpy (data, mem + alloc.offset + offset, size);
     }
   }
 
   void Allocator::write (AllocatedSegment alloc, const void * data, uint32_t offset, uint32_t size) {
     WITH_LOCK (__GLOBAL_MUTEX__) {
-      auto & bl =  this-> _blocks [alloc.blockAddr - 1];
-      auto mem = bl.mem;
-      if (mem == nullptr) {
-        mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
-      }
+      auto mem = reinterpret_cast <uint8_t*> (this-> load (alloc.blockAddr));
 
       memcpy (mem + alloc.offset + offset, data, size);
     }
@@ -294,16 +303,8 @@ namespace rd_utils::memory::cache {
 
   void Allocator::copy (AllocatedSegment left, AllocatedSegment right, uint32_t size) {
     WITH_LOCK (__GLOBAL_MUTEX__) {
-      auto & lBl = this-> _blocks [left.blockAddr - 1];
-      auto & rBl = this-> _blocks [right.blockAddr - 1];
-      auto lMem = lBl.mem;
-      auto rMem = rBl.mem;
-      if (lMem == nullptr) {
-        lMem = reinterpret_cast<uint8_t*> (this-> load (left.blockAddr));
-      }
-      if (rMem == nullptr) {
-        rMem = reinterpret_cast <uint8_t*> (this-> load (right.blockAddr));
-      }
+      auto lMem = reinterpret_cast <uint8_t*> (this-> load (left.blockAddr));
+      auto rMem = reinterpret_cast <uint8_t*> (this-> load (right.blockAddr));
 
       memcpy (rMem + right.offset, lMem + left.offset, size);
     }
@@ -338,7 +339,7 @@ namespace rd_utils::memory::cache {
     BlockInfo info = {.mem = mem, .lru = lru, .maxSize = this-> _max_allocable};
     this-> _blocks.push_back (info);
     this-> _loaded.emplace (addr, mem);
-
+    this-> _uniqLoads += 1;
 
     return mem;
   }
