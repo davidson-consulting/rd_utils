@@ -74,9 +74,14 @@ namespace rd_utils::memory::cache::collection {
       return this-> _len;
     }
 
-    char operator[](uint32_t i) {
+    char operator[](uint32_t i) const {
       return this-> _value [i];
     }
+
+    char & operator[](uint32_t i) {
+      return this-> _value [i];
+    }
+
 
     /**
      * ============================================================================

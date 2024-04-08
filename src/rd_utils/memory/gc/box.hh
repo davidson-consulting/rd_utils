@@ -11,7 +11,7 @@ namespace rd_utils::memory {
   }
 
   template <typename T>
-  class GCGCBox {
+  class GCBox {
 
     // The value inside the box
     T * _value;

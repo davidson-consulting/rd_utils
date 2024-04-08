@@ -99,6 +99,8 @@ namespace rd_utils::net {
 		return s.str ();
 	}
 
+
+
 	SockAddrV4::SockAddrV4 (Ipv4Address addr, unsigned short port) :
 		_addr (addr), _port (port)
 	{}
@@ -135,6 +137,10 @@ namespace rd_utils::net {
 
 	unsigned short SockAddrV4::port () const {
 		return this-> _port;
+	}
+
+	std::string SockAddrV4::toString () const {
+		return this-> _addr.toString () + ":" + std::to_string (this-> _port);
 	}
 
 	Ipv4Address Ipv4Address::getIfaceIp (const std::string & iface) {

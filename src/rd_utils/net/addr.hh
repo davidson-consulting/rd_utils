@@ -73,7 +73,8 @@ namespace rd_utils {
 			Ipv4Address ip () const;
 
 			unsigned short port () const;
-	    	    
+
+			std::string toString () const;
 		};
 
 

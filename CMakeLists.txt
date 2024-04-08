@@ -23,6 +23,13 @@ file(
 
 file(
   GLOB
+  HEADER_ACTOR
+  src/rd_utils/concurrency/actor/*.hh
+  )
+
+
+file(
+  GLOB
   HEADER_NET
   src/rd_utils/net/*.hh
   )
@@ -99,6 +106,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/)
 install (TARGETS rd_utils DESTINATION /usr/lib/)
 
 install (FILES ${HEADER_CONCURRENCY} DESTINATION /usr/include/rd_utils/concurrency)
+install (FILES ${HEADER_ACTOR} DESTINATION /usr/include/rd_utils/concurrency/actor)
 install (FILES ${HEADER_NET} DESTINATION /usr/include/rd_utils/net)
 install (FILES ${HEADER_UTILS} DESTINATION /usr/include/rd_utils/utils)
 install (FILES ${HEADER_FOREIGN} DESTINATION /usr/include/rd_utils/foreign)

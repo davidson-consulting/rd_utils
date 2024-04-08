@@ -20,6 +20,10 @@ namespace rd_utils::utils::config {
     return this-> _keys;
   }
 
+  const std::map <std::string, std::shared_ptr <ConfigNode> > & Dict::getValues () const {
+    return this-> _nodes;
+  }
+
   void Dict::insert (const std::string & key, std::shared_ptr<ConfigNode> value) {
     this-> _keys.insert (key);
     this-> _nodes.emplace (key, value);

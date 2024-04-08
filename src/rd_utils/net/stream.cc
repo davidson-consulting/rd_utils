@@ -70,6 +70,19 @@ namespace rd_utils::net {
 		return false;
 	}
 
+	bool TcpStream::sendChar (uint8_t i) {
+		if (this-> _sockfd != 0 && !this-> _error) {
+			if (write (this-> _sockfd, &i, sizeof (uint8_t)) == -1) {
+				this-> _error = true;
+				return false;
+			}
+			return true;
+		}
+
+		return false;
+	}
+
+
 	bool TcpStream::send (const std::string & msg) {
 		if (this-> _sockfd != 0 && !this-> _error) {
 			if (write (this-> _sockfd, msg.c_str (), msg.length () * sizeof (char)) == -1) {
@@ -163,6 +176,19 @@ namespace rd_utils::net {
 		unsigned long res = 0;
 		if (this-> _sockfd != 0 && !this-> _error) {
 			auto r = read (this-> _sockfd, &res, sizeof (unsigned long));
+			if (r == -1) {
+				this-> _error = true;
+			}
+		}
+
+		return res;
+	}
+
+
+	uint8_t TcpStream::receiveChar () {
+		unsigned long res = 0;
+		if (this-> _sockfd != 0 && !this-> _error) {
+			auto r = read (this-> _sockfd, &res, sizeof (uint8_t));
 			if (r == -1) {
 				this-> _error = true;
 			}

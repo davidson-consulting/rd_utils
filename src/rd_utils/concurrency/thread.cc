@@ -48,7 +48,6 @@ namespace rd_utils {
 			}
 
 			void dg_thread_launcher::dispose () {
-				std::cout << "Delete pipe" << std::endl;
 				delete this-> content.pipe;
 			}
 

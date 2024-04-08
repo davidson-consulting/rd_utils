@@ -111,6 +111,9 @@ namespace rd_utils {
 			bool sendInt (unsigned long i);
 
 
+			bool sendChar (uint8_t c);
+
+
 			/**
 			 * Send a message through the stream
 			 * @returns: true, iif the send was successful
@@ -137,6 +140,11 @@ namespace rd_utils {
 			 * Receive an int from the stream
 			 */
 			unsigned long receiveInt ();
+
+			/**
+			 * Receive 1 byte from the stream
+			 */
+			uint8_t receiveChar ();
 
 			/**
 			 * this-> close ();
