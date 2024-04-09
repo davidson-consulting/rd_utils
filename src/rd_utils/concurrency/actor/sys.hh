@@ -61,6 +61,7 @@ namespace rd_utils::concurrency::actor {
       ACTOR_EXIST_REQ,
       ACTOR_MSG,
       ACTOR_REQ,
+      ACTOR_REQ_BIG,
       ACTOR_RESP
     };
 
@@ -170,6 +171,11 @@ namespace rd_utils::concurrency::actor {
      * Treat an actor request (msg with response)
      */
     void onActorReq (net::TcpStream & session);
+
+    /**
+     * Treat an actor request (msg with response of type cache array)
+     */
+    void onActorReqBig (net::TcpStream & session);
 
     /**
      * Treat an actor response

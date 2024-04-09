@@ -38,6 +38,8 @@ namespace rd_utils {
 				virtual void run ();
 
 				virtual void dispose ();
+
+				virtual ~dg_thread_launcher ();
 			};
 
 			class fn_thread_launcher {
@@ -54,6 +56,8 @@ namespace rd_utils {
 				virtual void run ();
 
 				virtual void dispose ();
+
+				virtual ~fn_thread_launcher ();
 			};
 
 			template <typename ... T>

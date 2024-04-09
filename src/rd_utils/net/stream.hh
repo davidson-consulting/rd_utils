@@ -3,6 +3,7 @@
 #include <iostream>
 #include <rd_utils/net/addr.hh>
 #include <string>
+#include <sys/socket.h>
 
 
 namespace rd_utils {
@@ -130,6 +131,31 @@ namespace rd_utils {
 			 * @return: the length read
 			 */
 			int receive (char * buffer, int len);
+
+			/**
+			 * Receive a message in a pre allocated buffer
+			 * @return: the length read
+			 */
+			template <typename T>
+			bool receiveRaw (T * buffer, uint32_t nb) {
+				if (this-> _sockfd != 0 && !this-> _error) {
+					uint8_t * buf = (uint8_t*) buffer;
+					uint32_t full = nb * sizeof (T);
+					uint32_t got = 0;
+					while (full > got) {
+						auto valread = recv (this-> _sockfd, buf + got, full - got, 0);
+						if (valread == -1) {
+							this-> _error = true;
+							return false;
+						}
+						got += valread;
+					}
+
+					return true;
+				}
+
+				return false;
+			}
 
 			/**
 			 * Receive a message from the stream

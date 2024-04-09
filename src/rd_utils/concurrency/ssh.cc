@@ -101,11 +101,11 @@ namespace rd_utils::concurrency {
       }
 
       this-> launchCmd ();
-    } catch (Rd_UtilsError err) {
+    } catch (Rd_UtilsError & err) {
       error_message = err.getMessage ();
     }
 
-  exit:
+  // exit:
     if (pubset) ssh_key_free (pub);
     if (prvset) ssh_key_free (prv);
 

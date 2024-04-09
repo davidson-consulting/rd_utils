@@ -12,7 +12,7 @@
 
 namespace rd_utils::net {
 
-  uint32_t getNbThreads (uint32_t nb) {
+  uint32_t getNbThreads (int32_t nb) {
     if (nb == -1) {
       auto nb = (std::thread::hardware_concurrency() / 2) ;
       if (nb == 0) return 1;
@@ -23,18 +23,19 @@ namespace rd_utils::net {
   }
 
   TcpServer::TcpServer () :
-    _context (SockAddrV4 (0, 0))
-    , _trigger (false)
-    , _epoll_fd (0)
+     _epoll_fd (0)
+    , _context (SockAddrV4 (0, 0))
     , _th (0, nullptr)
+     , _trigger (false)
   {}
 
   TcpServer::TcpServer (SockAddrV4 v4, int nbThreads, int maxCon) :
-    _context (v4)
-    ,_trigger (true)
+    _epoll_fd (0)
+    , _context (v4)
+    ,_maxConn (maxCon)
     ,_nbThreads (getNbThreads (nbThreads))
     ,_th (0, nullptr)
-    ,_maxConn (maxCon)
+    ,_trigger (true)
   {}
 
   TcpServer::TcpServer (TcpServer && other) :
@@ -158,7 +159,7 @@ namespace rd_utils::net {
           TcpStream cl = std::move (this-> _context.accept ());
 
           // Reject connection if there are too much clients
-          if (this-> _openSockets.size () + 1 > this-> _maxConn && this-> _maxConn != -1) {
+          if (this-> _openSockets.size () + 1 > (uint32_t) this-> _maxConn && this-> _maxConn != -1) {
             cl.close ();
           } else {
             auto stream = new TcpStream (std::move (cl));
@@ -167,7 +168,7 @@ namespace rd_utils::net {
 
             this-> submit (TcpSessionKind::NEW, stream);
           }
-        } catch (utils::Rd_UtilsError err) {
+        } catch (utils::Rd_UtilsError & err) {
           std::cout << this-> _openSockets.size () << std::endl;
           std::cout << "IN ERROR ??? " << strerror (errno) << std::endl;
 
@@ -177,7 +178,7 @@ namespace rd_utils::net {
       // on session close
       else if (event.data.fd == this-> _trigger.getReadFd ()) {
         char c;
-        auto ig = ::read (this-> _trigger.getReadFd (), &c, 1);
+        ::read (this-> _trigger.getReadFd (), &c, 1);
       }
 
       // Old client is writing
@@ -206,12 +207,12 @@ namespace rd_utils::net {
     // std::cout << "Del Epoll ?" << std::endl;
     epoll_event event;
     event.data.fd = fd;
-    auto i = epoll_ctl (this-> _epoll_fd, EPOLL_CTL_DEL, fd, &event);
+    epoll_ctl (this-> _epoll_fd, EPOLL_CTL_DEL, fd, &event);
   }
 
   void TcpServer::submit (TcpSessionKind kind, TcpStream * stream) {
     this-> _jobs.send ({.kind = kind, .stream = stream});
-    if (this-> _runningThreads.size () != this-> _nbThreads) {
+    if (this-> _runningThreads.size () != (uint32_t) this-> _nbThreads) {
       this-> spawnThreads ();
     }
 
@@ -277,7 +278,7 @@ namespace rd_utils::net {
           WITH_LOCK (this-> _triggerM) {
             this-> _nbCompleted += 1;
             // trigger for epoll
-            auto ig = ::write (this-> _trigger.getWriteFd (), "c", 1);
+            ::write (this-> _trigger.getWriteFd (), "c", 1);
           }
         } else {
           break;
@@ -320,7 +321,7 @@ namespace rd_utils::net {
   void TcpServer::stop () {
     WITH_LOCK (this-> _triggerM) {
       this-> _started = false;
-      auto ig = ::write (this-> _trigger.getWriteFd (), "c", 1);
+      ::write (this-> _trigger.getWriteFd (), "c", 1);
     }
   }
 
@@ -328,13 +329,13 @@ namespace rd_utils::net {
     if (this-> _started) { // Stop the submissions of new tasks
       this-> _started = false;
       // Notify the polling thread to stop
-      auto ig = ::write (this-> _trigger.getWriteFd (), "c", 1);
+      ::write (this-> _trigger.getWriteFd (), "c", 1);
       concurrency::join (this-> _th);
     }
 
     while (this-> _nbSubmitted != this-> _nbCompleted) { // && this-> _jobs.len () != 0) { // wait for the finish of already running tasks
       char c;
-      auto ig = ::read (this-> _trigger.getReadFd (), &c, 1);
+      ::read (this-> _trigger.getReadFd (), &c, 1);
     }
   }
 

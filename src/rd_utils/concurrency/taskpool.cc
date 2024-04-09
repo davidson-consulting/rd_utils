@@ -5,6 +5,8 @@
 
 namespace rd_utils::concurrency {
 
+  Task::~Task () {}
+
   namespace internal_pool {
 
     fn_task::fn_task (void (*func) ()) : func (func) {}
@@ -104,7 +106,7 @@ namespace rd_utils::concurrency {
 
   void TaskPool::spawnThread () {
     this-> _terminated = false;
-    for (int i = 0 ; i < this-> _nbThread ; i++) {
+    for (uint32_t i = 0 ; i < this-> _nbThread ; i++) {
       auto th = spawn (this, &TaskPool::taskMain);
       this-> _ready.wait ();
       this-> _runningThreads.emplace (th.id, th);

@@ -93,7 +93,6 @@ namespace rd_utils::concurrency::actor {
     this-> _waitResponse.post ();
   }
 
-
   void ActorSystem::onSession (net::TcpSessionKind kind, net::TcpStream & session) {
     auto protId = session.receiveInt ();
     std::cout << "Protocol : " << protId << std::endl;
@@ -106,6 +105,9 @@ namespace rd_utils::concurrency::actor {
       break;
     case ActorSystem::Protocol::ACTOR_REQ:
       this-> onActorReq (session);
+      break;
+    case ActorSystem::Protocol::ACTOR_REQ_BIG:
+      this-> onActorReqBig (session);
       break;
     case ActorSystem::Protocol::ACTOR_RESP:
       this-> onActorResp (session);
@@ -128,7 +130,7 @@ namespace rd_utils::concurrency::actor {
 
   void ActorSystem::onActorMsg (net::TcpStream & session) {
     auto name = this-> readActorName (session);
-    auto addr = this-> readAddress (session);
+    this-> readAddress (session);
     auto msg = this-> readMessage (session);
 
     if (msg == nullptr) {
@@ -171,11 +173,37 @@ namespace rd_utils::concurrency::actor {
         try {
           t.reset ();
           auto result = it-> second-> onRequest (*msg);
-          std::cout << "Result : " << *result << std::endl;
           auto actorRef = this-> remoteActor ("", addr, false);
           actorRef-> response (reqId, *result);
-        } catch (std::runtime_error e) {
-          std::cout << "Error : " << e.what () << std::endl;
+        } catch (std::runtime_error & e) {
+          session.close ();
+        }
+      }
+    }
+  }
+
+  void ActorSystem::onActorReqBig (net::TcpStream & session) {
+    concurrency::timer t;
+    auto name = this-> readActorName (session);
+    this-> readAddress (session);
+    auto msg = this-> readMessage (session);
+
+    if (msg == nullptr) {
+      session.close ();
+      return;
+    }
+
+    auto it = this-> _actors.find (name);
+    if (it == this-> _actors.end ()) {
+      session.close ();
+    } else {
+      WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
+        try {
+          t.reset ();
+          auto result = it-> second-> onRequestList (*msg);
+          result-> send (session, ARRAY_BUFFER_SIZE);
+
+        } catch (std::runtime_error & e) {
           session.close ();
         }
       }
@@ -185,7 +213,6 @@ namespace rd_utils::concurrency::actor {
   void ActorSystem::onActorResp (net::TcpStream & session) {
     auto reqId = session.receiveInt ();
     auto value = this-> readMessage (session);
-    std::cout << "Received a response : " << reqId << " " << *value << std::endl;
     this-> pushResponse ({.reqId = reqId, .msg = value});
   }
 
@@ -216,6 +243,5 @@ namespace rd_utils::concurrency::actor {
       return nullptr;
     }
   }
-
 
 }

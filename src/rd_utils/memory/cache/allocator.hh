@@ -314,7 +314,7 @@ namespace rd_utils::memory::cache {
                 /**
                  * Evict a number of blocks from the loaded blocks
                  */
-                uint8_t * evictSome (uint32_t nb);
+                void evictSome (uint32_t nb);
 
 
         };

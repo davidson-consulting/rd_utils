@@ -72,13 +72,12 @@ namespace rd_utils::net {
     }
 
     TcpSession TcpPool::get () {
-        bool check = false;
         WITH_LOCK (this-> _m) {
             if (this-> _open.size () < this-> _max) {
                 TcpStream * s = new TcpStream (this-> _addr);
                 try {
                     s-> connect ();
-                } catch (utils::Rd_UtilsError err) { // failed to connect
+                } catch (utils::Rd_UtilsError & err) { // failed to connect
                     delete s;
                     s = nullptr;
                 }

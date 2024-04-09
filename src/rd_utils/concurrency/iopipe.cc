@@ -32,7 +32,7 @@ namespace rd_utils::concurrency {
     }
     
     void OPipe::write (const std::string & msg) {
-        int n = ::write (this-> _pipe, msg.c_str (), msg.length ());
+        ::write (this-> _pipe, msg.c_str (), msg.length ());
     }
 	
     void OPipe::close () {
@@ -138,7 +138,7 @@ namespace rd_utils::concurrency {
     iopipe createPipes () {
         iopipe res;
         int pipes[2] = {0, 0};
-        int n = ::pipe (pipes);
+        ::pipe (pipes);
 
         res.i = pipes [0];
         res.o = pipes [1];

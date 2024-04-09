@@ -11,7 +11,7 @@ namespace rd_utils::concurrency {
     SubProcess::SubProcess () {}    
 
     SubProcess::SubProcess (const std::string & cmd, const std::vector <std::string> & args, const std::string & cwd) :
-        _cmd (cmd), _args (args), _cwd (cwd)
+         _cwd (cwd),  _args (args), _cmd (cmd)
     {}
 
 
@@ -102,7 +102,7 @@ namespace rd_utils::concurrency {
         }
         alls.push_back (NULL);
 
-        int n = ::chdir (this-> _cwd.c_str ());
+        ::chdir (this-> _cwd.c_str ());
 
         int out = ::execvp (alls [0],  const_cast<char* const *> (alls.data ()));
         if (out == -1) {

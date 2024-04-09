@@ -70,11 +70,11 @@ namespace rd_utils::utils {
 
   private:
 
-    std::vector <int> computeLineWidth () const;
+    std::vector <uint32_t> computeLineWidth () const;
 
-    void hline (std::stringstream & ss, const std::vector <int> & width) const;
+    void hline (std::stringstream & ss, const std::vector <uint32_t> & width) const;
 
-    void writeLine (std::stringstream & ss, const std::vector <int> & width, const std::vector <std::string> & row) const;
+    void writeLine (std::stringstream & ss, const std::vector <uint32_t> & width, const std::vector <std::string> & row) const;
 
   };
 

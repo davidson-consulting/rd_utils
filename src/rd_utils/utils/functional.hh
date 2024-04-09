@@ -37,6 +37,8 @@ namespace rd_utils::utils {
     virtual func_ptr <Z, T...>* clone () {
       return new func_ptr<Z, T...> (this-> _func);
     }
+
+    virtual ~func_ptr () {}
 	    
   };
 

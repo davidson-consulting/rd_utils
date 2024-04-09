@@ -115,7 +115,7 @@ namespace rd_utils::utils {
     return ss.str ();
   }
 
-  void Table::writeLine (std::stringstream & ss, const std::vector <int> & width, const std::vector <std::string> & row) const {
+  void Table::writeLine (std::stringstream & ss, const std::vector <uint32_t> & width, const std::vector <std::string> & row) const {
     ss << "| ";
     for (unsigned int i = 0 ; i < width.size () ; i++) {
       if (i != 0) ss << " | ";
@@ -128,7 +128,7 @@ namespace rd_utils::utils {
     ss << " |";
   }
 
-  void Table::hline (std::stringstream & ss, const std::vector <int> & width) const {
+  void Table::hline (std::stringstream & ss, const std::vector <uint32_t> & width) const {
     ss << "+-";
     for (unsigned int i = 0 ; i < this-> head.size () ; i++) {
       if (i != 0) ss << "-+-";
@@ -137,8 +137,8 @@ namespace rd_utils::utils {
     ss << "-+";
   }
 
-  std::vector <int> Table::computeLineWidth () const {
-    std::vector <int> width;
+  std::vector <uint32_t> Table::computeLineWidth () const {
+    std::vector <uint32_t> width;
     for (unsigned int i = 0 ; i < head.size () ; i++) {
       width.push_back (head [i].size () + 2);
     }

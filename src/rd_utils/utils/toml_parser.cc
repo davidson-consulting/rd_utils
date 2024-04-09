@@ -279,7 +279,7 @@ namespace rd_utils::utils::toml {
     int z = 0;
     for (auto & k : d.getKeys ()) {
       if (z != 0) {
-        for (uint32_t i = 0 ; i < indent ; i++) ss << " ";
+        for (int i = 0 ; i < indent ; i++) ss << " ";
       }
 
       ss << k << " = ";
@@ -311,7 +311,7 @@ namespace rd_utils::utils::toml {
         ss << ", ";
         if (returned) {
           ss << "\n";
-          for (uint32_t j = 0 ; j < indent + 1; j++) ss << " ";
+          for (int j = 0 ; j < indent + 1; j++) ss << " ";
         }
       }
 

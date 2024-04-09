@@ -35,7 +35,7 @@ namespace rd_utils::net {
     concurrency::semaphore _release;
 
     // The maximum number of opened connection
-    int _max = 0;
+    uint32_t _max = 0;
 
     friend TcpSession;
 

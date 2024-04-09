@@ -123,7 +123,6 @@ namespace rd_utils::utils {
 
     void Lexer::gotoNextToken (const std::string & end) {
         while (this-> _wordCursor < this-> _wordInfos.size ()) {
-            auto & wd = this-> _wordInfos [this-> _wordCursor];
             auto & word = this-> _words [this-> _wordCursor];
             this-> _wordCursor += 1;
             if (word.str == end) {

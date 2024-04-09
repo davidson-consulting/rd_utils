@@ -22,6 +22,16 @@ namespace rd_utils::memory::cache::algorithm {
     return result;
   }
 
+  template <typename Z, typename F>
+  void generate (collection::CacheArray<Z> & result, F func) {
+    if (result.len () > 0) {
+      Z * buffer = reinterpret_cast <Z*> (malloc (ARRAY_BUFFER_SIZE * sizeof (Z)));
+      result.generate (buffer, ARRAY_BUFFER_SIZE, func);
+
+      free (buffer);
+    }
+  }
+
 
 
 }

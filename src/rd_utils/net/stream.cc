@@ -97,7 +97,7 @@ namespace rd_utils::net {
 	bool TcpStream::send (const char * buffer, int len) {
 		if (this-> _sockfd != 0 && !this-> _error) {
 			if (write (this-> _sockfd, buffer, len * sizeof (char)) == -1) {
-				this-> _error;
+				this-> _error = true;
 				return false;
 			}
 			return true;
@@ -212,7 +212,7 @@ namespace rd_utils::net {
 	void TcpStream::close  () {
 		if (this-> _sockfd != 0) {
 			// ::shutdown (this-> _sockfd, SHUT_RDWR);
-			auto i = ::close (this-> _sockfd);
+			::close (this-> _sockfd);
 
 			this-> _sockfd = 0;
 			this-> _addr = SockAddrV4 (0, 0);

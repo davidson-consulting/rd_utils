@@ -27,8 +27,8 @@ namespace rd_utils {
 		{}
 
 		TcpListener::TcpListener (TcpListener && other) :
-			_addr (other._addr)
-			, _sockfd (other._sockfd)
+			_sockfd (other._sockfd)
+			, _addr (other._addr)
 			,_port (other._port)
 		{
 			other._addr = SockAddrV4 (Ipv4Address (0), 0);

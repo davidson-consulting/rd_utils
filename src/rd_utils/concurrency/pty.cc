@@ -112,11 +112,11 @@ namespace rd_utils::concurrency {
       if (ssh_userauth_publickey (this-> _session, NULL, prv) != SSH_AUTH_SUCCESS) {
         throw Rd_UtilsError ("Error private key refused");
       }
-    } catch (Rd_UtilsError err) {
+    } catch (Rd_UtilsError & err) {
       error_message = err.getMessage ();
     }
 
-  exit:
+  // exit:
     if (pubset) ssh_key_free (pub);
     if (prvset) ssh_key_free (prv);
 

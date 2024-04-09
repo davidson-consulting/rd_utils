@@ -12,6 +12,7 @@ namespace rd_utils::concurrency {
   class Task {
   public:
     virtual void execute (Thread) = 0;
+    virtual ~Task ();
   };
 
   namespace internal_pool {

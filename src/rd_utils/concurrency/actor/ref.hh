@@ -5,6 +5,8 @@
 #include <rd_utils/net/addr.hh>
 #include <rd_utils/net/stream.hh>
 #include <rd_utils/utils/_.hh>
+#include <rd_utils/utils/raw_parser.hh>
+#include <rd_utils/memory/cache/_.hh>
 
 
 namespace rd_utils::concurrency::actor {
@@ -51,6 +53,36 @@ namespace rd_utils::concurrency::actor {
      * Send a request to the actor
      */
     std::shared_ptr<rd_utils::utils::config::ConfigNode> request (const rd_utils::utils::config::ConfigNode & msg);
+
+    /**
+     * Send a request and wait for a big response
+     */
+    template <typename T>
+    std::shared_ptr <rd_utils::memory::cache::collection::CacheArray<T> > requestBig (const rd_utils::utils::config::ConfigNode & msg) {
+      if (this-> _conn == nullptr || !this-> _conn-> isOpen ()) {
+        try {
+          this-> _conn = std::make_shared<net::TcpStream> (this-> _addr);
+          this-> _conn-> connect ();
+        } catch (...) {
+          throw std::runtime_error ("Failed to reconnect to remote actor system : " + this-> _addr.toString ());
+        }
+      }
+
+      this-> _conn-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ_BIG));
+      this-> _conn-> sendInt (this-> _name.length ());
+      this-> _conn-> send (this-> _name.c_str (), this-> _name.length ());
+      this-> _conn-> sendInt (this-> _sys-> port ());
+
+      utils::raw::dump (*this-> _conn, msg);
+
+      uint32_t size = this-> _conn-> receiveInt ();
+      std::cout << size << std::endl;
+
+      auto result = std::make_shared <rd_utils::memory::cache::collection::CacheArray<T> > (size);
+
+      result-> recv (*this-> _conn, ARRAY_BUFFER_SIZE);
+      return result;
+    }
 
     /**
      * @returns: the name of the actor

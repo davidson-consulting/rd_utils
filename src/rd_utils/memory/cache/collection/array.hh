@@ -17,8 +17,18 @@ void printArray(T A[], int size)
 }
 
 
+  class CacheArrayBase {
+  public:
+
+    virtual void send (net::TcpStream & stream, uint32_t size) = 0;
+
+    virtual void recv (net::TcpStream & stream, uint32_t size) = 0;
+
+  };
+
+
   template <typename T>
-  class CacheArray {
+  class CacheArray : public CacheArrayBase {
   private:
 
     // The memory segment of the array
@@ -27,11 +37,10 @@ void printArray(T A[], int size)
     // The index of the first block
     uint32_t _fstBlockAddr;
 
+    uint32_t _size;
+
     // The nb of blocks allocated especially for this array
     int32_t _nbBlocks;
-
-    // The size of the array
-    uint32_t _size;
 
     // The size per block (without considering the rest)
     uint32_t _sizePerBlock;
@@ -313,6 +322,32 @@ void printArray(T A[], int size)
 
     collection::CacheArray<T>::Pusher pusher (uint32_t start, T * buffer, uint32_t bufferSize) {
       return collection::CacheArray<T>::Pusher (this, start, buffer, bufferSize);
+    }
+
+    void send (net::TcpStream & stream, uint32_t bufferSize) {
+      T * buffer = new T [bufferSize + 1];
+
+      stream.sendInt (this-> _size);
+      for (uint32_t i = 0 ; i < this-> _nbBlocks ; i++) {
+        AllocatedSegment seg = {.blockAddr = this-> _fstBlockAddr + i, .offset = ALLOC_HEAD_SIZE};
+        this-> sendBlock (stream, seg, this-> _sizeDividePerBlock, buffer, bufferSize);
+      }
+
+      auto globIndex = this-> _nbBlocks * this-> _sizeDividePerBlock;
+      this-> sendBlock (stream, this-> _rest, this-> _size - globIndex, buffer, bufferSize);
+      delete [] buffer;
+    }
+
+    void recv (net::TcpStream & stream, uint32_t bufferSize) {
+      T * buffer = new T [bufferSize];
+      for (uint32_t i = 0 ; i < this-> _nbBlocks ; i++) {
+        AllocatedSegment seg = {.blockAddr = this-> _fstBlockAddr + i, .offset = ALLOC_HEAD_SIZE};
+        this-> recvBlock (stream, seg, this-> _sizeDividePerBlock, buffer, bufferSize);
+      }
+
+      auto globIndex = this-> _nbBlocks * this-> _sizeDividePerBlock;
+      this-> recvBlock (stream, this-> _rest, this-> _size - globIndex, buffer, bufferSize);
+      delete [] buffer;
     }
 
     /**
@@ -618,6 +653,25 @@ void printArray(T A[], int size)
         }
 
         Allocator::instance ().write (seg, buffer,  i * sizeof (T), sizeof (T) * nb);
+      }
+    }
+
+    void sendBlock (net::TcpStream & stream, AllocatedSegment seg, uint32_t nbElements, T * buffer, uint32_t bufferSize) {
+      for (uint32_t i = 0 ; i < nbElements ; i += bufferSize) {
+        auto nb = nbElements - i > bufferSize ? bufferSize : nbElements - i;
+        Allocator::instance ().read (seg, buffer,  i * sizeof (T), sizeof (T) * nb);
+        stream.send ((char*) buffer, sizeof (T) * nb);
+      }
+    }
+
+    void recvBlock (net::TcpStream & stream, AllocatedSegment seg, uint32_t nbElements, T * buffer, uint32_t bufferSize) {
+      for (uint32_t i = 0 ; i < nbElements ; ) {
+        auto nb = (nbElements - i) > bufferSize ? bufferSize : (nbElements - i);
+        if (stream.receiveRaw (buffer, nb)) {
+          Allocator::instance ().write (seg, buffer, i * sizeof (T), nb * sizeof (T));
+        }
+
+        i += nb;
       }
     }
 

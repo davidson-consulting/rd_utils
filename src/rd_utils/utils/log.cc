@@ -31,16 +31,16 @@ namespace rd_utils::utils {
 
 
     Logger::Logger (LogLevel level) :
-        _level (level),
         _stream (&std::cout)
+        , _level (level)
     {
         (*this-> _stream) << std::fixed << std::setprecision(8);
     }
 
     Logger::Logger (const std::string& logPath, LogLevel lvl) :
-        _level (lvl),
-        _stream (&std::cout),
-        _file (logPath, std::ios::out)
+        _stream (&std::cout)
+        , _file (logPath, std::ios::out)
+        , _level (lvl)
     {
         this-> _stream = &this-> _file;
         (*this-> _stream) << std::fixed << std::setprecision(8);

@@ -12,7 +12,7 @@ namespace rd_utils::concurrency {
   {
     if (create) {
       int pipes[2];
-      auto ig = ::pipe (pipes);
+      ::pipe (pipes);
 
       this-> _read = pipes [0];
       this-> _write = pipes [1];
@@ -23,8 +23,8 @@ namespace rd_utils::concurrency {
     _read (other._read),
     _write (other._write),
     _m (std::move (other._m)),
-    _s (std::move (other._s)),
-    _c (std::move (other._c))
+    _c (std::move (other._c)),
+    _s (std::move (other._s))
   {
     other._read = 0;
     other._write = 0;

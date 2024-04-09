@@ -5,7 +5,7 @@
 namespace rd_utils::memory::cache {
 
   void free_list_create (free_list_instance * memory, uint32_t total_size) {
-    memset (memory, total_size, 0);
+    memset (memory, 0, total_size);
     memory-> total_size = total_size - sizeof (free_list_instance);
     memory-> head = sizeof (free_list_instance);
     free_list_node * head = reinterpret_cast<free_list_node*> (reinterpret_cast <uint8_t*> (memory) + sizeof (free_list_instance));
@@ -13,10 +13,12 @@ namespace rd_utils::memory::cache {
     head-> size = total_size - sizeof (free_list_instance);
     head-> next = 0;
 
+    /*
     //                       /---------------------\
     //                       |                     v
     // | total_size 4B | memory 8B | head 8B | -> | offset 4B | size 4B  | next 8B | ... |
     //                                 \-------------^
+    */
   }
 
   bool free_list_find_best_fit (const free_list_instance * inst, uint32_t size, uint32_t & offset, uint32_t & prevOffset) {

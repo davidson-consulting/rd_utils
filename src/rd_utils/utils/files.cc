@@ -84,8 +84,8 @@ namespace rd_utils::utils {
     void own_file (const std::string & file, const std::string & groupName) {
 		struct group* g = getgrnam (groupName.c_str ());
 		auto paw = getpwnam (groupName.c_str ());
-		auto ig = ::chown (file.c_str (), paw-> pw_uid, g-> gr_gid);
-		ig = ::chown (file.c_str (), -1, g-> gr_gid);
+		::chown (file.c_str (), paw-> pw_uid, g-> gr_gid);
+		::chown (file.c_str (), -1, g-> gr_gid);
 		::chmod (file.c_str (), 0666);
     }
 

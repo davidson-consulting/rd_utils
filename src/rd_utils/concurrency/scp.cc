@@ -45,9 +45,9 @@ namespace rd_utils::concurrency {
     _hostIp (std::move (other._hostIp)),
     _user (std::move (other._user)),
     _keyPath (std::move (other._keyPath)),
-    _fromInput (std::move (other._fromInput)),
     _session (other._session),
-    _copy (other._copy)
+    _copy (other._copy),
+    _fromInput (std::move (other._fromInput))
   {
     other._session = nullptr;
     other._copy = nullptr;
@@ -110,7 +110,7 @@ namespace rd_utils::concurrency {
       }
 
       this-> launchUploadCmd ();
-    } catch (Rd_UtilsError err) {
+    } catch (Rd_UtilsError & err) {
       error_message = err.getMessage ();
     }
 
@@ -161,7 +161,7 @@ namespace rd_utils::concurrency {
 
 
       this-> launchDownloadCmd ();
-    } catch (Rd_UtilsError err) {
+    } catch (Rd_UtilsError & err) {
       error_message = err.getMessage ();
     }
 
@@ -249,14 +249,13 @@ namespace rd_utils::concurrency {
       throw Rd_UtilsError (err);
     }
 
-    int size;
+
     char buffer[1024];
 
     if (ssh_scp_pull_request(this-> _copy) == SSH_SCP_REQUEST_NEWFILE) {
-      int size = ssh_scp_request_get_size (this-> _copy);
+      ssh_scp_request_get_size (this-> _copy);
       ssh_scp_accept_request (this-> _copy);
 
-      int currentPerc = 0, full = 0;
       std::ofstream out (this-> _out, std::ios::binary);
       do {
         int len = ssh_scp_read (this-> _copy, buffer, 1023);

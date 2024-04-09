@@ -39,6 +39,11 @@ namespace rd_utils::concurrency::actor {
     virtual std::shared_ptr<rd_utils::utils::config::ConfigNode> onRequest (const rd_utils::utils::config::ConfigNode & msg) = 0;
 
     /**
+     * Request that returns a list of flat values
+     */
+    virtual std::shared_ptr <rd_utils::memory::cache::collection::CacheArrayBase> onRequestList (const rd_utils::utils::config::ConfigNode & msg) = 0;
+
+    /**
      * @returns: the actor reference of this actor
      */
     std::shared_ptr <ActorRef> getRef ();

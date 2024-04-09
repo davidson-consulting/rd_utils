@@ -2,7 +2,7 @@
 
 std::ostream & operator<< (std::ostream & stream, const std::vector <char> & vec) {
     stream << "[";
-    for (int i = 0 ; i < vec.size () ;i++) {
+    for (uint32_t i = 0 ; i < vec.size () ;i++) {
         if (i != 0) stream << ", ";
         stream << vec[i] << '[' << (int) (vec [i]) << ']';
     }

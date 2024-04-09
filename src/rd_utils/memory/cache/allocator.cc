@@ -138,8 +138,7 @@ namespace rd_utils::memory::cache {
       if (nbBlocks < 2) this-> _max_blocks = 2;
       else this-> _max_blocks = nbBlocks;
       while (this-> _loaded.size () > this-> _max_blocks) {
-        auto mem = this-> evictSome (this-> _loaded.size () - this-> _max_blocks);
-        if (mem != nullptr) ::free (mem);
+        this-> evictSome (this-> _loaded.size () - this-> _max_blocks);
       }
     }
   }
@@ -333,11 +332,11 @@ namespace rd_utils::memory::cache {
   uint8_t * Allocator::allocateNewBlock (uint32_t & addr) {
     uint8_t * mem = nullptr;
     if (this-> _loaded.size () == this-> _max_blocks) {
-      mem = this-> evictSome (std::min (1, std::max (1, NB_BLOCKS - 1)));
-    } else {
-      mem = (uint8_t*) malloc (this-> _block_size);
+      this-> evictSome (std::min (1, std::max (1, NB_BLOCKS - 1)));
     }
 
+    mem = new uint8_t[this-> _block_size];
+    memset (mem, 0, this-> _block_size);
     free_list_create (reinterpret_cast<free_list_instance*> (mem), this-> _block_size);
     addr = this-> _blocks.size () + 1;
     uint32_t lru = this-> _lastLRU++;
@@ -357,11 +356,10 @@ namespace rd_utils::memory::cache {
       uint8_t * out = nullptr;
 
       if (this-> _loaded.size () == this-> _max_blocks) {
-        out = this-> evictSome (std::min (1, std::max (1, NB_BLOCKS - 1)));
-      } else {
-        out = (uint8_t*) malloc (this-> _block_size);
+        this-> evictSome (std::min (1, std::max (1, NB_BLOCKS - 1)));
       }
 
+      out = new uint8_t [this-> _block_size];
       this-> _persister-> load (addr, out, this-> _block_size);
       this-> _loaded.emplace (addr, out);
 
@@ -383,7 +381,7 @@ namespace rd_utils::memory::cache {
     }
   }
 
-  uint8_t * Allocator::evictSome (uint32_t nb) {
+  void Allocator::evictSome (uint32_t nb) {
     // We don't lock the mutex, we can only enter here if we are already locked
 
     for (size_t i = 0 ; i < nb ; i++) {
@@ -403,32 +401,25 @@ namespace rd_utils::memory::cache {
         this-> _persister-> save (addr, mem, this-> _block_size);
         this-> _loaded.erase (addr);
         this-> _blocks [addr - 1].mem = nullptr;
-
-        if (i != nb - 1) {
-          ::free (mem);
-          mem = nullptr;
-        }
-        else {
-          return mem;
-        }
+        delete [] mem;
+        mem = nullptr;
       }
       else {
         concurrency::timer::sleep (0.1);
-        return evictSome (nb - i);
+        evictSome (nb - i);
       }
     }
-
-    return nullptr;
   }
 
   void Allocator::freeBlock (uint32_t addr) {
     // No need to lock, only called within lock
     auto & bl = this-> _blocks [addr - 1];
     if (bl.mem != nullptr) {
-      ::free (bl.mem);
+      delete [] bl.mem;
       bl.mem = nullptr;
     }
 
+    // std::cout << "Freeing block : " << addr << std::endl;
     this-> _persister-> erase (addr);
     this-> _loaded.erase (addr);
 
@@ -436,7 +427,7 @@ namespace rd_utils::memory::cache {
       auto & bl = this-> _blocks.back ();
       if (bl.maxSize == this-> _max_allocable) {
         if (bl.mem != nullptr) {
-          ::free (bl.mem);
+          delete [] bl.mem;
           bl.mem = nullptr;
         }
 
