@@ -19,7 +19,7 @@ namespace rd_utils::memory::cache::collection {
 
   void CacheArrayBase::allocate (uint32_t size, uint32_t innerSize) {
     uint32_t nbBl;
-    Allocator::instance ().allocateSegments (innerSize, size * innerSize, this-> _rest, this-> _fstBlockAddr, nbBl, this-> _sizePerBlock);
+    Allocator::instance ().allocateSegments (innerSize, ((uint64_t) size) * ((uint64_t) innerSize), this-> _rest, this-> _fstBlockAddr, nbBl, this-> _sizePerBlock);
     if (nbBl == 0) {
       this-> _nbBlocks = 0;
       this-> _sizeDividePerBlock = 1;
@@ -76,8 +76,6 @@ namespace rd_utils::memory::cache::collection {
   void CacheArrayBase::recv (net::TcpStream & stream, uint32_t bufferSize) {
     uint32_t size = stream.receiveInt ();
     uint32_t innerSize = stream.receiveInt ();
-
-    std::cout << size << " " << innerSize << std::endl;
 
     this-> dispose ();
     this-> allocate (size, innerSize);
