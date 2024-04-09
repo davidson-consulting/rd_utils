@@ -33,6 +33,7 @@ namespace rd_utils::memory::cache::remote {
   LocalPersister::LocalPersister (const std::string & path) :
     _path (path)
   {
+    this-> _path = this-> _path + "." + std::to_string (getpid ());
     this-> _buffer = new char [255];
   }
 
@@ -45,13 +46,11 @@ namespace rd_utils::memory::cache::remote {
   }
 
   void LocalPersister::load (uint64_t addr, uint8_t * memory, uint64_t size) {
-    LOG_INFO ("LOADING block : ", addr);
+    // LOG_INFO ("LOADING block : ", addr);
 
     this-> _nbLoaded += 1;
     int nb = snprintf (this-> _buffer, 255, "%s%ld", this-> _path.c_str (), addr);
     this-> _buffer [nb] = '\0';
-
-    std::cout << this-> _buffer << std::endl;
 
     concurrency::timer t;
     auto file = fopen (this-> _buffer, "r");
@@ -65,7 +64,7 @@ namespace rd_utils::memory::cache::remote {
   }
 
   void LocalPersister::save (uint64_t addr, uint8_t * memory, uint64_t size) {
-    LOG_INFO ("STORING block : ", addr);
+    // LOG_INFO ("STORING block : ", addr);
 
     this-> _nbSaved += 1;
     int nb = snprintf (this-> _buffer, 255, "%s%ld", this-> _path.c_str (), addr);
@@ -80,7 +79,7 @@ namespace rd_utils::memory::cache::remote {
   }
 
   void LocalPersister::erase (uint64_t addr) {
-    LOG_INFO ("ERASE block : ", addr);
+    // LOG_INFO ("ERASE block : ", addr);
 
     int nb = snprintf (this-> _buffer, 255, "%s%ld", this-> _path.c_str (), addr);
     this-> _buffer [nb] = '\0';
