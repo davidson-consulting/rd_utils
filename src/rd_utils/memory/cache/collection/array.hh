@@ -18,18 +18,7 @@ void printArray(T A[], int size)
 
 
   class CacheArrayBase {
-  public:
-
-    virtual void send (net::TcpStream & stream, uint32_t size) = 0;
-
-    virtual void recv (net::TcpStream & stream, uint32_t size) = 0;
-
-  };
-
-
-  template <typename T>
-  class CacheArray : public CacheArrayBase {
-  private:
+  protected:
 
     // The memory segment of the array
     AllocatedSegment _rest;
@@ -37,10 +26,14 @@ void printArray(T A[], int size)
     // The index of the first block
     uint32_t _fstBlockAddr;
 
+    // The number of elements in the array
     uint32_t _size;
 
+    // The size of inner elements
+    uint32_t _innerSize;
+
     // The nb of blocks allocated especially for this array
-    int32_t _nbBlocks;
+    uint32_t _nbBlocks;
 
     // The size per block (without considering the rest)
     uint32_t _sizePerBlock;
@@ -48,6 +41,42 @@ void printArray(T A[], int size)
     // The size per block (or 1, if there is only this-> _rest)
     uint32_t _sizeDividePerBlock;
 
+  protected:
+
+    CacheArrayBase (CacheArrayBase * other);
+    void move (CacheArrayBase * other);
+
+  public:
+
+    CacheArrayBase ();
+
+    CacheArrayBase (uint32_t size, uint32_t innerSize);
+
+    void send (net::TcpStream & stream, uint32_t bufferSize);
+
+    void recv (net::TcpStream & stream, uint32_t bufferSize);
+
+    uint32_t len () const ;
+
+    uint32_t nbBlocks () const;
+
+    virtual ~CacheArrayBase ();
+
+  private:
+
+    void sendBlock (net::TcpStream & stream, AllocatedSegment seg, uint32_t nbElements, uint8_t * buffer, uint32_t nbInBuffer);
+
+    void recvBlock (net::TcpStream & stream, AllocatedSegment seg, uint32_t nbElements, uint8_t * buffer, uint32_t nbInBuffer);
+
+    void allocate (uint32_t size, uint32_t innerSize);
+
+    void dispose ();
+
+  };
+
+
+  template <typename T>
+  class CacheArray : public CacheArrayBase {
   private:
 
     CacheArray (const CacheArray<T> &);
@@ -251,66 +280,21 @@ void printArray(T A[], int size)
   public:
 
     CacheArray (CacheArray <T> && other) :
-      _rest (other._rest)
-      , _fstBlockAddr (other._fstBlockAddr)
-      , _nbBlocks (other._nbBlocks)
-      , _size (other._size)
-      , _sizePerBlock (other._sizePerBlock)
-      , _sizeDividePerBlock (other._sizeDividePerBlock)
-    {
-      other._rest = {0, 0};
-      other._fstBlockAddr = 0;
-      other._nbBlocks = 0;
-      other._size = 0;
-      other._sizeDividePerBlock = 0;
-      other._sizePerBlock = 0;
-    }
+      CacheArrayBase (&other)
+    {}
 
     void operator= (CacheArray<T> && other) {
-      this-> dispose ();
-
-      this-> _rest = other._rest;
-      this-> _fstBlockAddr = other._fstBlockAddr;
-      this-> _nbBlocks = other._nbBlocks;
-      this-> _size = other._size;
-      this-> _sizePerBlock = other._sizePerBlock;
-      this-> _sizeDividePerBlock = other._sizeDividePerBlock;
-
-      other._rest = {0, 0};
-      other._fstBlockAddr = 0;
-      other._nbBlocks = 0;
-      other._size = 0;
-      other._sizeDividePerBlock = 0;
-      other._sizePerBlock = 0;
+      this-> move (&other);
     }
 
-    CacheArray () :
-      _rest ({0, 0})
-      , _fstBlockAddr (0)
-      , _nbBlocks (0)
-      , _size (0)
-      , _sizePerBlock (0)
-      , _sizeDividePerBlock (0)
-    {}
+    CacheArray () {}
 
     /**
      * Create a new array of a fixed size
      */
     CacheArray (uint32_t size) :
-      _size (size)
-    {
-      uint32_t nbBl;
-      Allocator::instance ().allocateSegments (sizeof (T), size * sizeof (T), this-> _rest, this-> _fstBlockAddr, nbBl, this-> _sizePerBlock);
-      if (nbBl == 0) {
-        this-> _nbBlocks = 0;
-        this-> _sizeDividePerBlock = 1;
-        this-> _sizePerBlock = 0;
-      }
-      else {
-        this-> _nbBlocks = nbBl;
-        this-> _sizeDividePerBlock = this-> _sizePerBlock / sizeof (T);
-      }
-    }
+      CacheArrayBase (size, sizeof (T))
+    {}
 
     collection::CacheArray<T>::Slice slice (uint32_t start, uint32_t end) {
       return collection::CacheArray<T>::Slice (this, start, end - start);
@@ -322,32 +306,6 @@ void printArray(T A[], int size)
 
     collection::CacheArray<T>::Pusher pusher (uint32_t start, T * buffer, uint32_t bufferSize) {
       return collection::CacheArray<T>::Pusher (this, start, buffer, bufferSize);
-    }
-
-    void send (net::TcpStream & stream, uint32_t bufferSize) {
-      T * buffer = new T [bufferSize + 1];
-
-      stream.sendInt (this-> _size);
-      for (uint32_t i = 0 ; i < this-> _nbBlocks ; i++) {
-        AllocatedSegment seg = {.blockAddr = this-> _fstBlockAddr + i, .offset = ALLOC_HEAD_SIZE};
-        this-> sendBlock (stream, seg, this-> _sizeDividePerBlock, buffer, bufferSize);
-      }
-
-      auto globIndex = this-> _nbBlocks * this-> _sizeDividePerBlock;
-      this-> sendBlock (stream, this-> _rest, this-> _size - globIndex, buffer, bufferSize);
-      delete [] buffer;
-    }
-
-    void recv (net::TcpStream & stream, uint32_t bufferSize) {
-      T * buffer = new T [bufferSize];
-      for (uint32_t i = 0 ; i < this-> _nbBlocks ; i++) {
-        AllocatedSegment seg = {.blockAddr = this-> _fstBlockAddr + i, .offset = ALLOC_HEAD_SIZE};
-        this-> recvBlock (stream, seg, this-> _sizeDividePerBlock, buffer, bufferSize);
-      }
-
-      auto globIndex = this-> _nbBlocks * this-> _sizeDividePerBlock;
-      this-> recvBlock (stream, this-> _rest, this-> _size - globIndex, buffer, bufferSize);
-      delete [] buffer;
     }
 
     /**
@@ -524,7 +482,6 @@ void printArray(T A[], int size)
       return result;
     }
 
-
     void copyRaw (collection::CacheArray<T> & aux) {
       std::list <uint32_t> toLoad;
       AllocatedSegment seg = {.blockAddr = 0, .offset = ALLOC_HEAD_SIZE};
@@ -562,42 +519,6 @@ void printArray(T A[], int size)
 
     inline void copy (uint32_t i, collection::CacheArray<T>::Slice aux) {
       this-> copy (i, aux._context, aux._beg, std::min (aux._len, this-> _size - i));
-    }
-
-    inline uint32_t len () const {
-      return this-> _size;
-    }
-
-    inline uint32_t nbBlocks () const {
-      if (this-> _size != 0) {
-        return this-> _nbBlocks + 1;
-      } else return 0;
-    }
-
-    /**
-     * Free the array allocation
-     */
-    void dispose () {
-      if (this-> _rest.blockAddr != 0) {
-        if (this-> _nbBlocks != 0) {
-          for (uint32_t index = 0 ; index < this-> _nbBlocks ; index ++) {
-            Allocator::instance ().freeFast (this-> _fstBlockAddr + index);
-          }
-        }
-
-        Allocator::instance ().free (this-> _rest);
-
-        this-> _rest = {0, 0};
-        this-> _fstBlockAddr = 0;
-        this-> _nbBlocks = 0;
-        this-> _size = 0;
-        this-> _sizeDividePerBlock = 0;
-        this-> _sizePerBlock = 0;
-      }
-    }
-
-    ~CacheArray () {
-      this-> dispose ();
     }
 
   private :
@@ -653,25 +574,6 @@ void printArray(T A[], int size)
         }
 
         Allocator::instance ().write (seg, buffer,  i * sizeof (T), sizeof (T) * nb);
-      }
-    }
-
-    void sendBlock (net::TcpStream & stream, AllocatedSegment seg, uint32_t nbElements, T * buffer, uint32_t bufferSize) {
-      for (uint32_t i = 0 ; i < nbElements ; i += bufferSize) {
-        auto nb = nbElements - i > bufferSize ? bufferSize : nbElements - i;
-        Allocator::instance ().read (seg, buffer,  i * sizeof (T), sizeof (T) * nb);
-        stream.send ((char*) buffer, sizeof (T) * nb);
-      }
-    }
-
-    void recvBlock (net::TcpStream & stream, AllocatedSegment seg, uint32_t nbElements, T * buffer, uint32_t bufferSize) {
-      for (uint32_t i = 0 ; i < nbElements ; ) {
-        auto nb = (nbElements - i) > bufferSize ? bufferSize : (nbElements - i);
-        if (stream.receiveRaw (buffer, nb)) {
-          Allocator::instance ().write (seg, buffer, i * sizeof (T), nb * sizeof (T));
-        }
-
-        i += nb;
       }
     }
 

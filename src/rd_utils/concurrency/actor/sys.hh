@@ -8,6 +8,7 @@
 #include <rd_utils/concurrency/mutex.hh>
 #include <rd_utils/concurrency/mailbox.hh>
 #include <rd_utils/utils/_.hh>
+#include <rd_utils/memory/cache/_.hh>
 
 namespace rd_utils::concurrency::actor {
 
@@ -23,6 +24,11 @@ namespace rd_utils::concurrency::actor {
     struct Response {
       uint64_t reqId;
       std::shared_ptr <rd_utils::utils::config::ConfigNode> msg;
+    };
+
+    struct ResponseBig {
+      uint64_t reqId;
+      std::shared_ptr <rd_utils::memory::cache::collection::CacheArrayBase> msg;
     };
 
   private:
@@ -49,11 +55,17 @@ namespace rd_utils::concurrency::actor {
     // mailbox of responses
     concurrency::Mailbox <Response> _responses;
 
+    // mailbox of big responses
+    concurrency::Mailbox <ResponseBig> _responseBigs;
+
     // Semaphore when a response is available
     semaphore _waitResponse;
 
+    // Semaphore when a big response is available
+    semaphore _waitResponseBig;
+
     // Uniq id
-    uint64_t _lastU;
+    uint64_t _lastU = 0;
 
   public:
 
@@ -62,7 +74,8 @@ namespace rd_utils::concurrency::actor {
       ACTOR_MSG,
       ACTOR_REQ,
       ACTOR_REQ_BIG,
-      ACTOR_RESP
+      ACTOR_RESP,
+      ACTOR_RESP_BIG
     };
 
   public:
@@ -145,6 +158,11 @@ namespace rd_utils::concurrency::actor {
     void pushResponse (Response rep);
 
     /**
+     * Push a big response
+     */
+    void pushResponseBig (ResponseBig rep);
+
+    /**
      * generate a uniq id
      */
     uint64_t genUniqId ();
@@ -181,6 +199,11 @@ namespace rd_utils::concurrency::actor {
      * Treat an actor response
      */
     void onActorResp (net::TcpStream & session);
+
+    /**
+     * Treat an actor big response
+     */
+    void onActorRespBig (net::TcpStream & session);
 
     /**
      * @returns: the name of the actor

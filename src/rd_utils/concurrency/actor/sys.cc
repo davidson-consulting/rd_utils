@@ -93,6 +93,11 @@ namespace rd_utils::concurrency::actor {
     this-> _waitResponse.post ();
   }
 
+  void ActorSystem::pushResponseBig (ResponseBig rep) {
+    this-> _responseBigs.send (rep);
+    this-> _waitResponseBig.post ();
+  }
+
   void ActorSystem::onSession (net::TcpSessionKind kind, net::TcpStream & session) {
     auto protId = session.receiveInt ();
     std::cout << "Protocol : " << protId << std::endl;
@@ -111,6 +116,9 @@ namespace rd_utils::concurrency::actor {
       break;
     case ActorSystem::Protocol::ACTOR_RESP:
       this-> onActorResp (session);
+      break;
+    case ActorSystem::Protocol::ACTOR_RESP_BIG:
+      this-> onActorRespBig (session);
       break;
     default :
       session.close ();
@@ -185,7 +193,8 @@ namespace rd_utils::concurrency::actor {
   void ActorSystem::onActorReqBig (net::TcpStream & session) {
     concurrency::timer t;
     auto name = this-> readActorName (session);
-    this-> readAddress (session);
+    auto addr = this-> readAddress (session);
+    auto reqId = session.receiveInt ();
     auto msg = this-> readMessage (session);
 
     if (msg == nullptr) {
@@ -201,8 +210,8 @@ namespace rd_utils::concurrency::actor {
         try {
           t.reset ();
           auto result = it-> second-> onRequestList (*msg);
-          result-> send (session, ARRAY_BUFFER_SIZE);
-
+          auto actorRef = this-> remoteActor ("", addr, false);
+          actorRef-> responseBig (reqId, result);
         } catch (std::runtime_error & e) {
           session.close ();
         }
@@ -214,6 +223,14 @@ namespace rd_utils::concurrency::actor {
     auto reqId = session.receiveInt ();
     auto value = this-> readMessage (session);
     this-> pushResponse ({.reqId = reqId, .msg = value});
+  }
+
+  void ActorSystem::onActorRespBig (net::TcpStream & session) {
+    auto reqId = session.receiveInt ();
+    auto array = std::make_shared <rd_utils::memory::cache::collection::CacheArrayBase> ();
+    array-> recv (session, ARRAY_BUFFER_SIZE);
+
+    this-> pushResponseBig ({.reqId = reqId, .msg = array});
   }
 
   std::string ActorSystem::readActorName (net::TcpStream & stream) {

@@ -73,15 +73,21 @@ namespace rd_utils::concurrency::actor {
       this-> _conn-> send (this-> _name.c_str (), this-> _name.length ());
       this-> _conn-> sendInt (this-> _sys-> port ());
 
+      uint64_t uniqId = this-> _sys-> genUniqId ();
+      this-> _conn-> sendInt (uniqId);
+
       utils::raw::dump (*this-> _conn, msg);
+      for (;;) {
+        this-> _sys-> _waitResponseBig.wait ();
+        ActorSystem::ResponseBig resp;
+        if (this-> _sys-> _responseBigs.receive (resp)) {
+          if (resp.reqId == uniqId) {
+            return std::static_pointer_cast <rd_utils::memory::cache::collection::CacheArray <T> > (resp.msg);
+          }
+        }
 
-      uint32_t size = this-> _conn-> receiveInt ();
-      std::cout << size << std::endl;
-
-      auto result = std::make_shared <rd_utils::memory::cache::collection::CacheArray<T> > (size);
-
-      result-> recv (*this-> _conn, ARRAY_BUFFER_SIZE);
-      return result;
+        this-> _sys-> pushResponseBig (resp);
+      }
     }
 
     /**
@@ -104,6 +110,8 @@ namespace rd_utils::concurrency::actor {
     friend ActorSystem;
 
     void response (uint64_t reqId, const rd_utils::utils::config::ConfigNode & msg);
+
+    void responseBig (uint64_t reqId, std::shared_ptr <rd_utils::memory::cache::collection::CacheArrayBase> & array);
 
   };
 

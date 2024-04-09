@@ -82,6 +82,24 @@ namespace rd_utils::concurrency::actor {
     utils::raw::dump (*this-> _conn, node);
   }
 
+  void ActorRef::responseBig (uint64_t reqId, std::shared_ptr <rd_utils::memory::cache::collection::CacheArrayBase> & array) {
+    if (this-> _conn == nullptr || !this-> _conn-> isOpen ()) {
+      try {
+        this-> _conn = std::make_shared<net::TcpStream> (this-> _addr);
+        this-> _conn-> connect ();
+      } catch (...) {
+        throw std::runtime_error ("Failed to reconnect to remote actor system : " + this-> _addr.toString ());
+      }
+    }
+
+    this-> _conn-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP_BIG));
+    this-> _conn-> sendInt (reqId);
+
+    array-> send (*this-> _conn, ARRAY_BUFFER_SIZE);
+  }
+
+
+
   const std::string & ActorRef::getName () const {
     return this-> _name;
   }
