@@ -2,8 +2,10 @@
 #include <thread>
 #include <rd_utils/utils/raw_parser.hh>
 
+
 #include "ref.hh"
 #include "base.hh"
+#include "stream.hh"
 
 namespace rd_utils::concurrency::actor {
 
@@ -11,7 +13,6 @@ namespace rd_utils::concurrency::actor {
     _server (addr, nbThreads == -1 ? std::thread::hardware_concurrency() : nbThreads, maxCon),
     _localConn (nullptr)
   {}
-
 
   void ActorSystem::start () {
     this-> _server.start (this, &ActorSystem::onSession);
@@ -21,7 +22,6 @@ namespace rd_utils::concurrency::actor {
     this-> _actors.erase (name);
     this-> _actorMutexes.erase (name);
   }
-
 
   std::shared_ptr <ActorRef> ActorSystem::localActor (const std::string & name) {
     auto it = this-> _actors.find (name);
@@ -98,9 +98,13 @@ namespace rd_utils::concurrency::actor {
     this-> _waitResponseBig.post ();
   }
 
-  void ActorSystem::onSession (net::TcpSessionKind kind, net::TcpStream & session) {
-    auto protId = session.receiveInt ();
-    std::cout << "Protocol : " << protId << std::endl;
+  void ActorSystem::pushResponseStream (ResponseStream rep) {
+    this-> _responseStreams.send (rep);
+    this-> _waitResponseStream.post ();
+  }
+
+  void ActorSystem::onSession (net::TcpSessionKind kind, std::shared_ptr <net::TcpStream> session) {
+    auto protId = session-> receiveInt ();
     switch ((ActorSystem::Protocol) protId) {
     case ActorSystem::Protocol::ACTOR_EXIST_REQ:
       this-> onActorExistReq (session);
@@ -120,35 +124,41 @@ namespace rd_utils::concurrency::actor {
     case ActorSystem::Protocol::ACTOR_RESP_BIG:
       this-> onActorRespBig (session);
       break;
+    case ActorSystem::Protocol::ACTOR_REQ_STREAM:
+      this-> onActorReqStream (session);
+      break;
+    case ActorSystem::Protocol::ACTOR_RESP_STREAM:
+      this-> onActorRespStream (session);
+      break;
     default :
-      session.close ();
+      session-> close ();
       break;
     }
   }
 
-  void ActorSystem::onActorExistReq (net::TcpStream & session) {
+  void ActorSystem::onActorExistReq (std::shared_ptr <net::TcpStream> session) {
     auto name = this-> readActorName (session);
     auto it = this-> _actors.find (name);
     if (it != this-> _actors.end ()) {
-      session.sendInt (1);
+      session-> sendInt (1);
     } else {
-      session.sendInt (0);
+      session-> sendInt (0);
     }
   }
 
-  void ActorSystem::onActorMsg (net::TcpStream & session) {
+  void ActorSystem::onActorMsg (std::shared_ptr <net::TcpStream> session) {
     auto name = this-> readActorName (session);
     this-> readAddress (session);
     auto msg = this-> readMessage (session);
 
     if (msg == nullptr) {
-      session.close ();
+      session-> close ();
       return;
     }
 
     auto it = this-> _actors.find (name);
     if (it == this-> _actors.end ()) {
-      session.close ();
+      session-> close ();
     } else {
       WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
         try {
@@ -160,51 +170,51 @@ namespace rd_utils::concurrency::actor {
     }
   }
 
-  void ActorSystem::onActorReq (net::TcpStream & session) {
+  void ActorSystem::onActorReq (std::shared_ptr <net::TcpStream> session) {
     concurrency::timer t;
     auto name = this-> readActorName (session);
     auto addr = this-> readAddress (session);
-    auto reqId = session.receiveInt ();
+    auto reqId = session-> receiveInt ();
     auto msg = this-> readMessage (session);
     std::cout << t.time_since_start () << std::endl;
 
     if (msg == nullptr) {
-      session.close ();
+      session-> close ();
       return;
     }
 
     auto it = this-> _actors.find (name);
     if (it == this-> _actors.end ()) {
-      session.close ();
+      session-> close ();
     } else {
       WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
         try {
           t.reset ();
           auto result = it-> second-> onRequest (*msg);
           auto actorRef = this-> remoteActor ("", addr, false);
-          actorRef-> response (reqId, *result);
+          actorRef-> response (reqId, result);
         } catch (std::runtime_error & e) {
-          session.close ();
+          session-> close ();
         }
       }
     }
   }
 
-  void ActorSystem::onActorReqBig (net::TcpStream & session) {
+  void ActorSystem::onActorReqBig (std::shared_ptr <net::TcpStream> session) {
     concurrency::timer t;
     auto name = this-> readActorName (session);
     auto addr = this-> readAddress (session);
-    auto reqId = session.receiveInt ();
+    auto reqId = session-> receiveInt ();
     auto msg = this-> readMessage (session);
 
     if (msg == nullptr) {
-      session.close ();
+      session-> close ();
       return;
     }
 
     auto it = this-> _actors.find (name);
     if (it == this-> _actors.end ()) {
-      session.close ();
+      session-> close ();
     } else {
       WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
         try {
@@ -213,31 +223,81 @@ namespace rd_utils::concurrency::actor {
           auto actorRef = this-> remoteActor ("", addr, false);
           actorRef-> responseBig (reqId, result);
         } catch (std::runtime_error & e) {
-          session.close ();
+          session-> close ();
         }
       }
     }
   }
 
-  void ActorSystem::onActorResp (net::TcpStream & session) {
-    auto reqId = session.receiveInt ();
-    auto value = this-> readMessage (session);
-    this-> pushResponse ({.reqId = reqId, .msg = value});
+
+  void ActorSystem::onActorReqStream (std::shared_ptr <net::TcpStream> session) {
+    concurrency::timer t;
+    auto name = this-> readActorName (session);
+    auto addr = this-> readAddress (session);
+    auto reqId = session-> receiveInt ();
+    auto msg = this-> readMessage (session);
+
+    if (msg == nullptr) {
+      session-> close ();
+      return;
+    }
+
+    auto it = this-> _actors.find (name);
+    if (it == this-> _actors.end ()) {
+      session-> close ();
+    } else {
+      WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
+        try {
+          t.reset ();
+          auto actorRef = this-> remoteActor ("", addr, false);
+          auto conn = actorRef-> getSession ();
+          conn-> sendInt ((uint32_t) ActorSystem::Protocol::ACTOR_RESP_STREAM);
+          conn-> sendInt (reqId);
+
+          ActorStream stream (session, conn, false);
+          it-> second-> onStream (*msg, stream);
+        } catch (std::runtime_error & e) {
+          session-> close ();
+        }
+      }
+    }
   }
 
-  void ActorSystem::onActorRespBig (net::TcpStream & session) {
-    auto reqId = session.receiveInt ();
-    auto array = std::make_shared <rd_utils::memory::cache::collection::CacheArrayBase> ();
-    array-> recv (session, ARRAY_BUFFER_SIZE);
-
-    this-> pushResponseBig ({.reqId = reqId, .msg = array});
+  void ActorSystem::onActorResp (std::shared_ptr <net::TcpStream> session) {
+    auto reqId = session-> receiveInt ();
+    auto hasValue = session-> receiveInt ();
+    if (hasValue == 1) {
+      auto value = this-> readMessage (session);
+      this-> pushResponse ({.reqId = reqId, .msg = value});
+    } else {
+      this-> pushResponse ({.reqId = reqId, .msg = nullptr});
+    }
   }
 
-  std::string ActorSystem::readActorName (net::TcpStream & stream) {
-    uint32_t len = stream.receiveInt ();
+  void ActorSystem::onActorRespBig (std::shared_ptr <net::TcpStream> session) {
+    auto reqId = session-> receiveInt ();
+    auto hasValue = session-> receiveInt ();
+    if (hasValue == 1) {
+      auto array = std::make_shared <rd_utils::memory::cache::collection::CacheArrayBase> ();
+      array-> recv (*session, ARRAY_BUFFER_SIZE);
+
+      this-> pushResponseBig ({.reqId = reqId, .msg = array});
+    } else {
+      this-> pushResponseBig ({.reqId = reqId, .msg = nullptr});
+    }
+  }
+
+  void ActorSystem::onActorRespStream (std::shared_ptr <net::TcpStream> session) {
+    auto reqId = session-> receiveInt ();
+    this-> pushResponseStream ({.reqId = reqId, .stream = session});
+    this-> _server.forget (session);
+  }
+
+  std::string ActorSystem::readActorName (std::shared_ptr <net::TcpStream> stream) {
+    uint32_t len = stream-> receiveInt ();
     if (len <= 32) {
       char * str = new char [len + 1];
-      stream.receive (str, len);
+      stream-> receive (str, len);
       str [len] = '\0';
       std::string ret (str);
       delete [] str;
@@ -246,16 +306,16 @@ namespace rd_utils::concurrency::actor {
     } else return "";
   }
 
-  net::SockAddrV4 ActorSystem::readAddress (net::TcpStream & stream) {
-    uint32_t port = stream.receiveInt ();
-    auto ip = stream.addr ().ip ();
+  net::SockAddrV4 ActorSystem::readAddress (std::shared_ptr <net::TcpStream> stream) {
+    uint32_t port = stream-> receiveInt ();
+    auto ip = stream-> addr ().ip ();
 
     return net::SockAddrV4 (ip, port);
   }
 
-  std::shared_ptr<utils::config::ConfigNode> ActorSystem::readMessage (net::TcpStream & stream) {
+  std::shared_ptr<utils::config::ConfigNode> ActorSystem::readMessage (std::shared_ptr <net::TcpStream> stream) {
     try {
-      return utils::raw::parse (stream);
+      return utils::raw::parse (*stream);
     } catch (...) {
       return nullptr;
     }

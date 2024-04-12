@@ -7,6 +7,7 @@
 #include <rd_utils/utils/_.hh>
 #include <rd_utils/utils/raw_parser.hh>
 #include <rd_utils/memory/cache/_.hh>
+#include "stream.hh"
 
 
 namespace rd_utils::concurrency::actor {
@@ -55,6 +56,11 @@ namespace rd_utils::concurrency::actor {
     std::shared_ptr<rd_utils::utils::config::ConfigNode> request (const rd_utils::utils::config::ConfigNode & msg);
 
     /**
+     * Send a request to open a direct stream between the two actors
+     */
+    std::shared_ptr <ActorStream> requestStream (const rd_utils::utils::config::ConfigNode & msg);
+
+    /**
      * Send a request and wait for a big response
      */
     template <typename T>
@@ -96,6 +102,11 @@ namespace rd_utils::concurrency::actor {
     const std::string & getName () const;
 
     /**
+     * @returns: the opened socket
+     */
+    std::shared_ptr <net::TcpStream> getSession ();
+
+    /**
      * Close the actor reference
      */
     void dispose ();
@@ -109,7 +120,7 @@ namespace rd_utils::concurrency::actor {
 
     friend ActorSystem;
 
-    void response (uint64_t reqId, const rd_utils::utils::config::ConfigNode & msg);
+    void response (uint64_t reqId, std::shared_ptr <rd_utils::utils::config::ConfigNode> msg);
 
     void responseBig (uint64_t reqId, std::shared_ptr <rd_utils::memory::cache::collection::CacheArrayBase> & array);
 

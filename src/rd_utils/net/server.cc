@@ -109,7 +109,7 @@ namespace rd_utils::net {
    */
 
 
-  void TcpServer::start (void (*onSession)(TcpSessionKind, TcpStream&)) {
+  void TcpServer::start (void (*onSession)(TcpSessionKind, std::shared_ptr <TcpStream>)) {
     if (this-> _started) throw utils::Rd_UtilsError ("Already running");
     this-> _onSession.dispose ();
     this-> _onSession.connect (onSession);
@@ -162,7 +162,7 @@ namespace rd_utils::net {
           if (this-> _openSockets.size () + 1 > (uint32_t) this-> _maxConn && this-> _maxConn != -1) {
             cl.close ();
           } else {
-            auto stream = new TcpStream (std::move (cl));
+            auto stream = std::make_shared <TcpStream> (std::move (cl));
             this-> _openSockets.emplace (stream-> getHandle (), stream);
             this-> _socketFds.emplace (stream, stream-> getHandle ());
 
@@ -210,7 +210,7 @@ namespace rd_utils::net {
     epoll_ctl (this-> _epoll_fd, EPOLL_CTL_DEL, fd, &event);
   }
 
-  void TcpServer::submit (TcpSessionKind kind, TcpStream * stream) {
+  void TcpServer::submit (TcpSessionKind kind, std::shared_ptr <TcpStream> stream) {
     this-> _jobs.send ({.kind = kind, .stream = stream});
     if (this-> _runningThreads.size () != (uint32_t) this-> _nbThreads) {
       this-> spawnThreads ();
@@ -224,19 +224,29 @@ namespace rd_utils::net {
     for (;;) {
       MailElement elem;
       if (this-> _completed.receive (elem)) {
-        TcpStream* str = elem.stream;
+        std::shared_ptr <TcpStream> str = elem.stream;
 
-        if (str-> isOpen ()) {
-          this-> addEpoll (elem.kind, str-> getHandle ());
-        } else {
+        if (this-> _forget.find (str) != this-> _forget.end ()) {
           this-> delEpoll (str-> getHandle ());
-
           auto handle = this-> _socketFds.find (str);
+
           this-> _openSockets.erase (handle-> second);
           this-> _socketFds.erase (str);
+          WITH_LOCK (this-> _triggerM) {
+            this-> _forget.erase (str);
+          }
+        } else {
+          if (str-> isOpen ()) {
+            this-> addEpoll (elem.kind, str-> getHandle ());
+          } else {
+            this-> delEpoll (str-> getHandle ());
 
-          str-> close ();
-          delete str;
+            auto handle = this-> _socketFds.find (str);
+            this-> _openSockets.erase (handle-> second);
+            this-> _socketFds.erase (str);
+
+            str-> close ();
+          }
         }
       } else {
         break;
@@ -272,7 +282,7 @@ namespace rd_utils::net {
       for (;;) {
         MailElement elem;
         if (this-> _jobs.receive (elem)) {
-          this-> _onSession.emit (elem.kind, *elem.stream);
+          this-> _onSession.emit (elem.kind, elem.stream);
           this-> _completed.send (elem);
 
           WITH_LOCK (this-> _triggerM) {
@@ -287,6 +297,14 @@ namespace rd_utils::net {
     }
 
     this-> _closed.send (t.id);
+  }
+
+  void TcpServer::forget (std::shared_ptr <net::TcpStream> stream) {
+    if (stream != nullptr) {
+      WITH_LOCK (this-> _triggerM) {
+        this-> _forget.emplace (stream);
+      }
+    }
   }
 
   /**
@@ -353,10 +371,6 @@ namespace rd_utils::net {
     if (this-> _epoll_fd != 0) { // clear epoll list
       ::close (this-> _epoll_fd);
       this-> _epoll_fd = 0;
-    }
-
-    for (auto & [it, sock] : this-> _openSockets) { // Delete all allocated sockets
-      delete sock;
     }
 
     this-> _openSockets.clear ();

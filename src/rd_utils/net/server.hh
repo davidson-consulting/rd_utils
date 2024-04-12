@@ -4,7 +4,9 @@
 #include <rd_utils/concurrency/_.hh>
 #include <rd_utils/net/listener.hh>
 #include <map>
+#include <set>
 #include <tuple>
+#include <memory>
 
 namespace rd_utils::net {
 
@@ -16,7 +18,7 @@ namespace rd_utils::net {
 
         struct MailElement {
                 TcpSessionKind kind;
-                TcpStream * stream;
+                std::shared_ptr <TcpStream> stream;
         };
 
 
@@ -33,10 +35,10 @@ namespace rd_utils::net {
                 int _maxConn;
 
                 // The list of opened socket
-                std::map <int, TcpStream*> _openSockets;
+                std::map <int, std::shared_ptr <TcpStream> > _openSockets;
 
                 // The fds of the open sockets (a socket can be closed manually during a session)
-                std::map <TcpStream*, int> _socketFds;
+                std::map <std::shared_ptr <TcpStream>, int> _socketFds;
 
         private: // Task pool
 
@@ -53,7 +55,7 @@ namespace rd_utils::net {
                 std::map <int, concurrency::Thread> _runningThreads;
 
                 // The signal emitted when a session is started
-                concurrency::signal<TcpSessionKind, TcpStream&> _onSession;
+                concurrency::signal<TcpSessionKind, std::shared_ptr <TcpStream> > _onSession;
 
         private: // Task jobs/completed
 
@@ -68,6 +70,9 @@ namespace rd_utils::net {
 
                 // The list of socket whose session is finished
                 concurrency::Mailbox<MailElement> _completed;
+
+                // The list of socket that are to be forgetted
+                std::set <std::shared_ptr <net::TcpStream> > _forget;
 
                 // Closed threads
                 concurrency::Mailbox<int> _closed;
@@ -116,13 +121,13 @@ namespace rd_utils::net {
                 /**
                  * Wait for a stream to be ready
                  */
-                void start (void (*onSession)(TcpSessionKind, TcpStream&));
+                void start (void (*onSession)(TcpSessionKind, std::shared_ptr <TcpStream>));
 
                 /**
                  * Wait for a stream to be ready
                  */
                 template <class X>
-                void start (X* x, void (X::*onSession)(TcpSessionKind, TcpStream&)) {
+                void start (X* x, void (X::*onSession)(TcpSessionKind, std::shared_ptr <TcpStream>)) {
                         if (this-> _started) throw utils::Rd_UtilsError ("Already running");
 
                         this-> _onSession.dispose ();
@@ -145,6 +150,11 @@ namespace rd_utils::net {
                  * @returns: the current number of connected socket
                  */
                 int nbConnected () const;
+
+                /**
+                 * Forget a socket
+                 */
+                void forget (std::shared_ptr <net::TcpStream> stream);
 
                 /**
                  * Stop the server in the future
@@ -201,7 +211,7 @@ namespace rd_utils::net {
                 /**
                  * Submit a new session to the task pool
                  */
-                void submit (TcpSessionKind, TcpStream * stream);
+                void submit (TcpSessionKind, std::shared_ptr <TcpStream> stream);
 
                 /**
                  * Reload all the socket whose session is finished

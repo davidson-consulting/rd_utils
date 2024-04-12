@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include "stream.hh"
 
 namespace rd_utils::concurrency::actor {
 
@@ -31,17 +32,22 @@ namespace rd_utils::concurrency::actor {
     /**
      * Function executed when receiving a message
      */
-    virtual void onMessage (const rd_utils::utils::config::ConfigNode & msg) = 0;
+    virtual void onMessage (const rd_utils::utils::config::ConfigNode & msg);
 
     /**
      * Function executed when receiving a request
      */
-    virtual std::shared_ptr<rd_utils::utils::config::ConfigNode> onRequest (const rd_utils::utils::config::ConfigNode & msg) = 0;
+    virtual std::shared_ptr<rd_utils::utils::config::ConfigNode> onRequest (const rd_utils::utils::config::ConfigNode & msg);
 
     /**
      * Request that returns a list of flat values
      */
-    virtual std::shared_ptr <rd_utils::memory::cache::collection::CacheArrayBase> onRequestList (const rd_utils::utils::config::ConfigNode & msg) = 0;
+    virtual std::shared_ptr <rd_utils::memory::cache::collection::CacheArrayBase> onRequestList (const rd_utils::utils::config::ConfigNode & msg);
+
+    /**
+     * When a direct stream is opened between two actors
+     */
+    virtual void onStream (const rd_utils::utils::config::ConfigNode & msg, ActorStream & stream);
 
     /**
      * @returns: the actor reference of this actor

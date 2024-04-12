@@ -3,6 +3,7 @@
 
 #include <rd_utils/net/_.hh>
 #include <rd_utils/memory/cache/_.hh>
+#include <memory>
 
 namespace rd_utils::memory::cache::remote {
 
@@ -91,7 +92,7 @@ namespace rd_utils::memory::cache::remote {
      *    - kind: new connection, or old
      *    - stream: the tcp stream of the client
      */
-    void onSession (net::TcpSessionKind, net::TcpStream&);
+    void onSession (net::TcpSessionKind, std::shared_ptr <net::TcpStream>);
 
     /**
      * Store a block received from the stream

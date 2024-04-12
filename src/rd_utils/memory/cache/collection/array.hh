@@ -8,13 +8,13 @@
 namespace rd_utils::memory::cache::collection {
 
 
-template <typename T>
-void printArray(T A[], int size)
-{
+  template <typename T>
+  void printArray(T A[], int size)
+  {
     for (int i = 0; i < size; i++)
-        std::cout << A[i] << " ";
+    std::cout << A[i] << " ";
     std::cout << std::endl;
-}
+  }
 
 
   class CacheArrayBase {

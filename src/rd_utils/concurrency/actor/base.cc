@@ -10,6 +10,19 @@ namespace rd_utils::concurrency::actor {
     , _system (sys)
   {}
 
+  void ActorBase::onMessage (const rd_utils::utils::config::ConfigNode & msg) {
+  }
+
+  std::shared_ptr<rd_utils::utils::config::ConfigNode> ActorBase::onRequest (const rd_utils::utils::config::ConfigNode & msg) {
+    return nullptr;
+  }
+
+  std::shared_ptr <rd_utils::memory::cache::collection::CacheArrayBase> ActorBase::onRequestList (const rd_utils::utils::config::ConfigNode & msg) {
+    return nullptr;
+  }
+
+  void ActorBase::onStream (const rd_utils::utils::config::ConfigNode & msg, ActorStream & stream) {}
+
   std::shared_ptr<ActorRef> ActorBase::getRef () {
     return this-> _system-> localActor (this-> _name);
   }

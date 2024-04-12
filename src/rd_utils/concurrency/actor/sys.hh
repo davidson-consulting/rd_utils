@@ -14,6 +14,7 @@ namespace rd_utils::concurrency::actor {
 
   class ActorRef;
   class ActorBase;
+  class ActorStream;
 
   /**
    * Actor system class used to register actors, and manage communications
@@ -29,6 +30,11 @@ namespace rd_utils::concurrency::actor {
     struct ResponseBig {
       uint64_t reqId;
       std::shared_ptr <rd_utils::memory::cache::collection::CacheArrayBase> msg;
+    };
+
+    struct ResponseStream {
+      uint64_t reqId;
+      std::shared_ptr <net::TcpStream> stream;
     };
 
   private:
@@ -58,11 +64,17 @@ namespace rd_utils::concurrency::actor {
     // mailbox of big responses
     concurrency::Mailbox <ResponseBig> _responseBigs;
 
+    // Streaming response
+    concurrency::Mailbox <ResponseStream> _responseStreams;
+
     // Semaphore when a response is available
     semaphore _waitResponse;
 
     // Semaphore when a big response is available
     semaphore _waitResponseBig;
+
+    // Semaphore when a stream response is available
+    semaphore _waitResponseStream;
 
     // Uniq id
     uint64_t _lastU = 0;
@@ -75,7 +87,9 @@ namespace rd_utils::concurrency::actor {
       ACTOR_REQ,
       ACTOR_REQ_BIG,
       ACTOR_RESP,
-      ACTOR_RESP_BIG
+      ACTOR_RESP_BIG,
+      ACTOR_REQ_STREAM,
+      ACTOR_RESP_STREAM
     };
 
   public:
@@ -163,6 +177,11 @@ namespace rd_utils::concurrency::actor {
     void pushResponseBig (ResponseBig rep);
 
     /**
+     * Push a stream response
+     */
+    void pushResponseStream (ResponseStream rep);
+
+    /**
      * generate a uniq id
      */
     uint64_t genUniqId ();
@@ -173,52 +192,62 @@ namespace rd_utils::concurrency::actor {
      *    - kind: the kind of message (new, old)
      *    - session: the stream to the tcp session
      */
-    void onSession (net::TcpSessionKind kind, net::TcpStream & session);
+    void onSession (net::TcpSessionKind kind, std::shared_ptr <net::TcpStream> session);
 
     /**
      * Treat an actor existance request
      */
-    void onActorExistReq (net::TcpStream & session);
+    void onActorExistReq (std::shared_ptr <net::TcpStream> session);
 
     /**
      * Treat an actor message
      */
-    void onActorMsg (net::TcpStream & session);
+    void onActorMsg (std::shared_ptr <net::TcpStream> session);
 
     /**
      * Treat an actor request (msg with response)
      */
-    void onActorReq (net::TcpStream & session);
+    void onActorReq (std::shared_ptr <net::TcpStream> session);
 
     /**
      * Treat an actor request (msg with response of type cache array)
      */
-    void onActorReqBig (net::TcpStream & session);
+    void onActorReqBig (std::shared_ptr <net::TcpStream> session);
+
+    /**
+     * Treat an actor stream request (msg with response of type cache array)
+     */
+    void onActorReqStream (std::shared_ptr <net::TcpStream> session);
 
     /**
      * Treat an actor response
      */
-    void onActorResp (net::TcpStream & session);
+    void onActorResp (std::shared_ptr <net::TcpStream> session);
 
     /**
      * Treat an actor big response
      */
-    void onActorRespBig (net::TcpStream & session);
+    void onActorRespBig (std::shared_ptr <net::TcpStream> session);
+
+    /**
+     * Treat an actor stream resp
+     */
+    void onActorRespStream (std::shared_ptr <net::TcpStream> session);
 
     /**
      * @returns: the name of the actor
      */
-    std::string readActorName (net::TcpStream & stream);
+    std::string readActorName (std::shared_ptr <net::TcpStream> stream);
 
     /**
      * @returns: read an address from remote stream
      */
-    net::SockAddrV4 readAddress (net::TcpStream & stream);
+    net::SockAddrV4 readAddress (std::shared_ptr <net::TcpStream> stream);
 
     /**
      * @returns: a message
      */
-    std::shared_ptr<utils::config::ConfigNode> readMessage (net::TcpStream & stream);
+    std::shared_ptr<utils::config::ConfigNode> readMessage (std::shared_ptr <net::TcpStream> stream);
 
   };
 

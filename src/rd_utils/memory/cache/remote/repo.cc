@@ -32,31 +32,31 @@ namespace rd_utils::memory::cache::remote {
     this-> dispose ();
   }
 
-  void Repository::onSession (net::TcpSessionKind kind, net::TcpStream & str) {
-    auto proto = str.receiveInt ();
+  void Repository::onSession (net::TcpSessionKind kind, std::shared_ptr <net::TcpStream> str) {
+    auto proto = str-> receiveInt ();
     switch ((RepositoryProtocol) proto) {
     case RepositoryProtocol::EXISTS :
-      this-> exists (str);
+      this-> exists (*str);
       break;
     case RepositoryProtocol::STORE:
-      this-> store (str);
+      this-> store (*str);
       break;
     case RepositoryProtocol::LOAD:
-      this-> load (str);
+      this-> load (*str);
       break;
     case RepositoryProtocol::ERASE:
-      this-> erase (str);
+      this-> erase (*str);
       break;
     case RepositoryProtocol::REGISTER:
       LOG_INFO ("New client");
       this-> _userId ++;
-      str.sendInt (this-> _userId);
+      str-> sendInt (this-> _userId);
       break;
     default :
       break;
     }
 
-    str.close ();
+    str-> close ();
   }
 
   void Repository::exists (net::TcpStream & str) {
