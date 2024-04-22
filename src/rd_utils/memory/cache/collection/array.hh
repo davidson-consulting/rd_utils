@@ -365,10 +365,11 @@ namespace rd_utils::memory::cache::collection {
         if (end > this-> _sizeDividePerBlock) {
           auto rest = end - this-> _sizeDividePerBlock;
           nb = nb - rest;
+          Allocator::instance ().write (seg, buffer, offset * sizeof (T), sizeof (T) * nb);
           setNb (i + nb, buffer + nb, rest);
+        } else {
+          Allocator::instance ().write (seg, buffer, offset * sizeof (T), sizeof (T) * nb);
         }
-
-        Allocator::instance ().write (seg, buffer, offset * sizeof (T), sizeof (T) * nb);
       } else {
         if (this-> _sizeDividePerBlock == 1) {
           offset = index;

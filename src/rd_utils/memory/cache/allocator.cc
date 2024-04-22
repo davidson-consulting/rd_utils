@@ -101,6 +101,10 @@ namespace rd_utils::memory::cache {
     return this-> _loaded.size ();
   }
 
+  uint32_t Allocator::getMaxAllocable () const {
+    return this-> _max_allocable;
+  }
+
   uint32_t Allocator::getNbStored () const {
     if (this-> _loaded.size () < this-> _blocks.size ()) {
       return this-> _blocks.size () - this-> _loaded.size ();

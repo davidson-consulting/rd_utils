@@ -230,6 +230,11 @@ namespace rd_utils::memory::cache {
                 uint32_t getNbLoaded () const;
 
                 /**
+                 * @returns: the maximum number of bits that can be allocated in a single block
+                 */
+                uint32_t getMaxAllocable () const;
+
+                /**
                  * @returns: the number of blocks sent persisted
                  */
                 uint32_t getNbStored () const;
