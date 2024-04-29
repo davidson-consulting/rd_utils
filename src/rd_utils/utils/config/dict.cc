@@ -26,7 +26,7 @@ namespace rd_utils::utils::config {
 
   void Dict::insert (const std::string & key, std::shared_ptr<ConfigNode> value) {
     this-> _keys.insert (key);
-    this-> _nodes.emplace (key, value);
+    this-> _nodes.insert_or_assign (key, value);
   }
 
   std::shared_ptr<Dict> Dict::getInDic (const std::string & key) {

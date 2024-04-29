@@ -109,6 +109,8 @@ namespace rd_utils::net {
 
     TcpStream* operator-> ();
 
+    TcpStream& operator* ();
+
     void dispose ();
 
     ~TcpSession ();

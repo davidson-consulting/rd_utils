@@ -42,6 +42,10 @@ namespace rd_utils::net {
         return this-> _stream;
     }
 
+    TcpStream& TcpSession::operator* () {
+        return *this-> _stream;
+    }
+
     TcpPool::TcpPool (SockAddrV4 addr, int max) :
         _addr (addr)
         , _max (max)
@@ -80,6 +84,8 @@ namespace rd_utils::net {
                 } catch (utils::Rd_UtilsError & err) { // failed to connect
                     delete s;
                     s = nullptr;
+
+                    throw std::runtime_error ("Failed to connect");
                 }
 
                 if (s != nullptr) {

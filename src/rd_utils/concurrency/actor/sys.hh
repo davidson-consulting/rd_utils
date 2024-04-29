@@ -44,7 +44,7 @@ namespace rd_utils::concurrency::actor {
     net::TcpServer _server;
 
     // The connection to the local server
-    std::shared_ptr <net::TcpStream> _localConn;
+    std::shared_ptr <net::TcpPool> _localConn;
 
     // The list of local actors
     std::map <std::string, std::shared_ptr <ActorBase> > _actors;
@@ -53,7 +53,7 @@ namespace rd_utils::concurrency::actor {
     std::map <std::string, concurrency::mutex> _actorMutexes;
 
     // Connection to remote actor systems
-    std::map <std::string, std::shared_ptr<net::TcpStream> > _conn;
+    std::map <std::string, std::shared_ptr<net::TcpPool> > _conn;
 
     // True while the system is running
     bool _isRunning = false;
@@ -88,8 +88,7 @@ namespace rd_utils::concurrency::actor {
       ACTOR_REQ_BIG,
       ACTOR_RESP,
       ACTOR_RESP_BIG,
-      ACTOR_REQ_STREAM,
-      ACTOR_RESP_STREAM
+      SYSTEM_KILL_ALL
     };
 
   public:
@@ -118,6 +117,21 @@ namespace rd_utils::concurrency::actor {
       if (it != this-> _actors.end ()) throw std::runtime_error ("Already an actor named : " + name);
 
       this-> _actors.emplace (name, std::make_shared <T> (name, this));
+      this-> _actorMutexes.emplace (name, concurrency::mutex ());
+    }
+
+    /**
+     * Register an actor
+     * @params:
+     *    - name: the name of the actor
+     *    - actor: the actor to add
+     */
+    template <typename T, typename ... Args>
+    void add (const std::string & name, Args... a) {
+      auto it = this-> _actors.find (name);
+      if (it != this-> _actors.end ()) throw std::runtime_error ("Already an actor named : " + name);
+
+      this-> _actors.emplace (name, std::make_shared <T> (name, this, a...));
       this-> _actorMutexes.emplace (name, concurrency::mutex ());
     }
 
@@ -215,11 +229,6 @@ namespace rd_utils::concurrency::actor {
     void onActorReqBig (std::shared_ptr <net::TcpStream> session);
 
     /**
-     * Treat an actor stream request (msg with response of type cache array)
-     */
-    void onActorReqStream (std::shared_ptr <net::TcpStream> session);
-
-    /**
      * Treat an actor response
      */
     void onActorResp (std::shared_ptr <net::TcpStream> session);
@@ -230,9 +239,9 @@ namespace rd_utils::concurrency::actor {
     void onActorRespBig (std::shared_ptr <net::TcpStream> session);
 
     /**
-     * Treat an actor stream resp
+     * Treat a request to kill the system
      */
-    void onActorRespStream (std::shared_ptr <net::TcpStream> session);
+    void onSystemKill (std::shared_ptr <net::TcpStream> session);
 
     /**
      * @returns: the name of the actor

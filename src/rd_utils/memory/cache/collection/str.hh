@@ -70,8 +70,16 @@ namespace rd_utils::memory::cache::collection {
       return this-> _value;
     }
 
+    char* data () {
+      return this-> _value;
+    }
+
     uint32_t len () const {
       return this-> _len;
+    }
+
+    void forceLen (uint32_t l) {
+      this-> _len = l;
     }
 
     char operator[](uint32_t i) const {

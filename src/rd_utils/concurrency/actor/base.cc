@@ -17,7 +17,7 @@ namespace rd_utils::concurrency::actor {
     return nullptr;
   }
 
-  std::shared_ptr <rd_utils::memory::cache::collection::CacheArrayBase> ActorBase::onRequestList (const rd_utils::utils::config::ConfigNode & msg) {
+  std::shared_ptr <rd_utils::memory::cache::collection::ArrayListBase> ActorBase::onRequestList (const rd_utils::utils::config::ConfigNode & msg) {
     return nullptr;
   }
 
@@ -31,5 +31,7 @@ namespace rd_utils::concurrency::actor {
     this-> _system-> remove (this-> _name);
   }
 
+  void ActorBase::onQuit () {
+  }
 
 }

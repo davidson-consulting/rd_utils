@@ -1,7 +1,9 @@
 #pragma once
 
 #include <rd_utils/concurrency/tpipe.hh>
-#include <rd_utils/concurrency/_.hh>
+#include <rd_utils/concurrency/mailbox.hh>
+#include <rd_utils/concurrency/thread.hh>
+#include <rd_utils/concurrency/signal.hh>
 #include <rd_utils/net/listener.hh>
 #include <map>
 #include <set>

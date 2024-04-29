@@ -30,7 +30,7 @@ namespace rd_utils::concurrency::actor {
     net::SockAddrV4 _addr;
 
     // The connection to the actor system
-    std::shared_ptr <net::TcpStream> _conn;
+    std::shared_ptr <net::TcpPool> _conn;
 
     // The local actor system used to serialize messages
     ActorSystem * _sys;
@@ -43,7 +43,7 @@ namespace rd_utils::concurrency::actor {
      *    - name: the name of the actor
      *    - sock: the socket of the actor
      */
-    ActorRef (bool local, const std::string & name, net::SockAddrV4 addr, std::shared_ptr <net::TcpStream> & conn, ActorSystem * sys);
+    ActorRef (bool local, const std::string & name, net::SockAddrV4 addr, std::shared_ptr <net::TcpPool> & conn, ActorSystem * sys);
 
     /**
      * Send a message to the actor
@@ -56,33 +56,21 @@ namespace rd_utils::concurrency::actor {
     std::shared_ptr<rd_utils::utils::config::ConfigNode> request (const rd_utils::utils::config::ConfigNode & msg);
 
     /**
-     * Send a request to open a direct stream between the two actors
-     */
-    std::shared_ptr <ActorStream> requestStream (const rd_utils::utils::config::ConfigNode & msg);
-
-    /**
      * Send a request and wait for a big response
      */
     template <typename T>
     std::shared_ptr <rd_utils::memory::cache::collection::CacheArray<T> > requestBig (const rd_utils::utils::config::ConfigNode & msg) {
-      if (this-> _conn == nullptr || !this-> _conn-> isOpen ()) {
-        try {
-          this-> _conn = std::make_shared<net::TcpStream> (this-> _addr);
-          this-> _conn-> connect ();
-        } catch (...) {
-          throw std::runtime_error ("Failed to reconnect to remote actor system : " + this-> _addr.toString ());
-        }
-      }
+      auto session = this-> _conn-> get ();
 
-      this-> _conn-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ_BIG));
-      this-> _conn-> sendInt (this-> _name.length ());
-      this-> _conn-> send (this-> _name.c_str (), this-> _name.length ());
-      this-> _conn-> sendInt (this-> _sys-> port ());
+      session-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ_BIG));
+      session-> sendInt (this-> _name.length ());
+      session-> send (this-> _name.c_str (), this-> _name.length ());
+      session-> sendInt (this-> _sys-> port ());
 
       uint64_t uniqId = this-> _sys-> genUniqId ();
-      this-> _conn-> sendInt (uniqId);
+      session-> sendInt (uniqId);
 
-      utils::raw::dump (*this-> _conn, msg);
+      utils::raw::dump (*session, msg);
       for (;;) {
         this-> _sys-> _waitResponseBig.wait ();
         ActorSystem::ResponseBig resp;
@@ -104,7 +92,7 @@ namespace rd_utils::concurrency::actor {
     /**
      * @returns: the opened socket
      */
-    std::shared_ptr <net::TcpStream> getSession ();
+    std::shared_ptr <net::TcpPool> getSession ();
 
     /**
      * Close the actor reference
@@ -122,7 +110,7 @@ namespace rd_utils::concurrency::actor {
 
     void response (uint64_t reqId, std::shared_ptr <rd_utils::utils::config::ConfigNode> msg);
 
-    void responseBig (uint64_t reqId, std::shared_ptr <rd_utils::memory::cache::collection::CacheArrayBase> & array);
+    void responseBig (uint64_t reqId, std::shared_ptr <rd_utils::memory::cache::collection::ArrayListBase> & array);
 
   };
 

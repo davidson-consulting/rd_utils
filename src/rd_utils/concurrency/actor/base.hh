@@ -12,7 +12,7 @@ namespace rd_utils::concurrency::actor {
    * Ancestor of all actor classes
    */
   class ActorBase {
-  private:
+  protected:
 
     // The name of the actor
     std::string _name;
@@ -42,7 +42,7 @@ namespace rd_utils::concurrency::actor {
     /**
      * Request that returns a list of flat values
      */
-    virtual std::shared_ptr <rd_utils::memory::cache::collection::CacheArrayBase> onRequestList (const rd_utils::utils::config::ConfigNode & msg);
+    virtual std::shared_ptr <rd_utils::memory::cache::collection::ArrayListBase> onRequestList (const rd_utils::utils::config::ConfigNode & msg);
 
     /**
      * When a direct stream is opened between two actors
@@ -58,6 +58,11 @@ namespace rd_utils::concurrency::actor {
      * Function called to kill the actor
      */
     void exit ();
+
+    /**
+     * Called when the actor is stopped
+     */
+    virtual void onQuit ();
 
   };
 

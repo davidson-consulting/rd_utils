@@ -32,8 +32,30 @@ namespace rd_utils::memory::cache::collection {
     this-> dispose ();
   }
 
+  void ArrayListBase::send (net::TcpStream & stream, uint32_t bufferSize) {
+    uint32_t nbInBuffer = bufferSize / this-> _innerSize;
+    uint8_t * buffer = new uint8_t [nbInBuffer * this-> _innerSize];
+    stream.sendInt (this-> _size);
+    stream.sendInt (this-> _innerSize);
+
+    for (auto bl : this-> _metadata) {
+      AllocatedSegment seg = {.blockAddr = bl, .offset = ALLOC_HEAD_SIZE};
+      this-> sendBlock (stream, seg, this-> _allocable, buffer, nbInBuffer);
+    }
+  }
+
+  void ArrayListBase::sendBlock (net::TcpStream & stream, AllocatedSegment seg, uint32_t nbElements, uint8_t * buffer, uint32_t nbInBuffer) {
+    for (uint32_t i = 0 ; i < nbElements ;) {
+      auto nb = (nbElements - i) > nbInBuffer ? nbInBuffer : (nbElements - i);
+      Allocator::instance ().read (seg, buffer,  i * this-> _innerSize, nb * this-> _innerSize);
+      stream.send ((char*) buffer, nb * this-> _innerSize);
+
+      i += nb;
+    }
+  }
+
+
   void ArrayListBase::grow () {
-    std::cout << "New block" << std::endl;
     AllocatedSegment seg;
     Allocator::instance ().allocate (this-> _allocable, seg, true, false);
     this-> _metadata.push_back (seg.blockAddr);

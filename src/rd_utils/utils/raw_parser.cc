@@ -86,11 +86,14 @@ namespace rd_utils::utils::raw {
     int n = stream.receiveInt ();
     if (n > 1024 * 1024) throw std::runtime_error ("String to long");
 
-    char * buffer = new char[n];
+    char * buffer = new char[n + 1];
     stream.receive (buffer, n);
     buffer [n] = 0;
 
-    return std::make_shared <config::String> (std::string (buffer));
+    auto ret = std::make_shared <config::String> (std::string (buffer));
+    delete [] buffer;
+
+    return ret;
   }
 
   void RawParser::dump (net::TcpStream & stream, const config::ConfigNode & node) {

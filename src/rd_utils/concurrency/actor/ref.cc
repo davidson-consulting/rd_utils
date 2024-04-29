@@ -8,7 +8,7 @@
 namespace rd_utils::concurrency::actor {
 
 
-  ActorRef::ActorRef (bool local, const std::string & name, net::SockAddrV4 addr, std::shared_ptr<net::TcpStream> & conn, ActorSystem * sys) :
+  ActorRef::ActorRef (bool local, const std::string & name, net::SockAddrV4 addr, std::shared_ptr<net::TcpPool> & conn, ActorSystem * sys) :
     _isLocal (local)
     , _name (name)
     , _addr (addr)
@@ -17,41 +17,27 @@ namespace rd_utils::concurrency::actor {
   {}
 
   void ActorRef::send (const rd_utils::utils::config::ConfigNode & node) {
-    if (this-> _conn == nullptr || !this-> _conn-> isOpen ()) {
-      try {
-        this-> _conn = std::make_shared<net::TcpStream> (this-> _addr);
-        this-> _conn-> connect ();
-      } catch (...) {
-        throw std::runtime_error ("Failed to reconnect to remote actor system : " + this-> _addr.toString ());
-      }
-    }
+    auto session = this-> _conn-> get ();
 
-    this-> _conn-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_MSG));
-    this-> _conn-> sendInt (this-> _name.length ());
-    this-> _conn-> send (this-> _name.c_str (), this-> _name.length ());
-    this-> _conn-> sendInt (this-> _sys-> port ());
+    session-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_MSG));
+    session-> sendInt (this-> _name.length ());
+    session-> send (this-> _name.c_str (), this-> _name.length ());
+    session-> sendInt (this-> _sys-> port ());
 
-    utils::raw::dump (*this-> _conn, node);
+    utils::raw::dump (*session, node);
   }
 
   std::shared_ptr<rd_utils::utils::config::ConfigNode> ActorRef::request (const rd_utils::utils::config::ConfigNode & node) {
-    if (this-> _conn == nullptr || !this-> _conn-> isOpen ()) {
-      try {
-        this-> _conn = std::make_shared<net::TcpStream> (this-> _addr);
-        this-> _conn-> connect ();
-      } catch (...) {
-        throw std::runtime_error ("Failed to reconnect to remote actor system : " + this-> _addr.toString ());
-      }
-    }
+    auto session = this-> _conn-> get ();
 
-    this-> _conn-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ));
-    this-> _conn-> sendInt (this-> _name.length ());
-    this-> _conn-> send (this-> _name.c_str (), this-> _name.length ());
-    this-> _conn-> sendInt (this-> _sys-> port ());
+    session-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ));
+    session-> sendInt (this-> _name.length ());
+    session-> send (this-> _name.c_str (), this-> _name.length ());
+    session-> sendInt (this-> _sys-> port ());
 
     uint64_t uniqId = this-> _sys-> genUniqId ();
-    this-> _conn-> sendInt (uniqId);
-    utils::raw::dump (*this-> _conn, node);
+    session-> sendInt (uniqId);
+    utils::raw::dump (*session, node);
 
     for (;;) {
       this-> _sys-> _waitResponse.wait ();
@@ -66,90 +52,33 @@ namespace rd_utils::concurrency::actor {
     }
   }
 
-  std::shared_ptr <ActorStream> ActorRef::requestStream (const rd_utils::utils::config::ConfigNode & node) {
-    if (this-> _conn == nullptr || !this-> _conn-> isOpen ()) {
-      try {
-        this-> _conn = std::make_shared<net::TcpStream> (this-> _addr);
-        this-> _conn-> connect ();
-      } catch (...) {
-        throw std::runtime_error ("Failed to reconnect to remote actor system : " + this-> _addr.toString ());
-      }
-    }
-
-    this-> _conn-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ_STREAM));
-    this-> _conn-> sendInt (this-> _name.length ());
-    this-> _conn-> send (this-> _name.c_str (), this-> _name.length ());
-    this-> _conn-> sendInt (this-> _sys-> port ());
-
-    uint64_t uniqId = this-> _sys-> genUniqId ();
-    this-> _conn-> sendInt (uniqId);
-    utils::raw::dump (*this-> _conn, node);
-
-    for (;;) {
-      this-> _sys-> _waitResponseStream.wait ();
-      ActorSystem::ResponseStream resp;
-      if (this-> _sys-> _responseStreams.receive (resp)) {
-        if (resp.reqId == uniqId) {
-          return std::make_shared <ActorStream> (resp.stream, this-> _conn, true);
-        }
-
-        this-> _sys-> pushResponseStream (resp);
-      }
-    }
-
-  }
-
   void ActorRef::response (uint64_t reqId, std::shared_ptr <rd_utils::utils::config::ConfigNode> node) {
-    if (this-> _conn == nullptr || !this-> _conn-> isOpen ()) {
-      try {
-        this-> _conn = std::make_shared<net::TcpStream> (this-> _addr);
-        this-> _conn-> connect ();
-      } catch (...) {
-        throw std::runtime_error ("Failed to reconnect to remote actor system : " + this-> _addr.toString ());
-      }
-    }
-
-    this-> _conn-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP));
-    this-> _conn-> sendInt (reqId);
+    auto session = this-> _conn-> get ();
+    session-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP));
+    session-> sendInt (reqId);
     if (node == nullptr) {
-      this-> _conn-> sendInt (0);
+      session-> sendInt (0);
     } else {
-      this-> _conn-> sendInt (1);
-      utils::raw::dump (*this-> _conn, *node);
+      session-> sendInt (1);
+      utils::raw::dump (*session, *node);
     }
   }
 
-  void ActorRef::responseBig (uint64_t reqId, std::shared_ptr <rd_utils::memory::cache::collection::CacheArrayBase> & array) {
-    if (this-> _conn == nullptr || !this-> _conn-> isOpen ()) {
-      try {
-        this-> _conn = std::make_shared<net::TcpStream> (this-> _addr);
-        this-> _conn-> connect ();
-      } catch (...) {
-        throw std::runtime_error ("Failed to reconnect to remote actor system : " + this-> _addr.toString ());
-      }
-    }
+  void ActorRef::responseBig (uint64_t reqId, std::shared_ptr <rd_utils::memory::cache::collection::ArrayListBase> & array) {
+    auto session = this-> _conn-> get ();
 
-    this-> _conn-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP_BIG));
-    this-> _conn-> sendInt (reqId);
+    session-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP_BIG));
+    session-> sendInt (reqId);
 
     if (array == nullptr) {
-      this-> _conn-> sendInt (0);
+      session-> sendInt (0);
     } else {
-      this-> _conn-> sendInt (1);
-      array-> send (*this-> _conn, ARRAY_BUFFER_SIZE);
+      session-> sendInt (1);
+      array-> send (*session, ARRAY_BUFFER_SIZE);
     }
   }
 
-  std::shared_ptr <net::TcpStream> ActorRef::getSession () {
-    if (this-> _conn == nullptr || !this-> _conn-> isOpen ()) {
-      try {
-        this-> _conn = std::make_shared<net::TcpStream> (this-> _addr);
-        this-> _conn-> connect ();
-      } catch (...) {
-        throw std::runtime_error ("Failed to reconnect to remote actor system : " + this-> _addr.toString ());
-      }
-    }
-
+  std::shared_ptr <net::TcpPool> ActorRef::getSession () {
     return this-> _conn;
   }
 

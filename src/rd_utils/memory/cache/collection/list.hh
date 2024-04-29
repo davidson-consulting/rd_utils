@@ -2,6 +2,7 @@
 
 
 #include <rd_utils/memory/cache/allocator.hh>
+#include <rd_utils/net/_.hh>
 #include <rd_utils/utils/_.hh>
 #include <cstring>
 
@@ -47,6 +48,8 @@ namespace rd_utils::memory::cache::collection {
      */
     uint32_t nbBlocks () const;
 
+    void send (net::TcpStream & stream, uint32_t bufferSize);
+
     /**
      * this-> dispose ()
      */
@@ -64,6 +67,7 @@ namespace rd_utils::memory::cache::collection {
      */
     void dispose ();
 
+    void sendBlock (net::TcpStream & stream, AllocatedSegment seg, uint32_t nbElements, uint8_t * buffer, uint32_t nbInBuffer);
   };
 
   template <typename T>

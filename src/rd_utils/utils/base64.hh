@@ -10,7 +10,7 @@ namespace rd_utils::utils {
   /**
    * Encode a byte array of chars into a readable string
    * */
-  std::string base64_encode(BYTE const* buf, unsigned int bufLen);
+  std::string base64_encode(BYTE const* buf, unsigned int bufLen, bool withSpec = true);
 
   /**
    * Decode a string into an array of bytes

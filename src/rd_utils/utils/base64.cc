@@ -14,7 +14,10 @@ namespace rd_utils::utils {
     return (isalnum(c) || (c == '+') || (c == '/'));
   }
 
-  std::string base64_encode(BYTE const* buf, unsigned int bufLen) {
+  std::string base64_encode(BYTE const* buf, unsigned int bufLen, bool withSpec) {
+    uint32_t len = base64_chars.length ();
+    if (!withSpec) len -= 2;
+
     std::string ret;
     int i = 0;
     int j = 0;
@@ -29,8 +32,9 @@ namespace rd_utils::utils {
         char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
         char_array_4[3] = char_array_3[2] & 0x3f;
 
-        for(i = 0; (i <4) ; i++)
-        ret += base64_chars[char_array_4[i]];
+        for(i = 0; (i < 4) ; i++) {
+          ret += base64_chars [char_array_4[i] % len];
+        }
         i = 0;
       }
     }
@@ -46,10 +50,11 @@ namespace rd_utils::utils {
         char_array_4[3] = char_array_3[2] & 0x3f;
 
         for (j = 0; (j < i + 1); j++)
-        ret += base64_chars[char_array_4[j]];
+        ret += base64_chars [char_array_4[j] % len];
 
-        while((i++ < 3))
-        ret += '=';
+        while ((i++ < 3) && withSpec) {
+          ret += '=';
+        }
       }
 
     return ret;
