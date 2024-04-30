@@ -171,7 +171,7 @@ namespace rd_utils::net {
 		return ip.ip ();
 	}
 
-	std::vector <Ipv4Address> Ipv4Address::getAllIps () {
+	std::vector <Ipv4Address> Ipv4Address::getAllIps (bool onlyABC) {
 		struct ifaddrs * ifAddrStruct=NULL;
 		struct ifaddrs * ifa=NULL;
 		void * tmpAddrPtr=NULL;
@@ -188,7 +188,11 @@ namespace rd_utils::net {
 				char addressBuffer[INET_ADDRSTRLEN];
 				inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
 				auto ip = SockAddrV4 (std::string (addressBuffer) + ":0").ip ();
-				res.push_back (ip.D (0));
+				if (onlyABC) {
+					res.push_back (ip.D (0));
+				} else {
+					res.push_back (ip);
+				}
 			}
 		}
 

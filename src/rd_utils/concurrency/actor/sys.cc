@@ -36,17 +36,19 @@ namespace rd_utils::concurrency::actor {
     }
   }
 
-  std::shared_ptr <ActorRef> ActorSystem::localActor (const std::string & name) {
-    auto it = this-> _actors.find (name);
-    if (it == this-> _actors.end ()) throw std::runtime_error ("No local actor named : " + name);
+  std::shared_ptr <ActorRef> ActorSystem::localActor (const std::string & name, bool check) {
+    if (check) {
+      auto it = this-> _actors.find (name);
+      if (it == this-> _actors.end ()) throw std::runtime_error ("No local actor named : " + name);
+    }
 
-    auto addr = net::SockAddrV4 (net::Ipv4Address ("0.0.0.0"), this-> _server.port ());
-
+    auto addr = net::SockAddrV4 (net::Ipv4Address ("127.0.0.1"), this-> _server.port ());
     if (this-> _localConn == nullptr) {
       try {
         this-> _localConn = std::make_shared<net::TcpPool> (addr, this-> _nbThreads * 2);
       } catch (...) {
         this-> _localConn = nullptr;
+        std::cout << "Here ?" << addr << " " << std::endl;
         throw std::runtime_error ("Failed to connect to local server");
       }
     }
@@ -54,21 +56,29 @@ namespace rd_utils::concurrency::actor {
     return std::make_shared<ActorRef> (true, name, addr, this-> _localConn, this);
   }
 
-
   std::shared_ptr<ActorRef> ActorSystem::remoteActor (const std::string & name, net::SockAddrV4 addr, bool check) {
-    auto str = this-> _conn.find (addr.toString ());
-    if (str == this-> _conn.end ()) {
-      try {
-        auto str_ = std::make_shared <net::TcpPool> (addr, this-> _nbThreads * 2);
-        this-> _conn.emplace (addr.toString (), str_);
-        str = this-> _conn.find (addr.toString ());
-      } catch (...) {
-        throw std::runtime_error ("Failed to connect to remote actor system : " + addr.toString ());
+    auto isl = this-> isLocal (addr);
+    if (isl) return this-> localActor (name, check);
+
+    std::shared_ptr <net::TcpPool> pool = nullptr;
+    WITH_LOCK (this-> _connM) {
+      auto str = this-> _conn.find (addr.toString ());
+      if (str == this-> _conn.end ()) {
+        try {
+          auto str_ = std::make_shared <net::TcpPool> (addr, this-> _nbThreads * 2);
+          this-> _conn.emplace (addr.toString (), std::make_pair<uint32_t, std::shared_ptr <net::TcpPool> > (0, std::move (str_)));
+          str = this-> _conn.find (addr.toString ());
+        } catch (...) {
+          throw std::runtime_error ("Failed to connect to remote actor system : " + addr.toString ());
+        }
       }
+
+      str-> second.first += 1;
+      pool = str-> second.second;
     }
 
     if (check) {
-      auto session = str-> second-> get ();
+      auto session = pool-> get ();
       session-> sendU32 ((uint32_t) ActorSystem::Protocol::ACTOR_EXIST_REQ);
       session-> sendU32 (name.length ());
       session-> send (name.c_str (), name.length ());
@@ -77,12 +87,24 @@ namespace rd_utils::concurrency::actor {
       if (exists == 0) throw std::runtime_error ("Remote actor " + name + " does not exist in remote system : " + addr.toString ());
     }
 
-    return std::make_shared<ActorRef> (false, name, addr, str-> second, this);
+    return std::make_shared<ActorRef> (false, name, addr, pool, this);
   }
 
   uint64_t ActorSystem::genUniqId () {
     this-> _lastU += 1;
     return this-> _lastU;
+  }
+
+  void ActorSystem::closingRemote (net::SockAddrV4 addr) {
+    WITH_LOCK (this-> _connM) {
+      auto str = this-> _conn.find (addr.toString ());
+      if (str != this-> _conn.end ()) {
+        str-> second.first -= 1;
+        if (str-> second.first == 0) {
+          this-> _conn.erase (addr.toString ());
+        }
+      }
+    }
   }
 
   void ActorSystem::dispose () {
@@ -92,9 +114,23 @@ namespace rd_utils::concurrency::actor {
       }
     }
 
+    this-> _conn.clear ();
     this-> _actors.clear ();
     this-> _actorMutexes.clear ();
     this-> _server.stop ();
+  }
+
+  bool ActorSystem::isLocal (net::SockAddrV4 addr) const {
+    if (this-> _server.port () != addr.port ()) return false;
+
+    auto locals = net::Ipv4Address::getAllIps ();
+    for (auto & it : locals) {
+      if (it.toN () == addr.ip ().toN ()) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   void ActorSystem::join () {
@@ -199,9 +235,7 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::onActorReq (std::shared_ptr <net::TcpSession> session) {
-    concurrency::timer t;
     auto name = this-> readActorName (session);
-    LOG_DEBUG ("Actor request : ", name);
 
     auto addr = this-> readAddress (session);
     auto reqId = (*session)-> receiveU64 ();
@@ -218,7 +252,6 @@ namespace rd_utils::concurrency::actor {
     } else {
       WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
         try {
-          t.reset ();
           auto result = it-> second-> onRequest (*msg);
           auto actorRef = this-> remoteActor ("", addr, false);
           actorRef-> response (reqId, result);
@@ -230,9 +263,7 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::onActorReqBig (std::shared_ptr <net::TcpSession> session) {
-    concurrency::timer t;
     auto name = this-> readActorName (session);
-    LOG_DEBUG ("Actor req big : ", name);
 
     auto addr = this-> readAddress (session);
     auto reqId = (*session)-> receiveU64 ();
@@ -249,7 +280,6 @@ namespace rd_utils::concurrency::actor {
     } else {
       WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
         try {
-          t.reset ();
           auto result = it-> second-> onRequestList (*msg);
           if (result != nullptr) {
             auto actorRef = this-> remoteActor ("", addr, false);
@@ -280,7 +310,6 @@ namespace rd_utils::concurrency::actor {
     } else {
       WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
         try {
-          concurrency::timer t;
           auto actorRef = this-> remoteActor ("", addr, false);
           auto conn = actorRef-> getSession ()-> get ();
 
@@ -288,7 +317,6 @@ namespace rd_utils::concurrency::actor {
           conn-> sendU32 (reqId);
 
           ActorStream stream (std::move (*session), std::move (conn), false);
-          std::cout << "Time to get on sys " << t.time_since_start () << std::endl;
 
           it-> second-> onStream (*msg, stream);
         } catch (std::runtime_error & e) {
@@ -313,7 +341,6 @@ namespace rd_utils::concurrency::actor {
 
   void ActorSystem::onActorRespBig (std::shared_ptr <net::TcpSession> session) {
     auto reqId = (*session)-> receiveU64 ();
-    LOG_DEBUG ("Actor resp big : ", reqId);
 
     auto hasValue = (*session)-> receiveU32 ();
     if (hasValue == 1) {
@@ -328,8 +355,6 @@ namespace rd_utils::concurrency::actor {
 
   void ActorSystem::onActorRespStream (std::shared_ptr<net::TcpSession> session) {
     auto req = (*session)-> receiveU64 ();
-    LOG_DEBUG ("Actor resp stream : ", req);
-
     this-> pushResponseStream ({.reqId = req, .stream = session});
   }
 

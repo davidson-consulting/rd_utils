@@ -47,7 +47,7 @@ namespace rd_utils {
 			/**
 			 * @returns: the list of ips of the machine
 			 */
-			static std::vector <Ipv4Address> getAllIps ();
+			static std::vector <Ipv4Address> getAllIps (bool onlyABC = false);
 
 			/**
 			 * @returns: the list of vlan ids

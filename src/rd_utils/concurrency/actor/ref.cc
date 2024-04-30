@@ -58,7 +58,6 @@ namespace rd_utils::concurrency::actor {
   std::shared_ptr <ActorStream> ActorRef::requestStream (const rd_utils::utils::config::ConfigNode & msg) {
     concurrency::timer t;
     auto session = this-> _conn-> get ();
-    std::cout << "Time to get : " << t.time_since_start () << std::endl;
 
     session-> sendU32 ((uint32_t) ActorSystem::Protocol::ACTOR_REQ_STREAM);
     session-> sendU32 (this-> _name.length ());
@@ -74,7 +73,6 @@ namespace rd_utils::concurrency::actor {
       this-> _sys-> _waitResponseStream.wait ();
       ActorSystem::ResponseStream resp;
       if (this-> _sys-> _responseStreams.receive (resp)) {
-        std::cout << "Time for resp : " << t.time_since_start () << std::endl;
         if (resp.reqId == uniqId) {
           return std::make_shared <ActorStream> (std::move (*resp.stream), std::move (session), true);
         }
@@ -120,6 +118,10 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorRef::dispose () {
+    if (!this-> _isLocal) {
+      this-> _sys-> closingRemote (this-> _addr);
+    }
+
     this-> _conn = nullptr;
   }
 

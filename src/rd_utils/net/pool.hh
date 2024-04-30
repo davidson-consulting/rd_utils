@@ -69,6 +69,7 @@ namespace rd_utils::net {
      */
     TcpSession get ();
 
+
     /**
      * Dispose all the opened connection
      */

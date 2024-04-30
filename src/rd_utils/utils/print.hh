@@ -6,11 +6,12 @@
 #include <set>
 #include <list>
 #include <unordered_map>
+#include <cstdint>
 
 template <typename T>
 std::ostream& operator<< (std::ostream& stream, const std::vector<T> & vec) {
     stream << "[";
-    for (int i = 0 ; i < vec.size () ;i++) {
+    for (uint32_t i = 0 ; i < vec.size () ;i++) {
         if (i != 0) stream << ", ";
         stream << vec[i];
     }

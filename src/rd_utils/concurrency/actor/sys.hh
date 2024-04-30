@@ -55,8 +55,11 @@ namespace rd_utils::concurrency::actor {
     // Mutexes of actors used to make sure actors only manage one message at a time
     std::map <std::string, concurrency::mutex> _actorMutexes;
 
+    // Mutex to manage the _conn collection
+    concurrency::mutex _connM;
+
     // Connection to remote actor systems
-    std::map <std::string, std::shared_ptr<net::TcpPool> > _conn;
+    std::map <std::string, std::pair <uint32_t, std::shared_ptr<net::TcpPool> > > _conn;
 
     // True while the system is running
     bool _isRunning = false;
@@ -93,6 +96,7 @@ namespace rd_utils::concurrency::actor {
       ACTOR_RESP_BIG,
       ACTOR_REQ_STREAM,
       ACTOR_RESP_STREAM,
+      SYSTEM_CLOSED,
       SYSTEM_KILL_ALL
     };
 
@@ -151,7 +155,7 @@ namespace rd_utils::concurrency::actor {
     /**
      * @returns: an actor reference to a local actor
      */
-    std::shared_ptr<ActorRef> localActor (const std::string & name);
+    std::shared_ptr<ActorRef> localActor (const std::string & name, bool check = true);
 
     /**
      * @returns: an actor reference to a remote actor
@@ -174,6 +178,11 @@ namespace rd_utils::concurrency::actor {
      * @returns: the port of the listening server
      */
     uint32_t port ();
+
+    /**
+     * An actor ref to a remote is closing
+     */
+    void closingRemote (net::SockAddrV4 addr);
 
     /**
      * Clean
@@ -273,7 +282,8 @@ namespace rd_utils::concurrency::actor {
      */
     std::shared_ptr<utils::config::ConfigNode> readMessage (std::shared_ptr <net::TcpSession> stream);
 
-  };
+    bool isLocal (net::SockAddrV4 addr) const;
 
+  };
 
 }

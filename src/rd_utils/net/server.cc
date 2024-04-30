@@ -314,9 +314,11 @@ namespace rd_utils::net {
   }
 
   void TcpServer::stop () {
-    WITH_LOCK (this-> _triggerM) {
-      this-> _started = false;
-      ::write (this-> _trigger.getWriteFd (), "c", 1);
+    if (this-> _started) {
+      WITH_LOCK (this-> _triggerM) {
+        this-> _started = false;
+        ::write (this-> _trigger.getWriteFd (), "c", 1);
+      }
     }
   }
 
@@ -335,6 +337,7 @@ namespace rd_utils::net {
   }
 
   void TcpServer::dispose () {
+
     this-> waitAllCompletes ();
     while (this-> _closed.len () != this-> _runningThreads.size ()) {
       // Force all thread to halt
@@ -355,6 +358,9 @@ namespace rd_utils::net {
     this-> _trigger.dispose ();
     this-> _runningThreads.clear ();
     this-> _closed.clear ();
+    this-> _nbCompleted = 0;
+    this-> _nbSubmitted = 0;
+    this-> _started = false;
   }
 
   TcpServer::~TcpServer () {

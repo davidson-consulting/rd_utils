@@ -62,11 +62,9 @@ namespace rd_utils::net {
             }
         }
 
-        concurrency::timer t;
         // LOG_DEBUG ("Waiting ?", pthread_self ());
         this-> _release.wait ();
         // LOG_DEBUG ("NO ?", pthread_self ());
-        std::cout << "Wait : " << t.time_since_start () << std::endl;
 
         std::shared_ptr <TcpStream> conn = nullptr;
         if (this-> _free.receive (conn)) {
