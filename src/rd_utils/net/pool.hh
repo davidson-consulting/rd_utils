@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <rd_utils/concurrency/taskpool.hh>
+#include <memory>
 
 #include <sys/epoll.h>
 
@@ -20,13 +21,13 @@ namespace rd_utils::net {
     SockAddrV4 _addr;
 
     // The number of active connection
-    std::map <int, TcpStream*> _open;
+    std::map <int, std::shared_ptr <TcpStream> > _open;
 
     // The handles of the sockets
     std::map <uint64_t, int> _socketFds;
 
     // All the connection that are available
-    concurrency::Mailbox <TcpStream*> _free;
+    concurrency::Mailbox <std::shared_ptr <TcpStream> > _free;
 
     // mutex locked when updating connections
     concurrency::mutex _m;
@@ -83,38 +84,10 @@ namespace rd_utils::net {
     /**
      * Release a connection from the pool
      */
-    void release (TcpStream * stream);
+    void release (std::shared_ptr <TcpStream> stream);
 
   };
 
 
-  class TcpSession {
-
-    TcpStream * _stream;
-
-    TcpPool * _context;
-
-  private:
-
-    TcpSession (const TcpSession &);
-    void operator=(const TcpSession &);
-
-  public:
-
-    TcpSession (TcpStream * stream, TcpPool * context);
-
-    TcpSession (TcpSession && other);
-
-    void operator=(TcpSession && other);
-
-    TcpStream* operator-> ();
-
-    TcpStream& operator* ();
-
-    void dispose ();
-
-    ~TcpSession ();
-
-  };
 
 }

@@ -11,7 +11,7 @@
 #endif
 
 #ifndef LOG_LEVEL
-#define LOG_LEVEL 5
+#define LOG_LEVEL 3
 #endif
 
 #define LOG_LEVEL_ERROR 1

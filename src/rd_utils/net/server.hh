@@ -12,6 +12,7 @@
 
 namespace rd_utils::net {
 
+        class TcpSession;
         enum class TcpSessionKind : int {
                 NEW,
                 OLD,
@@ -57,7 +58,7 @@ namespace rd_utils::net {
                 std::map <int, concurrency::Thread> _runningThreads;
 
                 // The signal emitted when a session is started
-                concurrency::signal<TcpSessionKind, std::shared_ptr <TcpStream> > _onSession;
+                concurrency::signal<TcpSessionKind, std::shared_ptr <TcpSession> > _onSession;
 
         private: // Task jobs/completed
 
@@ -71,10 +72,7 @@ namespace rd_utils::net {
                 int _nbCompleted = 0;
 
                 // The list of socket whose session is finished
-                concurrency::Mailbox<MailElement> _completed;
-
-                // The list of socket that are to be forgetted
-                std::set <std::shared_ptr <net::TcpStream> > _forget;
+                concurrency::Mailbox<std::shared_ptr <TcpStream> > _completed;
 
                 // Closed threads
                 concurrency::Mailbox<int> _closed;
@@ -123,13 +121,13 @@ namespace rd_utils::net {
                 /**
                  * Wait for a stream to be ready
                  */
-                void start (void (*onSession)(TcpSessionKind, std::shared_ptr <TcpStream>));
+                void start (void (*onSession)(TcpSessionKind, std::shared_ptr <TcpSession>));
 
                 /**
                  * Wait for a stream to be ready
                  */
                 template <class X>
-                void start (X* x, void (X::*onSession)(TcpSessionKind, std::shared_ptr <TcpStream>)) {
+                void start (X* x, void (X::*onSession)(TcpSessionKind, std::shared_ptr <TcpSession>)) {
                         if (this-> _started) throw utils::Rd_UtilsError ("Already running");
 
                         this-> _onSession.dispose ();
@@ -154,9 +152,9 @@ namespace rd_utils::net {
                 int nbConnected () const;
 
                 /**
-                 * Forget a socket
+                 * Remember a socket that was forgotten
                  */
-                void forget (std::shared_ptr <net::TcpStream> stream);
+                void release (std::shared_ptr <net::TcpStream> stream);
 
                 /**
                  * Stop the server in the future
@@ -231,5 +229,7 @@ namespace rd_utils::net {
                 void waitAllCompletes ();
 
         };
+
+
 
 }

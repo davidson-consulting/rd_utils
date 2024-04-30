@@ -1,3 +1,8 @@
+
+#ifndef __PROJECT__
+#define __PROJECT__ "TCPSERVER"
+#endif
+
 #include "server.hh"
 
 #include <unistd.h>
@@ -9,6 +14,7 @@
 #include <sys/epoll.h>
 #include <rd_utils/utils/_.hh>
 #include <thread>
+#include "session.hh"
 
 namespace rd_utils::net {
 
@@ -109,7 +115,7 @@ namespace rd_utils::net {
    */
 
 
-  void TcpServer::start (void (*onSession)(TcpSessionKind, std::shared_ptr <TcpStream>)) {
+  void TcpServer::start (void (*onSession)(TcpSessionKind, std::shared_ptr <TcpSession>)) {
     if (this-> _started) throw utils::Rd_UtilsError ("Already running");
     this-> _onSession.dispose ();
     this-> _onSession.connect (onSession);
@@ -144,7 +150,6 @@ namespace rd_utils::net {
 
     epoll_event event;
     while (this-> _started) {
-      // std::cout << "Waiting ?" << std::endl;
       int event_count = epoll_wait (this-> _epoll_fd, &event, 1, -1);
       if (event_count == 0) {
         throw utils::Rd_UtilsError ("Error while tcp waiting");
@@ -171,7 +176,6 @@ namespace rd_utils::net {
         } catch (utils::Rd_UtilsError & err) {
           std::cout << this-> _openSockets.size () << std::endl;
           std::cout << "IN ERROR ??? " << strerror (errno) << std::endl;
-
         } // accept can fail
       }
 
@@ -183,7 +187,7 @@ namespace rd_utils::net {
 
       // Old client is writing
       else {
-        // this-> delEpoll (event.data.fd);
+        this-> delEpoll (event.data.fd);
         auto it = this-> _openSockets.find (event.data.fd);
         if (it != this-> _openSockets.end ()) {
           this-> submit (TcpSessionKind::OLD, it-> second);
@@ -196,15 +200,10 @@ namespace rd_utils::net {
     epoll_event event;
     event.events = EPOLLIN | EPOLLHUP | EPOLLONESHOT;
     event.data.fd = fd;
-    if (kind == TcpSessionKind::NEW) {
-      epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, fd, &event);
-    } else {
-      epoll_ctl (this-> _epoll_fd, EPOLL_CTL_MOD, fd, &event);
-    }
+    epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, fd, &event);
   }
 
   void TcpServer::delEpoll (int fd) {
-    // std::cout << "Del Epoll ?" << std::endl;
     epoll_event event;
     event.data.fd = fd;
     epoll_ctl (this-> _epoll_fd, EPOLL_CTL_DEL, fd, &event);
@@ -222,31 +221,16 @@ namespace rd_utils::net {
 
   void TcpServer::reloadAllFinished () {
     for (;;) {
-      MailElement elem;
-      if (this-> _completed.receive (elem)) {
-        std::shared_ptr <TcpStream> str = elem.stream;
-
-        if (this-> _forget.find (str) != this-> _forget.end ()) {
-          this-> delEpoll (str-> getHandle ());
+      std::shared_ptr <net::TcpStream> str;
+      if (this-> _completed.receive (str)) {
+        if (str-> isOpen ()) {
+          this-> addEpoll (TcpSessionKind::NEW, str-> getHandle ());
+        } else {
           auto handle = this-> _socketFds.find (str);
-
           this-> _openSockets.erase (handle-> second);
           this-> _socketFds.erase (str);
-          WITH_LOCK (this-> _triggerM) {
-            this-> _forget.erase (str);
-          }
-        } else {
-          if (str-> isOpen ()) {
-            this-> addEpoll (elem.kind, str-> getHandle ());
-          } else {
-            this-> delEpoll (str-> getHandle ());
 
-            auto handle = this-> _socketFds.find (str);
-            this-> _openSockets.erase (handle-> second);
-            this-> _socketFds.erase (str);
-
-            str-> close ();
-          }
+          str-> close ();
         }
       } else {
         break;
@@ -276,20 +260,12 @@ namespace rd_utils::net {
 
     for (;;) {
       this-> _waitTask.wait ();
-
       if (!this-> _started) break;
 
       for (;;) {
         MailElement elem;
         if (this-> _jobs.receive (elem)) {
-          this-> _onSession.emit (elem.kind, elem.stream);
-          this-> _completed.send (elem);
-
-          WITH_LOCK (this-> _triggerM) {
-            this-> _nbCompleted += 1;
-            // trigger for epoll
-            ::write (this-> _trigger.getWriteFd (), "c", 1);
-          }
+          this-> _onSession.emit (elem.kind, std::make_shared <net::TcpSession> (elem.stream, this, true));
         } else {
           break;
         }
@@ -299,11 +275,12 @@ namespace rd_utils::net {
     this-> _closed.send (t.id);
   }
 
-  void TcpServer::forget (std::shared_ptr <net::TcpStream> stream) {
-    if (stream != nullptr) {
-      WITH_LOCK (this-> _triggerM) {
-        this-> _forget.emplace (stream);
-      }
+  void TcpServer::release (std::shared_ptr <net::TcpStream> stream) {
+    this-> _completed.send (stream);
+    WITH_LOCK (this-> _triggerM) {
+      this-> _nbCompleted += 1;
+      // trigger for epoll
+      ::write (this-> _trigger.getWriteFd (), "c", 1);
     }
   }
 

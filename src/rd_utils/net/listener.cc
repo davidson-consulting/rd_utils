@@ -91,10 +91,15 @@ namespace rd_utils {
 			sin.sin_family = AF_INET;
 
 			if (::bind (this-> _sockfd, (sockaddr*) &sin, sizeof (sockaddr_in)) != 0) {
+				::close (this-> _sockfd);
+				this-> _sockfd = 0;
 				throw utils::Rd_UtilsError ("Error binding socket");
 			}
 
 			if (listen (this-> _sockfd, 100) != 0) {
+				::close (this-> _sockfd);
+				this-> _sockfd = 0;
+
 				throw utils::Rd_UtilsError ("Error listening to socket");
 			}
 

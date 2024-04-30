@@ -28,6 +28,7 @@ namespace rd_utils::concurrency::actor {
   }
 
   std::shared_ptr<rd_utils::utils::config::ConfigNode> ActorRef::request (const rd_utils::utils::config::ConfigNode & node) {
+    concurrency::timer t;
     auto session = this-> _conn-> get ();
 
     session-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ));
@@ -51,6 +52,32 @@ namespace rd_utils::concurrency::actor {
       }
     }
   }
+
+  std::shared_ptr <ActorStream> ActorRef::requestStream (const rd_utils::utils::config::ConfigNode & msg) {
+    auto session = this-> _conn-> get ();
+
+    session-> sendInt ((uint32_t) ActorSystem::Protocol::ACTOR_REQ_STREAM);
+    session-> sendInt (this-> _name.length ());
+    session-> send (this-> _name.c_str (), this-> _name.length ());
+    session-> sendInt (this-> _sys-> port ());
+
+    uint64_t uniqId = this-> _sys-> genUniqId ();
+    session-> sendInt (uniqId);
+    utils::raw::dump (*session, msg);
+
+    for (;;) {
+      this-> _sys-> _waitResponseStream.wait ();
+      ActorSystem::ResponseStream resp;
+      if (this-> _sys-> _responseStreams.receive (resp)) {
+        if (resp.reqId == uniqId) {
+          return std::make_shared <ActorStream> (std::move (*resp.stream), std::move (session), true);
+        }
+
+        this-> _sys-> pushResponseStream (resp);
+      }
+    }
+  }
+
 
   void ActorRef::response (uint64_t reqId, std::shared_ptr <rd_utils::utils::config::ConfigNode> node) {
     auto session = this-> _conn-> get ();

@@ -27,7 +27,6 @@ file(
   src/rd_utils/concurrency/actor/*.hh
   )
 
-
 file(
   GLOB
   HEADER_NET

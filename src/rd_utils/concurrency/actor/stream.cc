@@ -3,9 +3,9 @@
 
 namespace rd_utils::concurrency::actor {
 
-  ActorStream::ActorStream (std::shared_ptr <net::TcpStream> input, std::shared_ptr <net::TcpStream> output, bool left) :
-    _input (input)
-    , _output (output)
+  ActorStream::ActorStream (net::TcpSession && input, net::TcpSession && output, bool left) :
+    _input (std::move (input))
+    , _output (std::move (output))
     , _left (left)
   {}
 
@@ -33,13 +33,8 @@ namespace rd_utils::concurrency::actor {
   }
 
   ActorStream::~ActorStream () {
-    if (this-> _output != nullptr && !this-> _left) {
-      std::cout << "Stoping " << std::endl;
-      this-> stop ();
-    }
-
-    this-> _output = nullptr;
-    this-> _input = nullptr;
+    this-> _input.dispose ();
+    this-> _output.dispose ();
   }
 
 }

@@ -1,50 +1,13 @@
+
+#ifndef __PROJECT__
+#define __PROJECT__ "TCPSERVER"
+#endif
+
 #include "pool.hh"
 #include <rd_utils/utils/log.hh>
+#include "session.hh"
 
 namespace rd_utils::net {
-
-    TcpSession::TcpSession (TcpStream * stream, TcpPool * context) :
-        _stream (stream)
-        , _context (context)
-    {}
-
-    TcpSession::TcpSession (TcpSession && other) :
-        _stream (other._stream)
-        , _context (other._context)
-    {
-        other._stream = nullptr;
-        other._context = nullptr;
-    }
-
-    void TcpSession::operator= (TcpSession && other) {
-        this-> dispose ();
-        this-> _stream = other._stream;
-        this-> _context = other._context;
-
-        other._stream = nullptr;
-        other._context = nullptr;
-    }
-
-    void TcpSession::dispose () {
-        if (this-> _context != nullptr) {
-            // std::cout << "Freeing " << this-> _stream-> getHandle () << std::endl;
-            this-> _context-> release (this-> _stream);
-            this-> _context = nullptr;
-            this-> _stream = nullptr;
-        }
-    }
-
-    TcpSession::~TcpSession () {
-        this-> dispose ();
-    }
-
-    TcpStream* TcpSession::operator-> () {
-        return this-> _stream;
-    }
-
-    TcpStream& TcpSession::operator* () {
-        return *this-> _stream;
-    }
 
     TcpPool::TcpPool (SockAddrV4 addr, int max) :
         _addr (addr)
@@ -76,15 +39,13 @@ namespace rd_utils::net {
     }
 
     TcpSession TcpPool::get () {
+        LOG_DEBUG ("Ask for socket");
         WITH_LOCK (this-> _m) {
             if (this-> _open.size () < this-> _max) {
-                TcpStream * s = new TcpStream (this-> _addr);
+                auto s = std::make_shared <TcpStream> (this-> _addr);
                 try {
                     s-> connect ();
                 } catch (utils::Rd_UtilsError & err) { // failed to connect
-                    delete s;
-                    s = nullptr;
-
                     throw std::runtime_error ("Failed to connect");
                 }
 
@@ -94,28 +55,30 @@ namespace rd_utils::net {
                     this-> _open.emplace (s-> getHandle (), s);
 
                     // Socket might be closed manually, we need to store the current handle to clear later on
-                    this-> _socketFds.emplace ((uint64_t) s, s-> getHandle ());
-                    return TcpSession (s, this);
+                    this-> _socketFds.emplace ((uint64_t) s.get (), s-> getHandle ());
+                    return TcpSession (s, this, false);
                 }
             }
         }
 
-        // LOG_INFO ("Waiting ?", pthread_self ());
+        // LOG_DEBUG ("Waiting ?", pthread_self ());
         this-> _release.wait ();
-        // LOG_INFO ("NO ?", pthread_self ());
+        // LOG_DEBUG ("NO ?", pthread_self ());
 
-        TcpStream * conn = nullptr;
+        std::shared_ptr <TcpStream> conn = nullptr;
         if (this-> _free.receive (conn)) {
-            return TcpSession (conn, this);
+            LOG_DEBUG ("Have a free sock : ", conn-> getHandle ());
+            return TcpSession (conn, this, false);
         } else {
             return this-> get ();
         }
     }
 
-    void TcpPool::release (TcpStream * s) {
+    void TcpPool::release (std::shared_ptr <TcpStream> s) {
+        LOG_DEBUG ("Reinstitute : ", s-> getHandle ());
         if (!s-> isOpen ()) {
             WITH_LOCK (this-> _m) { // closing the socket that is either broken or closed on the other side
-                auto handle = this-> _socketFds.find ((uint64_t) s);
+                auto handle = this-> _socketFds.find ((uint64_t) s.get ());
 
                 auto it = this-> _open.find (handle-> second);
                 if (it != this-> _open.end () && it-> second == s) {
@@ -124,10 +87,8 @@ namespace rd_utils::net {
                 }
 
                 // However, the pointer of the stream is OK
-                this-> _socketFds.erase ((uint64_t) s);
-
+                this-> _socketFds.erase ((uint64_t) s.get ());
                 s-> close ();
-                delete s;
             }
         } else {
             this-> _free.send (s);
@@ -139,10 +100,6 @@ namespace rd_utils::net {
     void TcpPool::dispose () {
         WITH_LOCK (this-> _m) {
             this-> _free.dispose ();
-            for (auto & [it, sock] : this-> _open) {
-                delete sock;
-            }
-
             this-> _open.clear ();
         }
     }

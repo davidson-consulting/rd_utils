@@ -34,7 +34,7 @@ namespace rd_utils::concurrency::actor {
 
     struct ResponseStream {
       uint64_t reqId;
-      std::shared_ptr <net::TcpStream> stream;
+      std::shared_ptr <net::TcpSession> stream;
     };
 
   private:
@@ -42,6 +42,9 @@ namespace rd_utils::concurrency::actor {
 
     // The server used to communicate between actors
     net::TcpServer _server;
+
+    // Number of threads the actor system can manage at the same time
+    uint64_t _nbThreads;
 
     // The connection to the local server
     std::shared_ptr <net::TcpPool> _localConn;
@@ -88,6 +91,8 @@ namespace rd_utils::concurrency::actor {
       ACTOR_REQ_BIG,
       ACTOR_RESP,
       ACTOR_RESP_BIG,
+      ACTOR_REQ_STREAM,
+      ACTOR_RESP_STREAM,
       SYSTEM_KILL_ALL
     };
 
@@ -206,57 +211,67 @@ namespace rd_utils::concurrency::actor {
      *    - kind: the kind of message (new, old)
      *    - session: the stream to the tcp session
      */
-    void onSession (net::TcpSessionKind kind, std::shared_ptr <net::TcpStream> session);
+    void onSession (net::TcpSessionKind kind, std::shared_ptr <net::TcpSession> session);
 
     /**
      * Treat an actor existance request
      */
-    void onActorExistReq (std::shared_ptr <net::TcpStream> session);
+    void onActorExistReq (std::shared_ptr <net::TcpSession> session);
 
     /**
      * Treat an actor message
      */
-    void onActorMsg (std::shared_ptr <net::TcpStream> session);
+    void onActorMsg (std::shared_ptr <net::TcpSession> session);
 
     /**
      * Treat an actor request (msg with response)
      */
-    void onActorReq (std::shared_ptr <net::TcpStream> session);
+    void onActorReq (std::shared_ptr <net::TcpSession> session);
 
     /**
      * Treat an actor request (msg with response of type cache array)
      */
-    void onActorReqBig (std::shared_ptr <net::TcpStream> session);
+    void onActorReqBig (std::shared_ptr <net::TcpSession> session);
+
+    /**
+     * Treat an actor request msg to open a stream between two actors
+     */
+    void onActorReqStream (std::shared_ptr <net::TcpSession> session);
 
     /**
      * Treat an actor response
      */
-    void onActorResp (std::shared_ptr <net::TcpStream> session);
+    void onActorResp (std::shared_ptr <net::TcpSession> session);
 
     /**
      * Treat an actor big response
      */
-    void onActorRespBig (std::shared_ptr <net::TcpStream> session);
+    void onActorRespBig (std::shared_ptr <net::TcpSession> session);
+
+    /**
+     * Treat an actor big response
+     */
+    void onActorRespStream (std::shared_ptr <net::TcpSession> session);
 
     /**
      * Treat a request to kill the system
      */
-    void onSystemKill (std::shared_ptr <net::TcpStream> session);
+    void onSystemKill (std::shared_ptr <net::TcpSession> session);
 
     /**
      * @returns: the name of the actor
      */
-    std::string readActorName (std::shared_ptr <net::TcpStream> stream);
+    std::string readActorName (std::shared_ptr <net::TcpSession> stream);
 
     /**
      * @returns: read an address from remote stream
      */
-    net::SockAddrV4 readAddress (std::shared_ptr <net::TcpStream> stream);
+    net::SockAddrV4 readAddress (std::shared_ptr <net::TcpSession> stream);
 
     /**
      * @returns: a message
      */
-    std::shared_ptr<utils::config::ConfigNode> readMessage (std::shared_ptr <net::TcpStream> stream);
+    std::shared_ptr<utils::config::ConfigNode> readMessage (std::shared_ptr <net::TcpSession> stream);
 
   };
 

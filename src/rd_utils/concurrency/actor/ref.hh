@@ -8,6 +8,7 @@
 #include <rd_utils/utils/raw_parser.hh>
 #include <rd_utils/memory/cache/_.hh>
 #include "stream.hh"
+#include <rd_utils/net/session.hh>
 
 
 namespace rd_utils::concurrency::actor {
@@ -54,6 +55,9 @@ namespace rd_utils::concurrency::actor {
      * Send a request to the actor
      */
     std::shared_ptr<rd_utils::utils::config::ConfigNode> request (const rd_utils::utils::config::ConfigNode & msg);
+
+
+    std::shared_ptr<ActorStream> requestStream (const rd_utils::utils::config::ConfigNode & msg);
 
     /**
      * Send a request and wait for a big response

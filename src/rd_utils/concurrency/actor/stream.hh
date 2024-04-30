@@ -1,6 +1,7 @@
 #pragma once
 
 #include <rd_utils/net/stream.hh>
+#include <rd_utils/net/session.hh>
 #include <rd_utils/utils/config/_.hh>
 #include <rd_utils/utils/raw_parser.hh>
 #include <memory>
@@ -10,8 +11,8 @@ namespace rd_utils::concurrency::actor {
   class ActorStream {
   private:
 
-    std::shared_ptr <net::TcpStream> _input;
-    std::shared_ptr <net::TcpStream> _output;
+    net::TcpSession _input;
+    net::TcpSession _output;
     bool _left; // left side is the one that asked for a stream
 
   private:
@@ -21,7 +22,7 @@ namespace rd_utils::concurrency::actor {
 
   public:
 
-    ActorStream (std::shared_ptr <net::TcpStream> input, std::shared_ptr <net::TcpStream> output, bool left);
+    ActorStream (net::TcpSession && input, net::TcpSession && output, bool left);
 
     bool next ();
 
