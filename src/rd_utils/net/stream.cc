@@ -58,9 +58,9 @@ namespace rd_utils::net {
 	}
 
 
-	bool TcpStream::sendInt (unsigned long i) {
+	bool TcpStream::sendU64 (uint64_t i) {
 		if (this-> _sockfd != 0 && !this-> _error) {
-			if (write (this-> _sockfd, &i, sizeof (unsigned long)) == -1) {
+			if (write (this-> _sockfd, &i, sizeof (uint64_t)) == -1) {
 				this-> _error = true;
 				return false;
 			}
@@ -69,6 +69,44 @@ namespace rd_utils::net {
 
 		return false;
 	}
+
+	bool TcpStream::sendU32 (uint32_t i) {
+		if (this-> _sockfd != 0 && !this-> _error) {
+			if (write (this-> _sockfd, &i, sizeof (uint32_t)) == -1) {
+				this-> _error = true;
+				return false;
+			}
+
+			return true;
+		}
+
+		return false;
+	}
+
+	bool TcpStream::sendI64 (int64_t i) {
+		if (this-> _sockfd != 0 && !this-> _error) {
+			if (write (this-> _sockfd, &i, sizeof (int64_t)) == -1) {
+				this-> _error = true;
+				return false;
+			}
+			return true;
+		}
+
+		return false;
+	}
+
+	bool TcpStream::sendI32 (int32_t i) {
+		if (this-> _sockfd != 0 && !this-> _error) {
+			if (write (this-> _sockfd, &i, sizeof (int32_t)) == -1) {
+				this-> _error = true;
+				return false;
+			}
+			return true;
+		}
+
+		return false;
+	}
+
 
 	bool TcpStream::sendChar (uint8_t i) {
 		if (this-> _sockfd != 0 && !this-> _error) {
@@ -156,7 +194,6 @@ namespace rd_utils::net {
 
 			do {
 				valread = recv(this-> _sockfd, &buffer, 1, 0);
-				std::cout << (uint32_t) buffer << " " << valread << std::endl;
 				if (buffer == until) { break; }
 				if(valread == -1) {
 					this-> _error = true;
@@ -172,10 +209,46 @@ namespace rd_utils::net {
 		return "";
 	}
 
-	unsigned long TcpStream::receiveInt () {
-		unsigned long res = 0;
+	int64_t TcpStream::receiveI64 () {
+		int64_t res = 0;
 		if (this-> _sockfd != 0 && !this-> _error) {
-			auto r = read (this-> _sockfd, &res, sizeof (unsigned long));
+			auto r = read (this-> _sockfd, &res, sizeof (int64_t));
+			if (r == -1) {
+				this-> _error = true;
+			}
+		}
+
+		return res;
+	}
+
+	int32_t TcpStream::receiveI32 () {
+		int32_t res = 0;
+		if (this-> _sockfd != 0 && !this-> _error) {
+			auto r = read (this-> _sockfd, &res, sizeof (int32_t));
+			if (r == -1) {
+				this-> _error = true;
+			}
+		}
+
+		return res;
+	}
+
+	uint64_t TcpStream::receiveU64 () {
+		uint64_t res = 0;
+		if (this-> _sockfd != 0 && !this-> _error) {
+			auto r = read (this-> _sockfd, &res, sizeof (uint64_t));
+			if (r == -1) {
+				this-> _error = true;
+			}
+		}
+
+		return res;
+	}
+
+	uint32_t TcpStream::receiveU32 () {
+		uint32_t res = 0;
+		if (this-> _sockfd != 0 && !this-> _error) {
+			auto r = read (this-> _sockfd, &res, sizeof (uint32_t));
 			if (r == -1) {
 				this-> _error = true;
 			}

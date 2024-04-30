@@ -44,7 +44,7 @@ namespace rd_utils::concurrency::actor {
 
     if (this-> _localConn == nullptr) {
       try {
-        this-> _localConn = std::make_shared<net::TcpPool> (addr, this-> _nbThreads);
+        this-> _localConn = std::make_shared<net::TcpPool> (addr, this-> _nbThreads * 2);
       } catch (...) {
         this-> _localConn = nullptr;
         throw std::runtime_error ("Failed to connect to local server");
@@ -58,9 +58,8 @@ namespace rd_utils::concurrency::actor {
   std::shared_ptr<ActorRef> ActorSystem::remoteActor (const std::string & name, net::SockAddrV4 addr, bool check) {
     auto str = this-> _conn.find (addr.toString ());
     if (str == this-> _conn.end ()) {
-      std::cout << "Connect to : " << addr << std::endl;
       try {
-        auto str_ = std::make_shared <net::TcpPool> (addr, this-> _nbThreads);
+        auto str_ = std::make_shared <net::TcpPool> (addr, this-> _nbThreads * 2);
         this-> _conn.emplace (addr.toString (), str_);
         str = this-> _conn.find (addr.toString ());
       } catch (...) {
@@ -70,11 +69,11 @@ namespace rd_utils::concurrency::actor {
 
     if (check) {
       auto session = str-> second-> get ();
-      session-> sendInt ((uint32_t) ActorSystem::Protocol::ACTOR_EXIST_REQ);
-      session-> sendInt (name.length ());
+      session-> sendU32 ((uint32_t) ActorSystem::Protocol::ACTOR_EXIST_REQ);
+      session-> sendU32 (name.length ());
       session-> send (name.c_str (), name.length ());
 
-      int exists = session-> receiveInt ();
+      int exists = session-> receiveU32 ();
       if (exists == 0) throw std::runtime_error ("Remote actor " + name + " does not exist in remote system : " + addr.toString ());
     }
 
@@ -126,9 +125,7 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::onSession (net::TcpSessionKind kind, std::shared_ptr <net::TcpSession> session) {
-    LOG_DEBUG ("Message here ?");
-    auto protId = (*session)-> receiveInt ();
-    LOG_DEBUG ("System msg req : ", protId);
+    auto protId = (*session)-> receiveU32 ();
     switch ((ActorSystem::Protocol) protId) {
     case ActorSystem::Protocol::ACTOR_EXIST_REQ:
       this-> onActorExistReq (session);
@@ -169,9 +166,9 @@ namespace rd_utils::concurrency::actor {
 
     auto it = this-> _actors.find (name);
     if (it != this-> _actors.end ()) {
-      (*session)-> sendInt (1);
+      (*session)-> sendU32 (1);
     } else {
-      (*session)-> sendInt (0);
+      (*session)-> sendU32 (0);
     }
   }
 
@@ -207,7 +204,7 @@ namespace rd_utils::concurrency::actor {
     LOG_DEBUG ("Actor request : ", name);
 
     auto addr = this-> readAddress (session);
-    auto reqId = (*session)-> receiveInt ();
+    auto reqId = (*session)-> receiveU64 ();
     auto msg = this-> readMessage (session);
 
     if (msg == nullptr) {
@@ -238,7 +235,7 @@ namespace rd_utils::concurrency::actor {
     LOG_DEBUG ("Actor req big : ", name);
 
     auto addr = this-> readAddress (session);
-    auto reqId = (*session)-> receiveInt ();
+    auto reqId = (*session)-> receiveU64 ();
     auto msg = this-> readMessage (session);
 
     if (msg == nullptr) {
@@ -266,12 +263,10 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::onActorReqStream (std::shared_ptr <net::TcpSession> session) {
-    concurrency::timer t;
     auto name = this-> readActorName (session);
-    LOG_DEBUG ("Actor req stream : ", name);
 
     auto addr = this-> readAddress (session);
-    auto reqId = (*session)-> receiveInt ();
+    auto reqId = (*session)-> receiveU64 ();
     auto msg = this-> readMessage (session);
 
     if (msg == nullptr) {
@@ -285,13 +280,16 @@ namespace rd_utils::concurrency::actor {
     } else {
       WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
         try {
-          t.reset ();
+          concurrency::timer t;
           auto actorRef = this-> remoteActor ("", addr, false);
           auto conn = actorRef-> getSession ()-> get ();
-          conn-> sendInt ((uint32_t) ActorSystem::Protocol::ACTOR_RESP_STREAM);
-          conn-> sendInt (reqId);
+
+          conn-> sendU32 ((uint32_t) ActorSystem::Protocol::ACTOR_RESP_STREAM);
+          conn-> sendU32 (reqId);
 
           ActorStream stream (std::move (*session), std::move (conn), false);
+          std::cout << "Time to get on sys " << t.time_since_start () << std::endl;
+
           it-> second-> onStream (*msg, stream);
         } catch (std::runtime_error & e) {
           (*session)-> close ();
@@ -301,10 +299,10 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::onActorResp (std::shared_ptr <net::TcpSession> session) {
-    auto reqId = (*session)-> receiveInt ();
+    auto reqId = (*session)-> receiveU64 ();
     LOG_DEBUG ("Actor resp : ", reqId);
 
-    auto hasValue = (*session)-> receiveInt ();
+    auto hasValue = (*session)-> receiveU32 ();
     if (hasValue == 1) {
       auto value = this-> readMessage (session);
       this-> pushResponse ({.reqId = reqId, .msg = value});
@@ -314,10 +312,10 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::onActorRespBig (std::shared_ptr <net::TcpSession> session) {
-    auto reqId = (*session)-> receiveInt ();
+    auto reqId = (*session)-> receiveU64 ();
     LOG_DEBUG ("Actor resp big : ", reqId);
 
-    auto hasValue = (*session)-> receiveInt ();
+    auto hasValue = (*session)-> receiveU32 ();
     if (hasValue == 1) {
       auto array = std::make_shared <rd_utils::memory::cache::collection::CacheArrayBase> ();
       array-> recv (*(*session), ARRAY_BUFFER_SIZE);
@@ -329,7 +327,7 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::onActorRespStream (std::shared_ptr<net::TcpSession> session) {
-    auto req = (*session)-> receiveInt ();
+    auto req = (*session)-> receiveU64 ();
     LOG_DEBUG ("Actor resp stream : ", req);
 
     this-> pushResponseStream ({.reqId = req, .stream = session});
@@ -340,7 +338,7 @@ namespace rd_utils::concurrency::actor {
   }
 
   std::string ActorSystem::readActorName (std::shared_ptr <net::TcpSession> stream) {
-    uint32_t len = (*stream)-> receiveInt ();
+    uint32_t len = (*stream)-> receiveU32 ();
     if (len <= 32) {
       char * str = new char [len + 1];
       (*stream)-> receive (str, len);
@@ -353,7 +351,7 @@ namespace rd_utils::concurrency::actor {
   }
 
   net::SockAddrV4 ActorSystem::readAddress (std::shared_ptr <net::TcpSession> stream) {
-    uint32_t port = (*stream)-> receiveInt ();
+    uint32_t port = (*stream)-> receiveU32 ();
     auto ip = (*stream)-> addr ().ip ();
 
     return net::SockAddrV4 (ip, port);

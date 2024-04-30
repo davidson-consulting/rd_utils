@@ -33,7 +33,7 @@ namespace rd_utils::memory::cache::remote {
   }
 
   void Repository::onSession (net::TcpSessionKind kind, std::shared_ptr <net::TcpSession> str) {
-    auto proto = (*str)-> receiveInt ();
+    auto proto = (*str)-> receiveU32 ();
     switch ((RepositoryProtocol) proto) {
     case RepositoryProtocol::EXISTS :
       this-> exists (*(*str));
@@ -50,7 +50,7 @@ namespace rd_utils::memory::cache::remote {
     case RepositoryProtocol::REGISTER:
       LOG_INFO ("New client");
       this-> _userId ++;
-      (*str)-> sendInt (this-> _userId);
+      (*str)-> sendU32 (this-> _userId);
       break;
     default :
       break;
@@ -61,23 +61,23 @@ namespace rd_utils::memory::cache::remote {
 
   void Repository::exists (net::TcpStream & str) {
     WITH_LOCK (this-> _m) {
-      auto uid = str.receiveInt ();
-      auto blid = str.receiveInt ();
+      uint64_t uid = str.receiveU32 ();
+      uint64_t blid = str.receiveU32 ();
       auto p = ((uint64_t) (uid << 32)) | blid;
 
       auto memory = this-> _loaded.find (p);
       if (memory == this-> _loaded.end ()) {
-        str.sendInt (this-> _persister-> exists (p) ? 1 : 0);
+        str.sendU32 (this-> _persister-> exists (p) ? 1 : 0);
       } else {
-        str.sendInt (1);
+        str.sendU32 (1);
       }
     }
   }
 
   void Repository::store (net::TcpStream & str) {
     WITH_LOCK (this-> _m) {
-      auto uid = str.receiveInt ();
-      auto blid = str.receiveInt ();
+      uint64_t uid = str.receiveU32 ();
+      uint64_t blid = str.receiveU32 ();
       auto p = ((uint64_t) (uid << 32)) | blid;
 
       auto memory = this-> _loaded.find (p);
@@ -116,8 +116,8 @@ namespace rd_utils::memory::cache::remote {
   void Repository::load (net::TcpStream & str) {
     WITH_LOCK (this-> _m) {
       concurrency::timer t;
-      auto uid = str.receiveInt ();
-      auto blid = str.receiveInt ();
+      uint64_t uid = str.receiveU32 ();
+      uint64_t blid = str.receiveU32 ();
       auto p = ((uint64_t) (uid << 32)) | blid;
 
       auto memory = this-> _loaded.find (p);
@@ -145,8 +145,8 @@ namespace rd_utils::memory::cache::remote {
 
   void Repository::erase (net::TcpStream & str) {
     WITH_LOCK (this-> _m) {
-      auto uid = str.receiveInt ();
-      auto blid = str.receiveInt ();
+      uint64_t uid = str.receiveU32 ();
+      uint64_t blid = str.receiveU32 ();
       auto p = ((uint64_t) (uid << 32)) | blid;
 
       auto memory = this-> _loaded.find (p);

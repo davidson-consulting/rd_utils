@@ -40,12 +40,12 @@ namespace rd_utils::utils::raw {
 
   std::shared_ptr <config::ConfigNode> RawParser::parseDict (net::TcpStream & stream) {
     auto dict = std::make_shared <config::Dict> ();
-    uint32_t nb = stream.receiveInt ();
+    uint32_t nb = stream.receiveU32 ();
     if (nb > 1024) throw std::runtime_error ("Too much element sent");
 
     char buffer [255];
     for (uint32_t i = 0 ; i < nb; i++) {
-      auto n = stream.receiveInt ();
+      auto n = stream.receiveU32 ();
       if (n > 255) throw std::runtime_error ("Key too big");
       stream.receive (buffer, n);
       buffer [n] = 0;
@@ -60,7 +60,7 @@ namespace rd_utils::utils::raw {
 
   std::shared_ptr <config::ConfigNode> RawParser::parseArray (net::TcpStream & stream) {
     auto array = std::make_shared <config::Array> ();
-    uint32_t nb = stream.receiveInt ();
+    uint32_t nb = stream.receiveU32 ();
     if (nb > 1024) throw std::runtime_error ("Too much element sent");
 
     for (uint32_t i = 0 ; i < nb; i++) {
@@ -72,7 +72,7 @@ namespace rd_utils::utils::raw {
   }
 
   std::shared_ptr <config::ConfigNode> RawParser::parseInt (net::TcpStream & stream) {
-    int32_t value = stream.receiveInt ();
+    int32_t value = stream.receiveI32 ();
     return std::make_shared <config::Int> (value);
   }
 
@@ -83,8 +83,9 @@ namespace rd_utils::utils::raw {
   }
 
   std::shared_ptr <config::ConfigNode> RawParser::parseString (net::TcpStream & stream) {
-    int n = stream.receiveInt ();
+    uint32_t n = stream.receiveU32 ();
     if (n > 1024 * 1024) throw std::runtime_error ("String to long");
+    if (n == 0) return std::make_shared <config::String> ("");
 
     char * buffer = new char[n + 1];
     stream.receive (buffer, n);
@@ -118,9 +119,9 @@ namespace rd_utils::utils::raw {
 
   void RawParser::dumpDict (net::TcpStream & stream, const config::Dict & d) {
     stream.sendChar ((uint8_t) RawParser::Types::DICT);
-    stream.sendInt (d.getKeys ().size ());
+    stream.sendU32 (d.getKeys ().size ());
     for (auto & key : d.getValues ()) {
-      stream.sendInt (key.first.length ());
+      stream.sendU32 (key.first.length ());
       stream.send (key.first.c_str (), key.first.length ());
 
       this-> dump (stream, *key.second);
@@ -129,7 +130,7 @@ namespace rd_utils::utils::raw {
 
   void RawParser::dumpArray (net::TcpStream & stream, const config::Array & d) {
     stream.sendChar ((uint8_t) RawParser::Types::ARRAY);
-    stream.sendInt (d.getLen ());
+    stream.sendU32 (d.getLen ());
     for (uint32_t i = 0 ; i < d.getLen () ; i++) {
       this-> dump (stream, d [i]);
     }
@@ -137,7 +138,7 @@ namespace rd_utils::utils::raw {
 
   void RawParser::dumpInt (net::TcpStream & stream, const config::Int & i) {
     stream.sendChar ((uint8_t) RawParser::Types::INT);
-    stream.sendInt (i.getI ());
+    stream.sendI32 (i.getI ());
   }
 
   void RawParser::dumpFloat (net::TcpStream & stream, const config::Float & f) {
@@ -148,8 +149,10 @@ namespace rd_utils::utils::raw {
 
   void RawParser::dumpString (net::TcpStream & stream, const config::String & s) {
     stream.sendChar ((uint8_t) RawParser::Types::STRING);
-    stream.sendInt (s.getStr ().length ());
-    stream.send (s.getStr ().c_str (), s.getStr ().length ());
+    stream.sendU32 (s.getStr ().length ());
+    if (s.getStr ().length () != 0) {
+      stream.send (s.getStr ().c_str (), s.getStr ().length ());
+    }
   }
 
   void RawParser::dumpBool (net::TcpStream & stream, const config::Bool & b) {

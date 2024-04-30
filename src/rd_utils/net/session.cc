@@ -38,7 +38,7 @@ namespace rd_utils::net {
   void TcpSession::dispose () {
     if (this-> _context != nullptr) {
       LOG_DEBUG ("Disposing session : ", this-> _stream-> getHandle (), " ", this-> _server);
-      // std::cout << "Freeing " << this-> _stream-> getHandle () << std::endl;
+
       if (this-> _server) {
         reinterpret_cast <TcpServer*> (this-> _context)-> release (this-> _stream);
       } else {

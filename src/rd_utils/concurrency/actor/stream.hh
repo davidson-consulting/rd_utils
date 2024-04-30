@@ -24,13 +24,22 @@ namespace rd_utils::concurrency::actor {
 
     ActorStream (net::TcpSession && input, net::TcpSession && output, bool left);
 
-    bool next ();
-
-    void stop ();
-
     void write (const utils::config::ConfigNode & node);
 
     std::shared_ptr <utils::config::ConfigNode> read ();
+
+    void writeStr (const std::string & msg);
+
+    void writeU32 (uint32_t i);
+
+    void writeU64 (uint64_t i);
+
+    std::string readStr ();
+
+    uint32_t readU32 ();
+
+    uint64_t readU64 ();
+
 
     ~ActorStream ();
 

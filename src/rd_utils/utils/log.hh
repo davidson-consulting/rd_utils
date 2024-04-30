@@ -11,7 +11,7 @@
 #endif
 
 #ifndef LOG_LEVEL
-#define LOG_LEVEL 3
+#define LOG_LEVEL 2
 #endif
 
 #define LOG_LEVEL_ERROR 1
@@ -95,7 +95,7 @@ namespace rd_utils::utils {
 		static Logger * __globalInstance__;
 	
 		// The level of logging
-		LogLevel _level = LogLevel::SUCCESS;
+		LogLevel _level = LogLevel::ALL;
 
     private :
 

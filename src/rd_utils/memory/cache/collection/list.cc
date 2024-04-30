@@ -35,8 +35,8 @@ namespace rd_utils::memory::cache::collection {
   void ArrayListBase::send (net::TcpStream & stream, uint32_t bufferSize) {
     uint32_t nbInBuffer = bufferSize / this-> _innerSize;
     uint8_t * buffer = new uint8_t [nbInBuffer * this-> _innerSize];
-    stream.sendInt (this-> _size);
-    stream.sendInt (this-> _innerSize);
+    stream.sendU32 (this-> _size);
+    stream.sendU32 (this-> _innerSize);
 
     for (auto bl : this-> _metadata) {
       AllocatedSegment seg = {.blockAddr = bl, .offset = ALLOC_HEAD_SIZE};

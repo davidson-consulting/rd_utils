@@ -155,12 +155,12 @@ namespace rd_utils::net {
         throw utils::Rd_UtilsError ("Error while tcp waiting");
       }
 
+      // std::cout << "Message from " << event.data.fd << " " << std::endl;
       this-> reloadAllFinished ();
 
       // New socket
       if (event.data.fd == this-> _context._sockfd) {
         try {
-          // std::cout << "Accepting ?" << std::endl;
           TcpStream cl = std::move (this-> _context.accept ());
 
           // Reject connection if there are too much clients
@@ -174,8 +174,8 @@ namespace rd_utils::net {
             this-> submit (TcpSessionKind::NEW, stream);
           }
         } catch (utils::Rd_UtilsError & err) {
-          std::cout << this-> _openSockets.size () << std::endl;
-          std::cout << "IN ERROR ??? " << strerror (errno) << std::endl;
+          // std::cout << this-> _openSockets.size () << std::endl;
+          // std::cout << "IN ERROR ??? " << strerror (errno) << std::endl;
         } // accept can fail
       }
 

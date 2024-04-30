@@ -107,8 +107,8 @@ namespace rd_utils::memory::cache::remote {
     net::TcpStream r (this-> _addr);
     r.connect ();
 
-    r.sendInt ((uint64_t) RepositoryProtocol::REGISTER);
-    this-> _clientId = r.receiveInt ();
+    r.sendU32 ((uint32_t) RepositoryProtocol::REGISTER);
+    this-> _clientId = r.receiveU32 ();
 
     r.close ();
   }
@@ -117,10 +117,10 @@ namespace rd_utils::memory::cache::remote {
     net::TcpStream r (this-> _addr);
     r.connect ();
 
-    r.sendInt ((uint64_t) RepositoryProtocol::EXISTS);
-    r.sendInt (this-> _clientId);
-    r.sendInt (addr);
-    auto result = r.receiveInt ();
+    r.sendU32 ((uint32_t) RepositoryProtocol::EXISTS);
+    r.sendU32 (this-> _clientId);
+    r.sendU64 (addr);
+    auto result = r.receiveU32 ();
 
     r.close ();
 
@@ -132,9 +132,9 @@ namespace rd_utils::memory::cache::remote {
     net::TcpStream r (this-> _addr);
     r.connect ();
 
-    r.sendInt ((uint64_t) RepositoryProtocol::LOAD);
-    r.sendInt (this-> _clientId);
-    r.sendInt (addr);
+    r.sendU32 ((uint32_t) RepositoryProtocol::LOAD);
+    r.sendU32 (this-> _clientId);
+    r.sendU64 (addr);
 
     this-> read (r, memory, size);
     this-> _loadElapsed += t.time_since_start ();
@@ -149,9 +149,9 @@ namespace rd_utils::memory::cache::remote {
     net::TcpStream r (this-> _addr);
     r.connect ();
 
-    r.sendInt ((uint64_t) RepositoryProtocol::STORE);
-    r.sendInt (this-> _clientId);
-    r.sendInt (addr);
+    r.sendU32 ((uint32_t) RepositoryProtocol::STORE);
+    r.sendU32 (this-> _clientId);
+    r.sendU64 (addr);
 
     this-> write (r, memory, size);
     this-> _saveElapsed += t.time_since_start ();
@@ -164,9 +164,9 @@ namespace rd_utils::memory::cache::remote {
     net::TcpStream r (this-> _addr);
     r.connect ();
 
-    r.sendInt ((uint64_t) RepositoryProtocol::ERASE);
-    r.sendInt (this-> _clientId);
-    r.sendInt (addr);
+    r.sendU32 ((uint32_t) RepositoryProtocol::ERASE);
+    r.sendU32 (this-> _clientId);
+    r.sendU64 (addr);
     r.close ();
   }
 
@@ -201,7 +201,7 @@ namespace rd_utils::memory::cache::remote {
   RemotePersister::~RemotePersister () {
     std::cout << "Closing socket ?" << std::endl;
     net::TcpStream r (this-> _addr);
-    r.sendInt ((uint32_t) RepositoryProtocol::CLOSE);
+    r.sendU32 ((uint32_t) RepositoryProtocol::CLOSE);
     r.close ();
   }
 

@@ -60,8 +60,8 @@ namespace rd_utils::memory::cache::collection {
   void CacheArrayBase::send (net::TcpStream & stream, uint32_t bufferSize) {
     uint32_t nbInBuffer = bufferSize / this-> _innerSize;
     uint8_t * buffer = new uint8_t [nbInBuffer * this-> _innerSize];
-    stream.sendInt (this-> _size);
-    stream.sendInt (this-> _innerSize);
+    stream.sendU32 (this-> _size);
+    stream.sendU32 (this-> _innerSize);
 
     for (uint32_t i = 0 ; i < this-> _nbBlocks ; i++) {
       AllocatedSegment seg = {.blockAddr = this-> _fstBlockAddr + i, .offset = ALLOC_HEAD_SIZE};
@@ -74,8 +74,8 @@ namespace rd_utils::memory::cache::collection {
   }
 
   void CacheArrayBase::recv (net::TcpStream & stream, uint32_t bufferSize) {
-    uint32_t size = stream.receiveInt ();
-    uint32_t innerSize = stream.receiveInt ();
+    uint32_t size = stream.receiveU32 ();
+    uint32_t innerSize = stream.receiveU32 ();
 
     this-> dispose ();
     this-> allocate (size, innerSize);

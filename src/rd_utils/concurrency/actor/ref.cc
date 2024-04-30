@@ -19,10 +19,10 @@ namespace rd_utils::concurrency::actor {
   void ActorRef::send (const rd_utils::utils::config::ConfigNode & node) {
     auto session = this-> _conn-> get ();
 
-    session-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_MSG));
-    session-> sendInt (this-> _name.length ());
+    session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_MSG));
+    session-> sendU32 (this-> _name.length ());
     session-> send (this-> _name.c_str (), this-> _name.length ());
-    session-> sendInt (this-> _sys-> port ());
+    session-> sendU32 (this-> _sys-> port ());
 
     utils::raw::dump (*session, node);
   }
@@ -31,14 +31,16 @@ namespace rd_utils::concurrency::actor {
     concurrency::timer t;
     auto session = this-> _conn-> get ();
 
-    session-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ));
-    session-> sendInt (this-> _name.length ());
+    session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ));
+    session-> sendU32 (this-> _name.length ());
     session-> send (this-> _name.c_str (), this-> _name.length ());
-    session-> sendInt (this-> _sys-> port ());
+    session-> sendU32 (this-> _sys-> port ());
 
     uint64_t uniqId = this-> _sys-> genUniqId ();
-    session-> sendInt (uniqId);
+    session-> sendU64 (uniqId);
+
     utils::raw::dump (*session, node);
+
 
     for (;;) {
       this-> _sys-> _waitResponse.wait ();
@@ -54,21 +56,25 @@ namespace rd_utils::concurrency::actor {
   }
 
   std::shared_ptr <ActorStream> ActorRef::requestStream (const rd_utils::utils::config::ConfigNode & msg) {
+    concurrency::timer t;
     auto session = this-> _conn-> get ();
+    std::cout << "Time to get : " << t.time_since_start () << std::endl;
 
-    session-> sendInt ((uint32_t) ActorSystem::Protocol::ACTOR_REQ_STREAM);
-    session-> sendInt (this-> _name.length ());
+    session-> sendU32 ((uint32_t) ActorSystem::Protocol::ACTOR_REQ_STREAM);
+    session-> sendU32 (this-> _name.length ());
     session-> send (this-> _name.c_str (), this-> _name.length ());
-    session-> sendInt (this-> _sys-> port ());
+    session-> sendU32 (this-> _sys-> port ());
 
     uint64_t uniqId = this-> _sys-> genUniqId ();
-    session-> sendInt (uniqId);
+    session-> sendU64 (uniqId);
     utils::raw::dump (*session, msg);
 
     for (;;) {
+      t.reset ();
       this-> _sys-> _waitResponseStream.wait ();
       ActorSystem::ResponseStream resp;
       if (this-> _sys-> _responseStreams.receive (resp)) {
+        std::cout << "Time for resp : " << t.time_since_start () << std::endl;
         if (resp.reqId == uniqId) {
           return std::make_shared <ActorStream> (std::move (*resp.stream), std::move (session), true);
         }
@@ -81,12 +87,12 @@ namespace rd_utils::concurrency::actor {
 
   void ActorRef::response (uint64_t reqId, std::shared_ptr <rd_utils::utils::config::ConfigNode> node) {
     auto session = this-> _conn-> get ();
-    session-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP));
-    session-> sendInt (reqId);
+    session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP));
+    session-> sendU64 (reqId);
     if (node == nullptr) {
-      session-> sendInt (0);
+      session-> sendU32 (0);
     } else {
-      session-> sendInt (1);
+      session-> sendU32 (1);
       utils::raw::dump (*session, *node);
     }
   }
@@ -94,13 +100,13 @@ namespace rd_utils::concurrency::actor {
   void ActorRef::responseBig (uint64_t reqId, std::shared_ptr <rd_utils::memory::cache::collection::ArrayListBase> & array) {
     auto session = this-> _conn-> get ();
 
-    session-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP_BIG));
-    session-> sendInt (reqId);
+    session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP_BIG));
+    session-> sendU64 (reqId);
 
     if (array == nullptr) {
-      session-> sendInt (0);
+      session-> sendU32 (0);
     } else {
-      session-> sendInt (1);
+      session-> sendU32 (1);
       array-> send (*session, ARRAY_BUFFER_SIZE);
     }
   }

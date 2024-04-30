@@ -4,7 +4,7 @@
 #include <rd_utils/net/addr.hh>
 #include <string>
 #include <sys/socket.h>
-
+#include <cstdint>
 
 namespace rd_utils {
 
@@ -104,12 +104,10 @@ namespace rd_utils {
 			 * ================================================================================
 			 */
 
-			/**
-			 * Send a int into the stream
-			 * @params:
-			 *   - i: the int to send
-			 */
-			bool sendInt (unsigned long i);
+			bool sendI64 (int64_t i);
+			bool sendI32 (int32_t i);
+			bool sendU64 (uint64_t i);
+			bool sendU32 (uint32_t i);
 
 
 			bool sendChar (uint8_t c);
@@ -162,10 +160,10 @@ namespace rd_utils {
 			 */
 			std::string receive (char until = '\0');
 
-			/**
-			 * Receive an int from the stream
-			 */
-			unsigned long receiveInt ();
+			int64_t receiveI64 ();
+			int32_t receiveI32 ();
+			uint64_t receiveU64 ();
+			uint32_t receiveU32 ();
 
 			/**
 			 * Receive 1 byte from the stream

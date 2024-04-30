@@ -1,10 +1,11 @@
 
 #ifndef __PROJECT__
-#define __PROJECT__ "TCPSERVER"
+#define __PROJECT__ "TCPPOOL"
 #endif
 
 #include "pool.hh"
 #include <rd_utils/utils/log.hh>
+#include <rd_utils/concurrency/timer.hh>
 #include "session.hh"
 
 namespace rd_utils::net {
@@ -39,7 +40,6 @@ namespace rd_utils::net {
     }
 
     TcpSession TcpPool::get () {
-        LOG_DEBUG ("Ask for socket");
         WITH_LOCK (this-> _m) {
             if (this-> _open.size () < this-> _max) {
                 auto s = std::make_shared <TcpStream> (this-> _addr);
@@ -49,6 +49,7 @@ namespace rd_utils::net {
                     throw std::runtime_error ("Failed to connect");
                 }
 
+                // std::cout << "New socket : " << s-> getHandle () << " " << s.get () << std::endl;
                 if (s != nullptr) {
                     // WARNING: if a socket is closed by hand, then we might reopen a second socket with the same fd
                     // In that case, socketFds might have the same values multiple times
@@ -61,21 +62,21 @@ namespace rd_utils::net {
             }
         }
 
+        concurrency::timer t;
         // LOG_DEBUG ("Waiting ?", pthread_self ());
         this-> _release.wait ();
         // LOG_DEBUG ("NO ?", pthread_self ());
+        std::cout << "Wait : " << t.time_since_start () << std::endl;
 
         std::shared_ptr <TcpStream> conn = nullptr;
         if (this-> _free.receive (conn)) {
-            LOG_DEBUG ("Have a free sock : ", conn-> getHandle ());
             return TcpSession (conn, this, false);
-        } else {
-            return this-> get ();
         }
+
+        return this-> get ();
     }
 
     void TcpPool::release (std::shared_ptr <TcpStream> s) {
-        LOG_DEBUG ("Reinstitute : ", s-> getHandle ());
         if (!s-> isOpen ()) {
             WITH_LOCK (this-> _m) { // closing the socket that is either broken or closed on the other side
                 auto handle = this-> _socketFds.find ((uint64_t) s.get ());

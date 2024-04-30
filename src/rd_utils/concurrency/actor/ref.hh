@@ -66,13 +66,13 @@ namespace rd_utils::concurrency::actor {
     std::shared_ptr <rd_utils::memory::cache::collection::CacheArray<T> > requestBig (const rd_utils::utils::config::ConfigNode & msg) {
       auto session = this-> _conn-> get ();
 
-      session-> sendInt ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ_BIG));
-      session-> sendInt (this-> _name.length ());
+      session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ_BIG));
+      session-> sendU32 (this-> _name.length ());
       session-> send (this-> _name.c_str (), this-> _name.length ());
-      session-> sendInt (this-> _sys-> port ());
+      session-> sendU32 (this-> _sys-> port ());
 
       uint64_t uniqId = this-> _sys-> genUniqId ();
-      session-> sendInt (uniqId);
+      session-> sendU64 (uniqId);
 
       utils::raw::dump (*session, msg);
       for (;;) {
