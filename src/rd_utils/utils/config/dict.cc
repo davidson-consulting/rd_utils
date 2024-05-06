@@ -1,5 +1,8 @@
 #include "dict.hh"
-
+#include "int.hh"
+#include "bool.hh"
+#include "str.hh"
+#include "float.hh"
 
 namespace rd_utils::utils::config {
 
@@ -24,9 +27,23 @@ namespace rd_utils::utils::config {
     return this-> _nodes;
   }
 
-  void Dict::insert (const std::string & key, std::shared_ptr<ConfigNode> value) {
+
+  Dict& Dict::insert (const std::string & key, const std::string & value) {
+    return this-> insert (key, std::make_shared <config::String> (value));
+  }
+
+  Dict& Dict::insert (const std::string & key, int64_t value) {
+    return this-> insert (key, std::make_shared <config::Int> (value));
+  }
+
+  Dict& Dict::insert (const std::string & key, double value) {
+    return this-> insert (key, std::make_shared <config::Float> (value));
+  }
+
+  Dict& Dict::insert (const std::string & key, std::shared_ptr<ConfigNode> value) {
     this-> _keys.insert (key);
     this-> _nodes.insert_or_assign (key, value);
+    return *this;
   }
 
   std::shared_ptr<Dict> Dict::getInDic (const std::string & key) {

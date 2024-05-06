@@ -228,7 +228,6 @@ namespace rd_utils::concurrency::actor {
         try {
           it-> second-> onMessage (*msg);
         } catch (...) {
-
         }
       }
     }
@@ -256,7 +255,7 @@ namespace rd_utils::concurrency::actor {
           auto actorRef = this-> remoteActor ("", addr, false);
           actorRef-> response (reqId, result);
         } catch (std::runtime_error & e) {
-          (*session)-> close ();
+          // (*session)-> close ();
         }
       }
     }
@@ -286,7 +285,7 @@ namespace rd_utils::concurrency::actor {
             actorRef-> responseBig (reqId, result);
           }
         } catch (std::runtime_error & e) {
-          (*session)-> close ();
+          // (*session)-> close ();
         }
       }
     }
@@ -320,7 +319,7 @@ namespace rd_utils::concurrency::actor {
 
           it-> second-> onStream (*msg, stream);
         } catch (std::runtime_error & e) {
-          (*session)-> close ();
+          // (*session)-> close ();
         }
       }
     }

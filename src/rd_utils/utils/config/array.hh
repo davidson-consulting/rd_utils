@@ -28,7 +28,10 @@ namespace rd_utils::utils::config {
     /**
      * Insert a node in the array
      */
-    void insert (std::shared_ptr<ConfigNode> node);
+    Array& insert (std::shared_ptr<ConfigNode> node);
+    Array& insert (const std::string & str);
+    Array& insert (int64_t);
+    Array& insert (double);
 
     /**
      * Transform the node into a printable string

@@ -2,10 +2,10 @@
 
 namespace rd_utils::utils::config {
 
-  Int::Int (int32_t i) : _i (i)
+  Int::Int (int64_t i) : _i (i)
   {}
 
-  int32_t Int::getI () const {
+  int64_t Int::getI () const {
     return this-> _i;
   }
 

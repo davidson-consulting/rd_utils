@@ -330,14 +330,14 @@ namespace rd_utils::net {
       concurrency::join (this-> _th);
     }
 
-    while (this-> _nbSubmitted != this-> _nbCompleted) { // && this-> _jobs.len () != 0) { // wait for the finish of already running tasks
+    while (this-> _nbSubmitted != this-> _nbCompleted ) { // && this-> _jobs.len () != 0) { // wait for the finish of already running tasks
       char c;
-      ::read (this-> _trigger.getReadFd (), &c, 1);
+      int x = ::read (this-> _trigger.getReadFd (), &c, 1);
+      if (x != 1) break;
     }
   }
 
   void TcpServer::dispose () {
-
     this-> waitAllCompletes ();
     while (this-> _closed.len () != this-> _runningThreads.size ()) {
       // Force all thread to halt

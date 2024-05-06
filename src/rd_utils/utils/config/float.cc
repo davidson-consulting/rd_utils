@@ -9,8 +9,8 @@ namespace rd_utils::utils::config {
     return this-> _f;
   }
 
-  int32_t Float::getI () const {
-    return (int32_t) this-> _f;
+  int64_t Float::getI () const {
+    return (int64_t) this-> _f;
   }
 
   void Float::format (std::ostream & s) const {

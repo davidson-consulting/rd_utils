@@ -49,12 +49,29 @@ namespace rd_utils::concurrency::actor {
     return "";
   }
 
+  void ActorStream::writeU8 (uint8_t i) {
+    this-> _output-> sendChar (i);
+  }
+
   void ActorStream::writeU32 (uint32_t i) {
     this-> _output-> sendU32 (i);
   }
 
   void ActorStream::writeU64 (uint64_t i) {
     this-> _output-> sendU64 (i);
+  }
+
+  uint8_t ActorStream::readOr (uint8_t v) {
+    if (this-> isOpen ()) {
+      auto res = this-> readU8 ();
+      if (this-> isOpen ()) return res;
+    }
+
+    return v;
+  }
+
+  uint8_t ActorStream::readU8 () {
+    return this-> _input-> receiveChar ();
   }
 
   uint32_t ActorStream::readU32 () {
@@ -65,7 +82,17 @@ namespace rd_utils::concurrency::actor {
     return this-> _input-> receiveU64 ();
   }
 
+  bool ActorStream::isOpen () {
+    return this-> _input-> isOpen () && this-> _output-> isOpen ();
+  }
+
+  void ActorStream::close () {
+    this-> _input-> close ();
+    this-> _output-> close ();
+  }
+
   ActorStream::~ActorStream () {
+    this-> close ();
     this-> _input.dispose ();
     this-> _output.dispose ();
   }

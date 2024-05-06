@@ -19,7 +19,7 @@ namespace rd_utils::utils::config {
     throw ConfigError ();
   }
 
-  int32_t ConfigNode::getI () const {
+  int64_t ConfigNode::getI () const {
     throw ConfigError ();
   }
 
@@ -31,7 +31,15 @@ namespace rd_utils::utils::config {
     throw ConfigError ();
   }
 
-  int32_t ConfigNode::getOr (const std::string & key, int32_t value) const {
+  int64_t ConfigNode::getOr (const std::string & key, int64_t value) const {
+    try {
+      return (*this) [key].getI ();
+    } catch (...) {
+      return value;
+    }
+  }
+
+  int64_t ConfigNode::getOr (const std::string & key, int value) const {
     try {
       return (*this) [key].getI ();
     } catch (...) {

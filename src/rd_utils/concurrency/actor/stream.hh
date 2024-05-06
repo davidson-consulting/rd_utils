@@ -28,7 +28,21 @@ namespace rd_utils::concurrency::actor {
 
     std::shared_ptr <utils::config::ConfigNode> read ();
 
+    template <typename T>
+    void writeRaw (const T & data) {
+      this-> _output-> send (reinterpret_cast <const char*> (&data), sizeof (T));
+    }
+
+    template <typename T>
+    void readRaw (T & data) {
+      this-> _input-> receive (reinterpret_cast<char*> (&data), sizeof (T));
+    }
+
+    uint8_t readOr (uint8_t v);
+
     void writeStr (const std::string & msg);
+
+    void writeU8 (uint8_t i);
 
     void writeU32 (uint32_t i);
 
@@ -36,10 +50,15 @@ namespace rd_utils::concurrency::actor {
 
     std::string readStr ();
 
+    uint8_t readU8 ();
+
     uint32_t readU32 ();
 
     uint64_t readU64 ();
 
+    bool isOpen ();
+
+    void close ();
 
     ~ActorStream ();
 

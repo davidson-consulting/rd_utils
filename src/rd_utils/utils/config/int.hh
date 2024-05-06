@@ -7,16 +7,16 @@ namespace rd_utils::utils::config {
 
   class Int : public ConfigNode {
 
-    int32_t _i;
+    int64_t _i;
 
   public:
 
-    Int (int32_t);
+    Int (int64_t);
 
     /**
      * @returns: the value contains in the int
      */
-    int32_t getI () const override;
+    int64_t getI () const override;
 
     /**
      * @returns: the value contains in the int casted into a float

@@ -72,7 +72,7 @@ namespace rd_utils::utils::raw {
   }
 
   std::shared_ptr <config::ConfigNode> RawParser::parseInt (net::TcpStream & stream) {
-    int32_t value = stream.receiveI32 ();
+    int64_t value = stream.receiveI64 ();
     return std::make_shared <config::Int> (value);
   }
 
@@ -138,7 +138,7 @@ namespace rd_utils::utils::raw {
 
   void RawParser::dumpInt (net::TcpStream & stream, const config::Int & i) {
     stream.sendChar ((uint8_t) RawParser::Types::INT);
-    stream.sendI32 (i.getI ());
+    stream.sendI64 (i.getI ());
   }
 
   void RawParser::dumpFloat (net::TcpStream & stream, const config::Float & f) {

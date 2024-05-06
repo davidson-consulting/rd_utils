@@ -1,4 +1,8 @@
 #include "array.hh"
+#include "int.hh"
+#include "bool.hh"
+#include "str.hh"
+#include "float.hh"
 
 namespace rd_utils::utils::config {
 
@@ -11,8 +15,21 @@ namespace rd_utils::utils::config {
     return this-> _nodes.size ();
   }
 
-  void Array::insert (std::shared_ptr<ConfigNode> node) {
+  Array& Array::insert (const std::string & value) {
+    return this-> insert (std::make_shared <config::String> (value));
+  }
+
+  Array& Array::insert (int64_t value) {
+    return this-> insert (std::make_shared <config::Int> (value));
+  }
+
+  Array& Array::insert (double value) {
+    return this-> insert (std::make_shared <config::Float> (value));
+  }
+
+  Array& Array::insert (std::shared_ptr<ConfigNode> node) {
     this-> _nodes.push_back (node);
+    return *this;
   }
 
   void Array::format (std::ostream & s) const {

@@ -21,7 +21,7 @@ namespace rd_utils::utils::config {
     /**
      * @returns: the value contains in the float casted into an int
      */
-    int32_t getI () const override;
+    int64_t getI () const override;
 
     void format (std::ostream & ) const override;
 
