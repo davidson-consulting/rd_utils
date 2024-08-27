@@ -154,7 +154,7 @@ namespace rd_utils::utils::toml {
   }
 
   std::shared_ptr<ConfigNode> TomlParser::parseFloat () {
-    int32_t i = std::stof (this-> _lex.next ().str);
+    float i = std::stof (this-> _lex.next ().str);
     return std::make_shared<Float> (i);
   }
 
