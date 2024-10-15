@@ -24,10 +24,14 @@ namespace rd_utils::concurrency::actor {
     this-> _server.start (this, &ActorSystem::onSession);
   }
 
-  void ActorSystem::remove (const std::string & name) {
+  void ActorSystem::remove (const std::string & name, bool lock) {
     auto act = this-> _actors.find (name);
     if (act != this-> _actors.end ()) {
-      WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
+      if (lock) {
+        WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
+          act-> second-> onQuit ();
+        }
+      } else {
         act-> second-> onQuit ();
       }
 

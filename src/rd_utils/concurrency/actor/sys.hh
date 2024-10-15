@@ -156,9 +156,10 @@ namespace rd_utils::concurrency::actor {
      * Remove an actor
      * @params:
      *    - name: the name of the actor to remove
+     *    - lock: true if it is not done from the inside of the actor
      * @info: does nothing if the actor does not exist
      */
-    void remove (const std::string & name);
+    void remove (const std::string & name, bool lock = true);
 
     /**
      * @returns: an actor reference to a local actor

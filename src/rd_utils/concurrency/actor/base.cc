@@ -30,7 +30,7 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorBase::exit () {
-    this-> _system-> remove (this-> _name);
+    this-> _system-> remove (this-> _name, false);
   }
 
   void ActorBase::onQuit () {
