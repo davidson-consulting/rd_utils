@@ -125,8 +125,12 @@ namespace rd_utils::concurrency::actor {
       auto it = this-> _actors.find (name);
       if (it != this-> _actors.end ()) throw std::runtime_error ("Already an actor named : " + name);
 
-      this-> _actors.emplace (name, std::make_shared <T> (name, this));
+      auto act = std::make_shared <T> (name, this);
+
+      this-> _actors.emplace (name, act);
       this-> _actorMutexes.emplace (name, concurrency::mutex ());
+
+      act-> onStart ();
     }
 
     /**
@@ -140,8 +144,12 @@ namespace rd_utils::concurrency::actor {
       auto it = this-> _actors.find (name);
       if (it != this-> _actors.end ()) throw std::runtime_error ("Already an actor named : " + name);
 
-      this-> _actors.emplace (name, std::make_shared <T> (name, this, a...));
+      auto act = std::make_shared <T> (name, this, a...);
+
+      this-> _actors.emplace (name, act);
       this-> _actorMutexes.emplace (name, concurrency::mutex ());
+
+      act-> onStart ();
     }
 
     /**

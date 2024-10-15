@@ -62,7 +62,7 @@ namespace rd_utils::utils {
      * write a in the stream s
      */
     template <typename T>
-    void content_print (std::ostream& s, T a) {
+    void content_print (std::ostream& s, const T& a) {
 		s << a;
     }
 
@@ -70,7 +70,7 @@ namespace rd_utils::utils {
      * write a and b in the stream s
      */
     template <typename T, typename ... R>
-    void content_print (std::ostream & s, T a, R... b) {
+    void content_print (std::ostream & s, const T& a, const R&... b) {
 		s << a;
 		content_print (s, b...);
     }
@@ -158,7 +158,7 @@ namespace rd_utils::utils {
 		 * Info log (LogLevel >= LogLevel::INFO)
 		 */
 		template <typename ... T>
-		void info (const char * file, T... msg) {
+		void info (const char * file, const T&... msg) {
 			if (this-> _level >= LogLevel::INFO) {
 				WITH_LOCK (__mutex__) {
 					(*this-> _stream) << "[" << BLUE << "INFO" << RESET << "][" << file << "][" << get_time ()  << "] ";
@@ -172,7 +172,7 @@ namespace rd_utils::utils {
 		 * Debug log (LogLevel >= LogLevel::DEBUG)
 		 */
 		template <typename ... T>
-		void debug (const char* file, T... msg) {
+		void debug (const char* file, const T&... msg) {
 			if (this-> _level >= LogLevel::DEBUG) {
 				WITH_LOCK (__mutex__) {
 					(*this-> _stream) << "[" << PURPLE << "DEBUG" << RESET << "][" << file << "][" << get_time ()  << "] ";
@@ -186,7 +186,7 @@ namespace rd_utils::utils {
 		 * Info log (LogLevel >= LogLevel::ERROR)
 		 */
 		template <typename ... T>
-		void error (const char* file, T... msg) {
+		void error (const char* file, const T&... msg) {
 			if (this-> _level >= LogLevel::ERROR) {
 				WITH_LOCK (__mutex__) {
 					(*this-> _stream) << "[" << RED << "ERROR" << RESET << "][" << file << "][" << get_time () << "] ";
@@ -201,7 +201,7 @@ namespace rd_utils::utils {
 		 * Info log (LogLevel >= LogLevel::SUCCESS)
 		 */
 		template <typename ... T>
-		void success (const char* file, T... msg) {
+		void success (const char* file, const T&... msg) {
 			if (this-> _level >= LogLevel::SUCCESS) {
 				WITH_LOCK (__mutex__) {
 					*this-> _stream << "[" << GREEN << "SUCCESS" << RESET << "][" << file << "][" << get_time ()  << "] ";
@@ -231,7 +231,7 @@ namespace rd_utils::utils {
 		 * Info log (LogLevel >= LogLevel::STRANGE)
 		 */
 		template <typename ... T>
-		void strange (const char * file, T... msg) {
+		void strange (const char * file, const T&... msg) {
 			if (this-> _level >= LogLevel::STRANGE) {
 				WITH_LOCK (__mutex__) {
 					*this-> _stream << "[" << PURPLE << "STRANGE" << RESET << "][ " << file << "][" << get_time ()  << "] ";

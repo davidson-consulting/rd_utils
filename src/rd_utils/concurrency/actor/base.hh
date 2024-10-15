@@ -26,8 +26,14 @@ namespace rd_utils::concurrency::actor {
      * @params:
      *    - name: the name of the actor
      *    - sys: the system in which the actor is running
+     * @warning: nothing actor related should be done here, the actor is not yet registered
      */
     ActorBase (const std::string & name, ActorSystem * sys);
+
+    /**
+     * Called the actor is registered in the system
+     */
+    virtual void onStart ();
 
     /**
      * Function executed when receiving a message
