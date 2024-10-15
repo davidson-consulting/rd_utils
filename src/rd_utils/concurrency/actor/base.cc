@@ -21,6 +21,8 @@ namespace rd_utils::concurrency::actor {
     return nullptr;
   }
 
+  void ActorBase::onStart () {}
+
   void ActorBase::onStream (const rd_utils::utils::config::ConfigNode & msg, ActorStream & stream) {}
 
   std::shared_ptr<ActorRef> ActorBase::getRef () {
