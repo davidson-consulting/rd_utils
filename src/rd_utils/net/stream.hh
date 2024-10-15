@@ -142,10 +142,11 @@ namespace rd_utils {
 					uint32_t got = 0;
 					while (full > got) {
 						auto valread = recv (this-> _sockfd, buf + got, full - got, 0);
-						if (valread == -1) {
+						if (valread <= 0) {
 							this-> _error = true;
 							return false;
 						}
+
 						got += valread;
 					}
 
