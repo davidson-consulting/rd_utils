@@ -169,7 +169,7 @@ namespace rd_utils::net {
 
 			do {
 				valread = recv(this-> _sockfd, &buffer, bufferSize, 0);
-				if(valread == -1) {
+				if(valread <= 0) {
 					this-> _error = true;
 					break;
 				}
@@ -195,7 +195,7 @@ namespace rd_utils::net {
 			do {
 				valread = recv(this-> _sockfd, &buffer, 1, 0);
 				if (buffer == until) { break; }
-				if(valread == -1) {
+				if(valread <= 0) {
 					this-> _error = true;
 					break;
 				}
@@ -213,7 +213,7 @@ namespace rd_utils::net {
 		int64_t res = 0;
 		if (this-> _sockfd != 0 && !this-> _error) {
 			auto r = read (this-> _sockfd, &res, sizeof (int64_t));
-			if (r == -1) {
+			if (r <= 0) {
 				this-> _error = true;
 			}
 		}
@@ -225,7 +225,7 @@ namespace rd_utils::net {
 		int32_t res = 0;
 		if (this-> _sockfd != 0 && !this-> _error) {
 			auto r = read (this-> _sockfd, &res, sizeof (int32_t));
-			if (r == -1) {
+			if (r <= 0) {
 				this-> _error = true;
 			}
 		}
@@ -237,7 +237,7 @@ namespace rd_utils::net {
 		uint64_t res = 0;
 		if (this-> _sockfd != 0 && !this-> _error) {
 			auto r = read (this-> _sockfd, &res, sizeof (uint64_t));
-			if (r == -1) {
+			if (r <= 0) {
 				this-> _error = true;
 			}
 		}
@@ -249,7 +249,7 @@ namespace rd_utils::net {
 		uint32_t res = 0;
 		if (this-> _sockfd != 0 && !this-> _error) {
 			auto r = read (this-> _sockfd, &res, sizeof (uint32_t));
-			if (r == -1) {
+			if (r <= 0) {
 				this-> _error = true;
 			}
 		}
@@ -262,7 +262,7 @@ namespace rd_utils::net {
 		unsigned long res = 0;
 		if (this-> _sockfd != 0 && !this-> _error) {
 			auto r = read (this-> _sockfd, &res, sizeof (uint8_t));
-			if (r == -1) {
+			if (r <= 0) {
 				this-> _error = true;
 			}
 		}
