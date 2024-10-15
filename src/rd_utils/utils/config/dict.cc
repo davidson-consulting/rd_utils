@@ -13,6 +13,13 @@ namespace rd_utils::utils::config {
     return *it-> second;
   }
 
+  const std::shared_ptr <ConfigNode> Dict::get (const std::string & key) const {
+    auto it = this-> _nodes.find (key);
+    if (it == this-> _nodes.end ()) throw ConfigError ();
+
+    return it-> second;
+  }
+
   bool Dict::contains (const std::string & key) const {
     auto it = this-> _nodes.find (key);
     return (it != this-> _nodes.end ());

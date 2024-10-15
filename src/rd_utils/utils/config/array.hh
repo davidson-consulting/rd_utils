@@ -20,6 +20,8 @@ namespace rd_utils::utils::config {
      */
     const ConfigNode& operator[] (uint32_t i) const override;
 
+    const std::shared_ptr <ConfigNode> get (uint32_t i) const;
+
     /**
      * @returns: the number of elements in the array
      */

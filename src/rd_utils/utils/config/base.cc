@@ -10,6 +10,15 @@ namespace rd_utils::utils::config {
     throw ConfigError ();
   }
 
+  const std::shared_ptr <ConfigNode> ConfigNode::get (uint32_t i) const {
+    throw ConfigError ();
+
+  }
+
+  const std::shared_ptr <ConfigNode> ConfigNode::get (const std::string & key) const {
+    throw ConfigError ();
+  }
+
   bool ConfigNode::contains (const std::string & key) const {
     return false;
   }

@@ -24,6 +24,8 @@ namespace rd_utils::utils::config {
                  */
                 const ConfigNode& operator[] (const std::string & key) const override;
 
+                const std::shared_ptr <ConfigNode> get (const std::string & key) const override;
+
                 /**
                  * @returns: true iif the dictionnary contains the key 'key'
                  */

@@ -11,6 +11,11 @@ namespace rd_utils::utils::config {
     return *this-> _nodes [i];
   }
 
+  const std::shared_ptr <ConfigNode> Array::get (uint32_t i) const {
+    if (this-> _nodes.size () <= i) throw ConfigError ();
+    return this-> _nodes [i];
+  }
+
   uint32_t Array::getLen () const {
     return this-> _nodes.size ();
   }
