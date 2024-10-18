@@ -20,6 +20,11 @@ namespace rd_utils::concurrency::actor {
     ,_localConn (nullptr)
   {}
 
+  ActorSystem& ActorSystem::joinOnEmpty (bool join) {
+    this-> _stopOnEmpty = join;
+    return *this;
+  }
+
   void ActorSystem::start () {
     this-> _server.start (this, &ActorSystem::onSession);
   }
@@ -27,17 +32,29 @@ namespace rd_utils::concurrency::actor {
   void ActorSystem::remove (const std::string & name, bool lock) {
     auto act = this-> _actors.find (name);
     if (act != this-> _actors.end ()) {
-      if (lock) {
-        WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
-          act-> second-> onQuit ();
-        }
-      } else {
-        act-> second-> onQuit ();
-      }
+      auto v = std::move (act-> second);
+      auto m = std::move (this-> _actorMutexes.find (name)-> second);
 
       this-> _actors.erase (name);
       this-> _actorMutexes.erase (name);
+
+      if (lock) {
+        WITH_LOCK (m) {
+          v-> onQuit ();
+        }
+      } else {
+        v-> onQuit ();
+      }
     }
+
+    if (this-> _stopOnEmpty && this-> _actors.size () == 0) {
+      this-> poisonPill ();
+    }
+  }
+
+  void ActorSystem::poisonPill () {
+    auto local = this-> localActor ("", false);
+    local-> getSession ()-> get ()-> sendU32 ((uint32_t) ActorSystem::Protocol::SYSTEM_KILL_ALL);
   }
 
   std::shared_ptr <ActorRef> ActorSystem::localActor (const std::string & name, bool check) {
@@ -122,6 +139,7 @@ namespace rd_utils::concurrency::actor {
     this-> _actors.clear ();
     this-> _actorMutexes.clear ();
     this-> _server.stop ();
+    this-> _server.dispose ();
   }
 
   bool ActorSystem::isLocal (net::SockAddrV4 addr) const {
@@ -362,7 +380,18 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::onSystemKill (std::shared_ptr<net::TcpSession> session) {
-    this-> dispose ();
+    for (auto & it : this-> _actors) {
+      WITH_LOCK (this-> _actorMutexes.find (it.first)-> second) {
+        it.second-> onQuit ();
+      }
+    }
+
+    this-> _conn.clear ();
+    this-> _actors.clear ();
+    this-> _actorMutexes.clear ();
+    this-> _server.stop ();
+
+    // we don't dispose the server we might be in a thread, and therefore server is waiting for this function to quit
   }
 
   std::string ActorSystem::readActorName (std::shared_ptr <net::TcpSession> stream) {

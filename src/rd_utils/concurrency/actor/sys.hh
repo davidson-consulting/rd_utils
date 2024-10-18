@@ -85,6 +85,8 @@ namespace rd_utils::concurrency::actor {
     // Uniq id
     uint64_t _lastU = 0;
 
+    bool _stopOnEmpty = false;
+
   public:
 
     enum class Protocol : int {
@@ -108,6 +110,11 @@ namespace rd_utils::concurrency::actor {
      *    - nbThreads: the number of threads used (-1 means nb cores available on system)
      */
     ActorSystem (net::SockAddrV4 addr, int nbThreads = -1, int maxCon = -1);
+
+    /**
+     * Stop the system when all the actors are exited after start
+     */
+    ActorSystem& joinOnEmpty (bool join);
 
     /**
      * Start the actor system
@@ -202,6 +209,8 @@ namespace rd_utils::concurrency::actor {
   private:
 
     friend ActorRef;
+
+    void poisonPill ();
 
     /**
      * Push a response
