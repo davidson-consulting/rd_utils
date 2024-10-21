@@ -25,6 +25,32 @@ namespace rd_utils::net {
         };
 
 
+        /**
+         * A Tcp server is used to managed arriving clients from a Tcp connection pool.
+         *
+         * It manages a list of threads used to answer client
+         * requests while ensure there are never more than a fixed amount of
+         * threads, and more than a fixed amount of new clients
+         *
+         * @info: A session is triggered when a client is sending data to the server
+         * @example:
+         * ========
+         * void foo (TcpSession& session) {
+         *     auto msg = session-> receiveStr ();
+         *     session-> sendStr ("ACK");
+         *
+         *     std::cout << "Message from client : " << msg << std::endl;
+         * }
+         *
+         *
+         * // Tcp server accepting connection on port 8080, coming for any addr
+         * // 4 threads to manage client session, and never more than 100 connected clients
+         * TcpServer server (SockAddrV4 ("0.0.0.0", 8080), 4, 100);
+         * server.start (&foo); // start the server, and call 'foo' when client sends data to the server
+         *
+         * server.join (); // infinite join, cf: server.stop ();
+         * ========
+         */
         class TcpServer {
         private: // Socket management
 
@@ -58,7 +84,10 @@ namespace rd_utils::net {
                 std::map <int, concurrency::Thread> _runningThreads;
 
                 // The signal emitted when a session is started
-                concurrency::signal<TcpSessionKind, std::shared_ptr <TcpSession> > _onSession;
+                concurrency::signal<TcpSessionKind, TcpSession& > _onSession;
+
+                // The signal emitted when a session is started using a ptr
+                concurrency::signal<TcpSessionKind, std::shared_ptr <TcpSession> > _onSessionPtr;
 
         private: // Task jobs/completed
 
@@ -119,19 +148,52 @@ namespace rd_utils::net {
                 void operator=(TcpServer && other);
 
                 /**
-                 * Wait for a stream to be ready
+                 * Start the server
+                 * @params:
+                 *    - onSession: the function to call when a stream is ready to read/write
                  */
-                void start (void (*onSession)(TcpSessionKind, std::shared_ptr <TcpSession>));
+                void start (void (*onSession)(TcpSessionKind, TcpSession&));
 
                 /**
-                 * Wait for a stream to be ready
+                 * Start the server
+                 * @params:
+                 *    - onSession: the function to call when a stream is ready to read/write
+                 */
+                void start (void (*onSession)(TcpSessionKind, std::shared_ptr<TcpSession>));
+
+                /**
+                 * Start the server
+                 * @params:
+                 *    - onSession: the function to call when a stream is ready to read/write
                  */
                 template <class X>
-                void start (X* x, void (X::*onSession)(TcpSessionKind, std::shared_ptr <TcpSession>)) {
+                void start (X* x, void (X::*onSession)(TcpSessionKind, TcpSession&)) {
                         if (this-> _started) throw utils::Rd_UtilsError ("Already running");
 
                         this-> _onSession.dispose ();
+                        this-> _onSessionPtr.dispose ();
                         this-> _onSession.connect (x, onSession);
+
+                        // need to to that in the main thread to catch the exception on binding failure
+                        this-> configureEpoll ();
+
+                        // Then spawning the thread with working tcplistener already configured
+                        this-> _th = concurrency::spawn (this, &TcpServer::pollMain);
+                        this-> _ready.wait ();
+                }
+
+                /**
+                 * Start the server
+                 * @params:
+                 *    - onSession: the function to call when a stream is ready to read/write
+                 */
+                template <class X>
+                void start (X* x, void (X::*onSession)(TcpSessionKind, std::shared_ptr <TcpSession> )) {
+                        if (this-> _started) throw utils::Rd_UtilsError ("Already running");
+
+                        this-> _onSession.dispose ();
+                        this-> _onSessionPtr.dispose ();
+                        this-> _onSessionPtr.connect (x, onSession);
 
                         // need to to that in the main thread to catch the exception on binding failure
                         this-> configureEpoll ();
@@ -163,8 +225,10 @@ namespace rd_utils::net {
 
                 /**
                  * Wait for the polling thread to stop
+                 * @returns: true iif the server was effectively joined
+                 * @info: the join can fail if it is called from a worker thread of the server
                  */
-                void join ();
+                bool join ();
 
                 /**
                  * Close all opened connection
@@ -227,6 +291,11 @@ namespace rd_utils::net {
                  * Wait for all submitted tasks to complete
                  */
                 void waitAllCompletes ();
+
+                /**
+                 * @returns: true if the current thread is a worker thread instead of a main thread
+                 */
+                bool isWorkerThread () const;
 
         };
 

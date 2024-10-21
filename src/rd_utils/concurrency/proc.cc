@@ -5,13 +5,17 @@
 #include <signal.h>
 #include <sys/ptrace.h>
 #include <sys/personality.h>
+#include <rd_utils/utils/files.hh>
 
 namespace rd_utils::concurrency {
 
-    SubProcess::SubProcess () {}    
+    SubProcess::SubProcess ()
+    {}
 
     SubProcess::SubProcess (const std::string & cmd, const std::vector <std::string> & args, const std::string & cwd) :
-         _cwd (cwd),  _args (args), _cmd (cmd)
+         _cwd (cwd)
+         ,  _args (args)
+         , _cmd (cmd)
     {}
 
 
@@ -26,9 +30,9 @@ namespace rd_utils::concurrency {
     {}
 
     void SubProcess::operator= (SubProcess && other) {
-        this-> _stderr.close ();
-        this-> _stdout.close ();
-        this-> _stdin.close ();
+        this-> _stderr.dispose ();
+        this-> _stdout.dispose ();
+        this-> _stdin.dispose ();
 	
         this-> _stdin = std::move (other._stdin);
         this-> _stdout = std::move (other._stdout);
@@ -49,14 +53,18 @@ namespace rd_utils::concurrency {
 
     
     void SubProcess::start (bool redirect) {
+        if (!utils::directory_exists (this-> _cwd)) {
+            throw std::runtime_error ("failed to chdir in process spawning");
+        }
+
         this-> _pid = ::fork ();
         if (this-> _pid == 0) {
             this-> child (redirect);
         }
 
-        this-> _stdin.ipipe ().close ();
-        this-> _stdout.opipe ().close ();
-        this-> _stderr.opipe ().close ();
+        this-> _stdin.ipipe ().dispose ();
+        this-> _stdout.opipe ().dispose ();
+        this-> _stderr.opipe ().dispose ();
 	
         this-> _stdin.opipe ().setNonBlocking ();
         this-> _stdout.ipipe ().setNonBlocking ();
@@ -71,9 +79,9 @@ namespace rd_utils::concurrency {
             this-> child (true);
         }
 
-        this-> _stdin.ipipe ().close ();
-        this-> _stdout.opipe ().close ();
-        this-> _stderr.opipe ().close ();
+        this-> _stdin.ipipe ().dispose ();
+        this-> _stdout.opipe ().dispose ();
+        this-> _stderr.opipe ().dispose ();
 
         this-> _stdin.opipe ().setNonBlocking ();
         this-> _stdout.ipipe ().setNonBlocking ();
@@ -90,9 +98,9 @@ namespace rd_utils::concurrency {
             ::dup2 (this-> _stdout.opipe ().getHandle (), STDOUT_FILENO);
             ::dup2 (this-> _stderr.opipe ().getHandle (), STDERR_FILENO);
 
-            this-> _stdin.close ();
-            this-> _stdout.close ();
-            this-> _stderr.close ();
+            this-> _stdin.dispose ();
+            this-> _stdout.dispose ();
+            this-> _stderr.dispose ();
         }
 
         std::vector <const char*> alls;
@@ -102,7 +110,9 @@ namespace rd_utils::concurrency {
         }
         alls.push_back (NULL);
 
-        ::chdir (this-> _cwd.c_str ());
+        if (::chdir (this-> _cwd.c_str ()) == -1) {
+            exit (-1);
+        }
 
         int out = ::execvp (alls [0],  const_cast<char* const *> (alls.data ()));
         if (out == -1) {
@@ -124,13 +134,13 @@ namespace rd_utils::concurrency {
     }
     
     void SubProcess::kill () {
-        this-> _stdin.close ();
+        this-> _stdin.dispose ();
         ::kill (this-> _pid, SIGKILL);
     }
 
     int SubProcess::wait () {
         int status = 0;
-        this-> _stdin.close ();
+        this-> _stdin.dispose ();
         ::waitpid (this-> _pid, &status, 0);
         return status;
     }
@@ -156,9 +166,9 @@ namespace rd_utils::concurrency {
     }
 
     SubProcess::~SubProcess () {
-        this-> _stderr.close ();
-        this-> _stdout.close ();
-        this-> _stdin.close ();
+        this-> _stderr.dispose ();
+        this-> _stdout.dispose ();
+        this-> _stdin.dispose ();
     }
     
 }

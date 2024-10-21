@@ -3,20 +3,22 @@
 #include "mutex.hh"
 #include "cond.hh"
 #include "semaphore.hh"
+#include "iopipe.hh"
+
 #include <rd_utils/utils/error.hh>
 
 #include <unistd.h>
 
 namespace rd_utils::concurrency {
 
+  class IOPipe;
+
   /**
    * Pipe used to communicate between threads
    */
   class ThreadPipe {
 
-    int _read = 0;
-
-    int _write = 0;
+    IOPipe _pipes;
 
     mutex _m;
 
@@ -49,14 +51,14 @@ namespace rd_utils::concurrency {
     void operator=(ThreadPipe && other);
 
     /**
-     * @returns: the output file descriptor
+     * @returns: the read pipe
      */
-    int getWriteFd () const;
+    IPipe & ipipe ();
 
     /**
-     * @returns: the input file descriptor
+     * @returns: the write pipe
      */
-    int getReadFd () const;
+    OPipe & opipe ();
 
     /**
      * Read an object from the pipe
@@ -70,9 +72,8 @@ namespace rd_utils::concurrency {
       WITH_LOCK (this-> _m) {
         this-> _s.post ();
         this-> _c.wait (this-> _m);
-        int r = ::read (this-> _read, x, sizeof (T*));
-        if (r != sizeof (T*)) {
-          throw utils::Rd_UtilsError ("Failed to read from pipe");
+        if (!this-> _pipes.opipe ().writeRaw (x, sizeof (T*), false)) {
+          throw std::runtime_error ("Failed to read on pipe");
         }
 
         T ret = *z;
@@ -92,10 +93,11 @@ namespace rd_utils::concurrency {
       WITH_LOCK (this-> _m) {
         T* box = new T (data);
 
-        int r = ::write (this-> _write, &box, sizeof (T*));
+        auto succ = this-> _pipes.ipipe ().readRaw (&box, sizeof (T*));
         this-> _c.signal ();
-        if (r != sizeof (T*)) {
-          throw utils::Rd_UtilsError ("Failed to write on pipe");
+
+        if (!succ) {
+          throw std::runtime_error ("Failed to write on pipe");
         }
       }
     }

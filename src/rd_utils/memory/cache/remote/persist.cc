@@ -57,7 +57,8 @@ namespace rd_utils::memory::cache::remote {
     if (file == nullptr) {
       throw std::runtime_error ("???");
     }
-    fread (memory, size, 1, file);
+
+    std::ignore = ::fread (memory, size, 1, file);
     fclose (file);
     this-> _loadElapsed += t.time_since_start ();
     remove (this-> _buffer);

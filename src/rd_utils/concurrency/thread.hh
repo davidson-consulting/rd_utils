@@ -15,6 +15,21 @@ namespace rd_utils {
 				id (id)
 				, pipe (pipe)
 			{}
+
+			/**
+			 * @returns: true if the thread is equal to other
+			 */
+			bool equals (pthread_t) const;
+
+			/**
+			 * @returns: true if the thread is the currently running thread
+			 */
+			bool isSelf () const;
+
+			/**
+			 * @returns: the self thread (current thread id)
+			 */
+			static pthread_t self ();
 		};
 
 		namespace internal {

@@ -115,9 +115,10 @@ namespace rd_utils::net {
    */
 
 
-  void TcpServer::start (void (*onSession)(TcpSessionKind, std::shared_ptr <TcpSession>)) {
+  void TcpServer::start (void (*onSession)(TcpSessionKind, TcpSession&)) {
     if (this-> _started) throw utils::Rd_UtilsError ("Already running");
     this-> _onSession.dispose ();
+    this-> _onSessionPtr.dispose ();
     this-> _onSession.connect (onSession);
 
     // need to to that in the main thread to catch the exception on binding failure
@@ -128,6 +129,21 @@ namespace rd_utils::net {
     this-> _ready.wait ();
   }
 
+  void TcpServer::start (void (*onSession)(TcpSessionKind, std::shared_ptr <TcpSession>)) {
+    if (this-> _started) throw utils::Rd_UtilsError ("Already running");
+    this-> _onSession.dispose ();
+    this-> _onSessionPtr.dispose ();
+    this-> _onSessionPtr.connect (onSession);
+
+    // need to to that in the main thread to catch the exception on binding failure
+    this-> configureEpoll ();
+
+    // Then spawning the thread with working tcplistener already configured
+    this-> _th = concurrency::spawn (this, &TcpServer::pollMain);
+    this-> _ready.wait ();
+  }
+
+
   void TcpServer::configureEpoll () {
     this-> _epoll_fd = epoll_create1 (0);
 
@@ -136,13 +152,35 @@ namespace rd_utils::net {
 
     epoll_event event;
     event.events = EPOLLIN | EPOLLHUP;
-    event.data.fd = this-> _trigger.getReadFd ();
-    epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, this-> _trigger.getReadFd (), &event);
+    event.data.fd = this-> _trigger.ipipe ().getHandle ();
+    epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, event.data.fd, &event);
 
     event.events = EPOLLIN | EPOLLHUP;
     event.data.fd = this-> _context._sockfd;
     epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, this-> _context._sockfd, &event);
   }
+
+  void TcpServer::addEpoll (TcpSessionKind kind, int fd) {
+    epoll_event event;
+    event.events = EPOLLIN | EPOLLHUP | EPOLLONESHOT;
+    event.data.fd = fd;
+    epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, fd, &event);
+  }
+
+  void TcpServer::delEpoll (int fd) {
+    epoll_event event;
+    event.data.fd = fd;
+    epoll_ctl (this-> _epoll_fd, EPOLL_CTL_DEL, fd, &event);
+  }
+
+  /**
+   * =============================================================
+   * =============================================================
+   * ====================       MAIN LOOP      ===================
+   * =============================================================
+   * =============================================================
+   */
+
 
   void TcpServer::pollMain (concurrency::Thread) {
     this-> _started = true;
@@ -180,9 +218,9 @@ namespace rd_utils::net {
       }
 
       // on session close
-      else if (event.data.fd == this-> _trigger.getReadFd ()) {
+      else if (event.data.fd == this-> _trigger.ipipe ().getHandle ()) {
         char c;
-        ::read (this-> _trigger.getReadFd (), &c, 1);
+        std::ignore = ::read (this-> _trigger.ipipe ().getHandle (), &c, 1);
       }
 
       // Old client is writing
@@ -190,24 +228,30 @@ namespace rd_utils::net {
         this-> delEpoll (event.data.fd);
         auto it = this-> _openSockets.find (event.data.fd);
         if (it != this-> _openSockets.end ()) {
-          this-> submit (TcpSessionKind::OLD, it-> second);
+          char c;
+          // the socket has necessarily something to read since it triggered the epoll
+          // If it does not, then it is closed and we don't want to start a session on it
+          if (::recv (event.data.fd, &c, 1, MSG_PEEK) <= 0) {
+            auto sock = it-> second;
+            this-> _openSockets.erase (event.data.fd);
+            this-> _socketFds.erase (sock);
+
+            sock-> close ();
+          } else {
+            this-> submit (TcpSessionKind::OLD, it-> second);
+          }
         }
       }
     }
   }
 
-  void TcpServer::addEpoll (TcpSessionKind kind, int fd) {
-    epoll_event event;
-    event.events = EPOLLIN | EPOLLHUP | EPOLLONESHOT;
-    event.data.fd = fd;
-    epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, fd, &event);
-  }
-
-  void TcpServer::delEpoll (int fd) {
-    epoll_event event;
-    event.data.fd = fd;
-    epoll_ctl (this-> _epoll_fd, EPOLL_CTL_DEL, fd, &event);
-  }
+  /**
+   * ===========================================================
+   * ===========================================================
+   * ===================       SESSION      ====================
+   * ===========================================================
+   * ===========================================================
+   */
 
   void TcpServer::submit (TcpSessionKind kind, std::shared_ptr <TcpStream> stream) {
     this-> _jobs.send ({.kind = kind, .stream = stream});
@@ -265,7 +309,12 @@ namespace rd_utils::net {
       for (;;) {
         MailElement elem;
         if (this-> _jobs.receive (elem)) {
-          this-> _onSession.emit (elem.kind, std::make_shared <net::TcpSession> (elem.stream, this, true));
+          auto session = std::make_shared <net::TcpSession> (elem.stream, this);
+          if (this-> _onSessionPtr.isEmpty ()) {
+            this-> _onSession.emit (elem.kind, *session);
+          } else {
+            this-> _onSessionPtr.emit (elem.kind, session);
+          }
         } else {
           break;
         }
@@ -280,7 +329,7 @@ namespace rd_utils::net {
     WITH_LOCK (this-> _triggerM) {
       this-> _nbCompleted += 1;
       // trigger for epoll
-      ::write (this-> _trigger.getWriteFd (), "c", 1);
+      std::ignore = ::write (this-> _trigger.opipe ().getHandle (), "c", 1);
     }
   }
 
@@ -309,33 +358,54 @@ namespace rd_utils::net {
    * ===============================================================
    */
 
-  void TcpServer::join () {
-    concurrency::join (this-> _th);
+  bool TcpServer::join () {
+    if (!this-> isWorkerThread ()) {
+      concurrency::join (this-> _th);
+      return true;
+    }
+
+    return false;
   }
 
   void TcpServer::stop () {
     if (this-> _started) {
       WITH_LOCK (this-> _triggerM) {
         this-> _started = false;
-        ::write (this-> _trigger.getWriteFd (), "c", 1);
+        std::ignore = ::write (this-> _trigger.opipe ().getHandle (), "c", 1);
       }
     }
   }
 
   void TcpServer::waitAllCompletes () {
+    // A worker thread cannot wait for completion, it will lock by waiting itself
+    if (this-> isWorkerThread ()) return;
+
     if (this-> _started) { // Stop the submissions of new tasks
       this-> _started = false;
       // Notify the polling thread to stop
-      ::write (this-> _trigger.getWriteFd (), "c", 1);
-      concurrency::join (this-> _th);
+      std::ignore = ::write (this-> _trigger.opipe ().getHandle (), "c", 1);
+      concurrency::join (this-> _th); // waiting for the main thread epolling
     }
 
-    while (this-> _nbSubmitted != this-> _nbCompleted ) { // && this-> _jobs.len () != 0) { // wait for the finish of already running tasks
+    // We could try closing the open socket, but I don't really know what will happen if they are reading/writing
+    //
+    while (this-> _nbSubmitted != this-> _nbCompleted) { // wait for the finish of already running tasks
       char c;
-      int x = ::read (this-> _trigger.getReadFd (), &c, 1);
+      int x = ::read (this-> _trigger.ipipe ().getHandle (), &c, 1);
       if (x != 1) break;
     }
   }
+
+  bool TcpServer::isWorkerThread () const {
+    pthread_t self = concurrency::Thread::self ();
+    if (this-> _th.equals (self)) return true; // main thread is a worker thread, it cannot wait itself
+    for (auto &it : this-> _runningThreads) { // task pool threads, that also cannot wait themselves
+      if (it.second.equals (self)) return true;
+    }
+
+    return false;
+  }
+
 
   void TcpServer::dispose () {
     this-> waitAllCompletes ();

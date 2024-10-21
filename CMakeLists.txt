@@ -119,4 +119,4 @@ install (FILES ${HEADER_CONFIG} DESTINATION /usr/include/rd_utils/utils/config)
 install (FILES ${HEADER_ROOT} DESTINATION /usr/include/rd_utils/)
 
 
-target_link_libraries (rd_utils dio_common nlohmann_json::nlohmann_json ssl crypto ssh)
+target_link_libraries (rd_utils nlohmann_json::nlohmann_json ssl crypto ssh)

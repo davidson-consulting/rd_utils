@@ -68,7 +68,7 @@ namespace rd_utils::concurrency::actor {
 
       session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ_BIG));
       session-> sendU32 (this-> _name.length ());
-      session-> send (this-> _name.c_str (), this-> _name.length ());
+      session-> sendStr (this-> _name);
       session-> sendU32 (this-> _sys-> port ());
 
       uint64_t uniqId = this-> _sys-> genUniqId ();

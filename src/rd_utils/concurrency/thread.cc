@@ -4,6 +4,18 @@ namespace rd_utils {
 
     namespace concurrency {
 
+		bool Thread::equals (pthread_t other) const {
+			return this-> id == other;
+		}
+
+		bool Thread::isSelf () const {
+			return this-> id == Thread::self ();
+		}
+
+		pthread_t Thread::self () {
+			return pthread_self ();
+		}
+
 		Thread spawn (void (*func)(Thread)) {
 			auto th = new internal::fn_thread_launcher (func);
 			pthread_create (&th-> content.id, nullptr, &internal::thread_fn_main, th);

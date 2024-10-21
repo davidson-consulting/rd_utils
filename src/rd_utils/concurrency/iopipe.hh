@@ -15,7 +15,8 @@ namespace rd_utils::concurrency {
      */
     class OPipe {
 
-        int _pipe;
+        int _pipe = 0;
+        bool _error = false;
 
     private :
 
@@ -40,15 +41,104 @@ namespace rd_utils::concurrency {
          */
         void operator=(OPipe && other);
 
-        /**
-         * Write on the pipe
-         */
-        void write (const std::string & msg);
 
         /**
-         * Close this end of the pipe
+         * ================================================================================
+         * ================================================================================
+         * =========================        WRITE / READ        =========================
+         * ================================================================================
+         * ================================================================================
          */
-        void close ();
+
+        /**
+         * Write 8 bytes to the stream
+         * @params:
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         * @returns:
+         *    - true: if succeeded
+         */
+        bool writeI64 (int64_t i, bool throwIfFail = true);
+
+        /**
+         * Write 4 bytes to the stream
+         * @params:
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         * @returns:
+         *    - true: if succeeded
+         */
+        bool writeI32 (int32_t i, bool throwIfFail = true);
+
+        /**
+         * Write 8 bytes to the stream
+         * @params:
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         * @returns:
+         *    - true: if succeeded
+         */
+        bool writeU64 (uint64_t i, bool throwIfFail = true);
+
+        /**
+         * Write 4 bytes to the stream
+         * @params:
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         * @returns:
+         *    - true: if succeeded
+         */
+        bool writeU32 (uint32_t i, bool throwIfFail = true);
+
+        /**
+         * Write a 4 byte float to the stream
+         * @params:
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         * @returns:
+         *    - true: if succeeded
+         */
+        bool writeF32 (float value, bool throwIfFail = true);
+
+        /**
+         * Write a 4 byte float to the stream
+         * @params:
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         * @returns:
+         *    - true: if succeeded
+         */
+        bool writeF64 (double value, bool throwIfFail = true);
+
+        /**
+         * Write 1 bytes to the stream
+         * @params:
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         * @returns:
+         *    - true: if succeeded
+         */
+        bool writeChar (uint8_t c, bool throwIfFail = true);
+
+        /**
+         * Write a message through the stream
+         * @params:
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         * @returns: true, iif the write was successful
+         */
+        bool writeStr (const std::string & msg, bool throwIfFail = true);
+
+        /**
+         * Write a message of an arbitrary type
+         * @params:
+         *   - nb: the number of element of type T in the buffer
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         * @warning: pointer types won't be correctly sent, only works with flat data
+         * @returns:
+         *     - true: if the write worked
+         */
+        template <typename T>
+        bool writeRaw (const T * buffer, uint32_t nb, bool throwIfFail = true) {
+            return this-> inner_writeRaw (reinterpret_cast <const uint8_t*> (buffer), nb * sizeof (T), throwIfFail);
+        }
+
+        /**
+         * Dispose this end of the pipe
+         */
+        void dispose ();
 
         /**
          * Non block writing
@@ -61,14 +151,28 @@ namespace rd_utils::concurrency {
         void setBlocking ();
 
         /**
+         * @returns: true if the pipe is open
+         */
+        bool isOpen () const;
+
+        /**
          * @returns: the file descriptor of the pipe
          */
         int getHandle () const;
 
         /**
-         * Close the pipe
+         * Dispose the pipe
          */
         ~OPipe ();
+
+    private:
+
+        /**
+         * Write a message through the stream
+         * @params:
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         */
+        bool inner_writeRaw (const uint8_t * buffer, int len, bool throwIfFail);
 	    
     };
 
@@ -78,7 +182,8 @@ namespace rd_utils::concurrency {
      */
     class IPipe {
 
-        int _pipe;
+        int _pipe = 0;
+        bool _error = false;
 
     private :
 
@@ -104,16 +209,6 @@ namespace rd_utils::concurrency {
         IPipe (int pipe);
 
         /**
-         * Read a string from the pipe
-         */
-        std::string read ();
-
-        /**
-         * Read a single char from the pipe
-         */
-        char readC ();
-
-        /**
          * Set the pipe in non blocking mode (does not wait for a write to return while reading)
          */
         void setNonBlocking ();
@@ -123,10 +218,175 @@ namespace rd_utils::concurrency {
          */
         void setBlocking ();
 
+
+
         /**
-         * Close this end of the pipe
+         * ================================================================================
+         * ================================================================================
+         * ==============================        RECV        ==============================
+         * ================================================================================
+         * ================================================================================
          */
-        void close ();
+
+        /**
+         * Read a message in a pre allocated buffer
+         * @params:
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         * @return: the length read
+         */
+        template <typename T>
+        bool readRaw (T * buffer, uint32_t nb, bool throwIfFail = true) {
+            return this-> inner_readRaw (reinterpret_cast <uint8_t*> (buffer), nb * sizeof (T), throwIfFail);
+        }
+
+        /**
+         * Read a string from the stream
+         * @throws: if fails
+         * @returns:
+         *    - v: the read value
+         *    - true if a value was read false otherwise
+         */
+        std::string readStr (uint32_t len);
+
+        /**
+         * Read a string from the stream
+         * @params:
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         * @returns:
+         *    - v: the read value
+         *    - true if a value was read false otherwise
+         */
+        bool readStr (std::string & v, uint32_t len);
+
+        /**
+         * Read 8 bytes from the stream
+         * @params:
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         * @returns:
+         *   - v: the read value
+         *   - true if something was read, false otherwise
+         */
+        bool readI64 (int64_t & v);
+
+        /**
+         * Read 8 bytes from the stream
+         * @throws: if fails
+         * @returns:
+         *   - v: the read value
+         *   - true if something was read, false otherwise
+         */
+        int64_t readI64 ();
+
+        /**
+         * Read 4 bytes from the stream
+         * @returns:
+         *   - v: the read value
+         *   - true if something was read, false otherwise
+         */
+        bool readI32 (int32_t & v);
+
+        /**
+         * Read 8 bytes from the stream
+         * @throws: if fails
+         * @returns:
+         *   - v: the read value
+         *   - true if something was read, false otherwise
+         */
+        int32_t readI32 ();
+
+        /**
+         * Read 8 bytes from the stream
+         * @returns:
+         *   - v: the read value
+         *   - true if something was read, false otherwise
+         */
+        bool readU64 (uint64_t & v);
+
+        /**
+         * Read 8 bytes from the stream
+         * @throws: if fails
+         * @returns:
+         *   - v: the read value
+         *   - true if something was read, false otherwise
+         */
+        uint64_t readU64 ();
+
+        /**
+         * Read 4 bytes from the stream
+         * @returns:
+         *   - v: the read value
+         *   - true if something was read, false otherwise
+         */
+        bool readU32 (uint32_t & v);
+
+        /**
+         * Read 4 bytes from the stream
+         * @throws: if fails
+         * @returns:
+         *   - v: the read value
+         *   - true if something was read, false otherwise
+         */
+        uint32_t readU32 ();
+
+        /**
+         * Read 4 bytes float from the stream
+         * @params:
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         * @returns:
+         *   - v: the read value
+         *   - true if something was read, false otherwise
+         */
+        bool readF32 (float & v);
+
+        /**
+         * Read 4 bytes float from the stream
+         * @throws: if fails reading
+         * @returns:
+         *   - v: the read value
+         */
+        float readF32 ();
+
+        /**
+         * Read 8 bytes float from the stream
+         * @returns:
+         *   - v: the read value
+         *   - true if something was read, false otherwise
+         */
+        bool readF64 (double & v);
+
+        /**
+         * Read 8 bytes float from the stream
+         * @throws: if fails reading
+         * @returns:
+         *   - v: the read value
+         */
+        double readF64 ();
+
+        /**
+         * Read 1 byte from the stream
+         * @throws: if fails reading
+         * @returns:
+         *   - v: the read value
+         */
+        uint8_t readChar ();
+
+        /**
+         * Read 1 byte from the stream
+         * @throws: if fails reading
+         * @returns:
+         *   - v: the read value
+         */
+        bool readChar (uint8_t & v);
+
+        /**
+         * @returns: true if the pipe is open
+         */
+        bool isOpen () const;
+
+        /**
+         * Dispose this end of the pipe
+         */
+        void dispose ();
 
         /**
          * @returns: the file descriptor of the pipe
@@ -134,10 +394,28 @@ namespace rd_utils::concurrency {
         int getHandle () const;
 
         /**
-         * Close the pipe
+         * Dispose the pipe
          */
         ~IPipe ();
-	    
+
+    private:
+
+        /**
+         * Read string data from the stream
+         * @params:
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         * @info: blocking function, waits until everything is read of nothing is left
+         */
+        bool readStr (std::string & v, uint32_t len, bool t);
+
+        /**
+         * Read raw data from the stream
+         * @params:
+         *   - throwIfFail: if true instead of returning false, throw an exception in case of failure
+         * @info: blocking function, waits until everything is read of nothing is left
+         */
+        bool inner_readRaw (uint8_t * buffer, uint32_t len, bool throwIfFail);
+
     };
 
 
@@ -147,7 +425,6 @@ namespace rd_utils::concurrency {
     class IOPipe {
 
         IPipe _ipipe;
-	    
         OPipe _opipe;
 
     private :
@@ -161,7 +438,7 @@ namespace rd_utils::concurrency {
         /**
          * Pipe construction
          */
-        IOPipe ();
+        IOPipe (bool create = true);
 
         /**
          * Move affectation
@@ -189,12 +466,17 @@ namespace rd_utils::concurrency {
         OPipe & opipe ();
 
         /**
-         * Close both pipes
+         * @returns: true if the pipe is open
          */
-        void close ();
+        bool isOpen () const;
+
+        /**
+         * Dispose both pipes
+         */
+        void dispose ();
 	    
         /**
-         * close inner pipes
+         * dispose inner pipes
          */
         ~IOPipe ();
 	    

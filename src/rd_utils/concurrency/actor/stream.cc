@@ -25,49 +25,39 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorStream::writeStr (const std::string & msg) {
-    this-> _output-> sendU32 (msg.length ());
+    this-> _output-> sendU32 (msg.length (), true);
     if (msg.length () != 0) {
-      this-> _output-> send (msg.c_str (), msg.length ());
+      this-> _output-> sendStr (msg, true);
     }
   }
 
   std::string ActorStream::readStr () {
-    auto n = this-> _input-> receiveU32 ();
-    if (n != 0) {
-      if (n > 1024 * 1024) throw std::runtime_error ("String to long");
+    auto len = this-> _input-> receiveU32 ();
+    if (len != 0) {
+      if (len > 1024 * 1024) throw std::runtime_error ("String to long");
 
-      char * buffer = new char[n + 1];
-      this-> _input-> receive (buffer, n);
-      buffer [n] = 0;
-
-      auto ret = std::string (buffer);
-      delete [] buffer;
-
-      return ret;
+      return this-> _input-> receiveStr (len);
     }
 
     return "";
   }
 
   void ActorStream::writeU8 (uint8_t i) {
-    this-> _output-> sendChar (i);
+    this-> _output-> sendChar (i, true);
   }
 
   void ActorStream::writeU32 (uint32_t i) {
-    this-> _output-> sendU32 (i);
+    this-> _output-> sendU32 (i, true);
   }
 
   void ActorStream::writeU64 (uint64_t i) {
-    this-> _output-> sendU64 (i);
+    this-> _output-> sendU64 (i, true);
   }
 
   uint8_t ActorStream::readOr (uint8_t v) {
-    if (this-> isOpen ()) {
-      auto res = this-> readU8 ();
-      if (this-> isOpen ()) return res;
-    }
-
-    return v;
+    uint8_t i;
+    if (this-> _input-> receiveChar (i)) return i;
+    else return v;
   }
 
   uint8_t ActorStream::readU8 () {

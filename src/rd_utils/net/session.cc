@@ -4,25 +4,35 @@
 #endif
 
 #include <rd_utils/utils/_.hh>
+#include <rd_utils/net/_.hh>
 #include "session.hh"
 #include "server.hh"
 #include "pool.hh"
 
 namespace rd_utils::net {
 
-  TcpSession::TcpSession (std::shared_ptr <TcpStream> stream, void * context, bool server) :
+  TcpSession::TcpSession (std::shared_ptr <TcpStream> stream, TcpServer * context) :
     _stream (stream)
-    , _context (context)
-    , _server (server)
+    , _context (static_cast<void*> (context))
+    , _server (true)
+  {}
+
+  TcpSession::TcpSession (std::shared_ptr <TcpStream> stream, TcpPool * context) :
+    _stream (stream)
+    , _context (static_cast<void*> (context))
+    , _server (false)
+    , _ignored (true)
   {}
 
   TcpSession::TcpSession (TcpSession && other) :
     _stream (other._stream)
     , _context (other._context)
     , _server (other._server)
+    , _ignored (other._ignored)
   {
     other._stream = nullptr;
     other._context = nullptr;
+    other._ignored = false;
   }
 
   void TcpSession::operator= (TcpSession && other) {
@@ -30,16 +40,17 @@ namespace rd_utils::net {
     this-> _stream = other._stream;
     this-> _context = other._context;
     this-> _server = other._server;
+    this-> _ignored = other._ignored;
 
     other._stream = nullptr;
     other._context = nullptr;
+    other._ignored = false;
   }
 
   void TcpSession::dispose () {
     if (this-> _context != nullptr) {
-      LOG_DEBUG ("Disposing session : ", this-> _stream-> getHandle (), " ", this-> _server);
-
       if (this-> _server) {
+        if (this-> _ignored) this-> _stream-> close ();
         reinterpret_cast <TcpServer*> (this-> _context)-> release (this-> _stream);
       } else {
         reinterpret_cast <TcpPool*> (this-> _context)-> release (this-> _stream);
@@ -55,10 +66,12 @@ namespace rd_utils::net {
   }
 
   std::shared_ptr <TcpStream> TcpSession::operator-> () {
+    this-> _ignored = false;
     return this-> _stream;
   }
 
   TcpStream& TcpSession::operator* () {
+    this-> _ignored = false;
     return *this-> _stream;
   }
 

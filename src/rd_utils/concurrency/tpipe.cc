@@ -8,66 +8,41 @@
 
 namespace rd_utils::concurrency {
 
-  ThreadPipe::ThreadPipe (bool create)
-  {
-    if (create) {
-      int pipes[2];
-      ::pipe (pipes);
-
-      this-> _read = pipes [0];
-      this-> _write = pipes [1];
-    }
-  }
+  ThreadPipe::ThreadPipe (bool create) :
+    _pipes (create)
+  {}
 
   ThreadPipe::ThreadPipe (ThreadPipe && other) :
-    _read (other._read),
-    _write (other._write),
+    _pipes (std::move (other._pipes)),
     _m (std::move (other._m)),
     _c (std::move (other._c)),
     _s (std::move (other._s))
-  {
-    other._read = 0;
-    other._write = 0;
-  }
-
+  {}
 
   void ThreadPipe::operator=(ThreadPipe && other) {
     this-> dispose ();
 
-    this-> _read = other._read;
-    this-> _write = other._write;
+    this-> _pipes = std::move (other._pipes);
     this-> _m = std::move (other._m);
     this-> _s = std::move (other._s);
     this-> _c = std::move (other._c);
-
-    other._read = 0;
-    other._write = 0;
   }
 
-  int ThreadPipe::getWriteFd () const {
-    return this-> _write;
+  IPipe & ThreadPipe::ipipe () {
+    return this-> _pipes.ipipe ();
   }
 
-  int ThreadPipe::getReadFd () const {
-    return this-> _read;
+  OPipe & ThreadPipe::opipe () {
+    return this-> _pipes.opipe ();
   }
 
   void ThreadPipe::setNonBlocking () {
-    auto old_flg_rd = fcntl (this-> _read, F_GETFL, 0);
-    fcntl (this-> _read, F_SETFL, old_flg_rd | O_NONBLOCK);
-
-    auto old_flg_wr = fcntl (this-> _write, F_GETFL, 0);
-    fcntl (this-> _write, F_SETFL, old_flg_wr | O_NONBLOCK);
+    this-> _pipes.opipe ().setNonBlocking ();
+    this-> _pipes.ipipe ().setNonBlocking ();
   }
 
   void ThreadPipe::dispose () {
-    if (this-> _read != 0) {
-      ::close (this-> _read);
-      ::close (this-> _write);
-
-      this-> _read = 0;
-      this-> _write = 0;
-    }
+    this-> _pipes.dispose ();
   }
 
   ThreadPipe::~ThreadPipe () {

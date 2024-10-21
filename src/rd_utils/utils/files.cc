@@ -84,9 +84,9 @@ namespace rd_utils::utils {
     void own_file (const std::string & file, const std::string & groupName) {
 		struct group* g = getgrnam (groupName.c_str ());
 		auto paw = getpwnam (groupName.c_str ());
-		::chown (file.c_str (), paw-> pw_uid, g-> gr_gid);
-		::chown (file.c_str (), -1, g-> gr_gid);
-		::chmod (file.c_str (), 0666);
+		if (::chown (file.c_str (), paw-> pw_uid, g-> gr_gid) != 0) throw std::runtime_error ("permission denied");
+		if (::chown (file.c_str (), -1, g-> gr_gid) != 0) throw std::runtime_error ("permission denied");
+		if (::chmod (file.c_str (), 0666) != 0) throw std::runtime_error ("permission denied");
     }
 
 	void chmod_file (const std::string & file, int permission) {

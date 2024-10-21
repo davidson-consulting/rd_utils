@@ -188,8 +188,10 @@ namespace rd_utils::concurrency {
 
     /**
      * Wait for all the submitted task to end
+     * @returns: true if the pool is correctly joined, false otherwise
+     * @info: a task pool can be unjoined if this function is called from a working thread
      */
-    void join ();
+    bool join ();
 
   private:
 
@@ -201,7 +203,7 @@ namespace rd_utils::concurrency {
     /**
      * Wait for all the tasks to be completed
      */
-    void waitAllCompletes ();
+    bool waitAllCompletes ();
 
     /**
      * Spawn the threads in the pool
@@ -212,6 +214,11 @@ namespace rd_utils::concurrency {
      * The function of a running task
      */
     void taskMain (Thread);
+
+    /**
+     * @returns: true if the thread is a worker thread
+     */
+    bool isWorkerThread () const;
 
   };
 

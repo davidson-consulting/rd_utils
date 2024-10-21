@@ -30,12 +30,12 @@ namespace rd_utils::concurrency::actor {
 
     template <typename T>
     void writeRaw (const T & data) {
-      this-> _output-> send (reinterpret_cast <const char*> (&data), sizeof (T));
+      this-> _output-> sendRaw (&data, 1);
     }
 
     template <typename T>
     void readRaw (T & data) {
-      this-> _input-> receive (reinterpret_cast<char*> (&data), sizeof (T));
+      this-> _input-> receiveRaw (&data, 1);
     }
 
     uint8_t readOr (uint8_t v);

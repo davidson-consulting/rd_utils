@@ -161,7 +161,15 @@ namespace rd_utils::concurrency {
 			}
 			this-> _connects.clear ();
 		}
-      
+
+
+		/**
+		 * @returns: true if the signal is connected to nothing
+		 */
+		bool isEmpty () {
+			return this-> _connects.size () == 0;
+		}
+
 		~signal () {
 			this-> dispose ();
 		}

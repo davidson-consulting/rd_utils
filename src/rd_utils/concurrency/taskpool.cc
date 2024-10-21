@@ -70,14 +70,17 @@ namespace rd_utils::concurrency {
     this-> submit (new internal_pool::fn_task (func));
   }
 
-  void TaskPool::waitAllCompletes () {
+  bool TaskPool::waitAllCompletes () {
+    if (this-> isWorkerThread ()) return false;
     while (this-> _nbSubmitted != this-> _nbCompleted) {
       this-> _completeTask.wait ();
     }
+
+    return true;
   }
 
-  void TaskPool::join () {
-    this-> waitAllCompletes ();
+  bool TaskPool::join () {
+    if (!this-> waitAllCompletes ()) return false;
     this-> _terminated = true;
 
     while (this-> _closed.len () != this-> _runningThreads.size ()) {
@@ -92,6 +95,8 @@ namespace rd_utils::concurrency {
     this-> _runningThreads.clear ();
     this-> _nbCompleted = 0;
     this-> _nbSubmitted = 0;
+
+    return true;
   }
 
   void TaskPool::submit (Task * task) {
@@ -139,6 +144,16 @@ namespace rd_utils::concurrency {
     }
 
     this-> _closed.send (t); // Thread is exiting
+  }
+
+
+  bool TaskPool::isWorkerThread () const {
+    pthread_t self = concurrency::Thread::self ();
+    for (auto &it : this-> _runningThreads) {
+      if (it.second.equals (self)) return true;
+    }
+
+    return false;
   }
 
 

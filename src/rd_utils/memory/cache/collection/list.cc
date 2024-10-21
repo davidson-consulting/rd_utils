@@ -48,7 +48,7 @@ namespace rd_utils::memory::cache::collection {
     for (uint32_t i = 0 ; i < nbElements ;) {
       auto nb = (nbElements - i) > nbInBuffer ? nbInBuffer : (nbElements - i);
       Allocator::instance ().read (seg, buffer,  i * this-> _innerSize, nb * this-> _innerSize);
-      stream.send ((char*) buffer, nb * this-> _innerSize);
+      stream.sendRaw (buffer, nb * this-> _innerSize);
 
       i += nb;
     }

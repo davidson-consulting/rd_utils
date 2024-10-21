@@ -57,7 +57,7 @@ namespace rd_utils::net {
 
                     // Socket might be closed manually, we need to store the current handle to clear later on
                     this-> _socketFds.emplace ((uint64_t) s.get (), s-> getHandle ());
-                    return TcpSession (s, this, false);
+                    return TcpSession (s, this);
                 }
             }
         }
@@ -68,7 +68,7 @@ namespace rd_utils::net {
 
         std::shared_ptr <TcpStream> conn = nullptr;
         if (this-> _free.receive (conn)) {
-            return TcpSession (conn, this, false);
+            return TcpSession (conn, this);
         }
 
         return this-> get ();
