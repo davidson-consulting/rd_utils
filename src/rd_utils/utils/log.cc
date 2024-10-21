@@ -2,6 +2,7 @@
 #include <iostream>
 #include <iomanip>
 #include <ctype.h>
+#include <cstdint>
 
 namespace rd_utils::utils {
 

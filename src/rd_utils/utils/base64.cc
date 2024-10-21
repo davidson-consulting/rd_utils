@@ -1,6 +1,7 @@
 #include "base64.hh"
 
 #include <iostream>
+#include <cstdint>
 
 namespace rd_utils::utils {
 

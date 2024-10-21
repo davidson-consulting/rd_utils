@@ -161,7 +161,7 @@ namespace rd_utils::net {
       // New socket
       if (event.data.fd == this-> _context._sockfd) {
         try {
-          TcpStream cl = std::move (this-> _context.accept ());
+          TcpStream cl = this-> _context.accept ();
 
           // Reject connection if there are too much clients
           if (this-> _openSockets.size () + 1 > (uint32_t) this-> _maxConn && this-> _maxConn != -1) {
