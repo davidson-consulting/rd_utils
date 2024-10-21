@@ -2,8 +2,13 @@
 
 #include <string>
 #include <vector>
-
 #include <libssh/libssh.h>
+
+#if defined(__GNUC__) &&                        \
+  (LIBSSH_VERSION_MINOR >= 10) ||               \
+  (LIBSSH_VERSION_MAJOR > 0)
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 namespace rd_utils::concurrency {
 

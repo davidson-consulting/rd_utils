@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <cstdint>
 
 namespace rd_utils::utils {
 

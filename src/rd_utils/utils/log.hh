@@ -5,6 +5,7 @@
 #include <sstream>
 #include <rd_utils/concurrency/mutex.hh>
 #include <fstream>
+#include <cstdint>
 
 #ifndef __PROJECT__
 #define __PROJECT__ "RD_UTILS"
