@@ -11,3 +11,4 @@
 #include <rd_utils/utils/log.hh>
 #include <rd_utils/utils/str.hh>
 #include <rd_utils/utils/base64.hh>
+#include <rd_utils/utils/mem_size.hh>
