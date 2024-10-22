@@ -55,6 +55,12 @@ namespace rd_utils::concurrency::actor {
     // Mutexes of actors used to make sure actors only manage one message at a time
     std::map <std::string, concurrency::mutex> _actorMutexes;
 
+    // The mutex locked when manupulating actor collection
+    concurrency::mutex _actMut;
+
+    // The mutex locked when manupulating request ids
+    concurrency::mutex _rqMut;
+
     // Mutex to manage the _conn collection
     concurrency::mutex _connM;
 
@@ -72,6 +78,9 @@ namespace rd_utils::concurrency::actor {
 
     // Streaming response
     concurrency::Mailbox <ResponseStream> _responseStreams;
+
+    // Request being resolved but that might timeout
+    std::set <uint64_t> _requestIds;
 
     // Semaphore when a response is available
     semaphore _waitResponse;
@@ -134,8 +143,10 @@ namespace rd_utils::concurrency::actor {
 
       auto act = std::make_shared <T> (name, this);
 
-      this-> _actors.emplace (name, act);
-      this-> _actorMutexes.emplace (name, concurrency::mutex ());
+      WITH_LOCK (this-> _actMut) {
+        this-> _actors.emplace (name, act);
+        this-> _actorMutexes.emplace (name, concurrency::mutex ());
+      }
 
       act-> onStart ();
     }
@@ -153,8 +164,10 @@ namespace rd_utils::concurrency::actor {
 
       auto act = std::make_shared <T> (name, this, a...);
 
-      this-> _actors.emplace (name, act);
-      this-> _actorMutexes.emplace (name, concurrency::mutex ());
+      WITH_LOCK (this-> _actMut) {
+        this-> _actors.emplace (name, act);
+        this-> _actorMutexes.emplace (name, concurrency::mutex ());
+      }
 
       act-> onStart ();
     }
@@ -233,6 +246,16 @@ namespace rd_utils::concurrency::actor {
     uint64_t genUniqId ();
 
     /**
+     * Register the fact that an actor is waiting for the request to be resolved
+     */
+    void registerRequestId (uint64_t id);
+
+    /**
+     * Register the fact that the actor waiting for the request ceise to wait
+     */
+    void removeRequestId (uint64_t id);
+
+    /**
      * Called when a tcpstream message is received
      * @params:
      *    - kind: the kind of message (new, old)
@@ -300,7 +323,20 @@ namespace rd_utils::concurrency::actor {
      */
     std::shared_ptr<utils::config::ConfigNode> readMessage (std::shared_ptr <net::TcpSession> stream);
 
+    /**
+     * @returns: true if the addr is the address of the local system
+     */
     bool isLocal (net::SockAddrV4 addr) const;
+
+    /**
+     * @returns: an actor in the system
+     */
+    bool getActor (const std::string & name, std::shared_ptr <ActorBase>& act, concurrency::mutex & actMut);
+
+    /**
+     * Remove an actor from the system
+     */
+    void removeActor (const std::string & name);
 
   };
 

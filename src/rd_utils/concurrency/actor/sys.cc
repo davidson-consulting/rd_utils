@@ -1,3 +1,4 @@
+#define LOG_LEVEL 10
 
 #ifndef __PROJECT__
 #define __PROJECT__ "ACTOR_SYSTEM"
@@ -30,23 +31,21 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::remove (const std::string & name, bool lock) {
-    auto act = this-> _actors.find (name);
-    if (act != this-> _actors.end ()) {
-      auto v = std::move (act-> second);
-      auto m = std::move (this-> _actorMutexes.find (name)-> second);
+    std::shared_ptr <ActorBase> act;
+    concurrency::mutex actMut;
+    if (this-> getActor (name, act, actMut)) {
+      this-> removeActor (name);
 
-      this-> _actors.erase (name);
-      this-> _actorMutexes.erase (name);
       try {
         if (lock) {
-          WITH_LOCK (m) {
-            v-> onQuit ();
+          WITH_LOCK (actMut) {
+            act-> onQuit ();
           }
         } else {
-          v-> onQuit ();
+          act-> onQuit ();
         }
-      } catch (const std::runtime_error & e) {
-        LOG_ERROR ("Actor ", name, " crashed on exit ", e.what (), ". Continuing..");
+      } catch (...) {
+        LOG_ERROR ("Actor ", name, " crashed on exit. Continuing..");
       }
     }
 
@@ -58,7 +57,7 @@ namespace rd_utils::concurrency::actor {
   void ActorSystem::poisonPill () {
     try {
       auto local = this-> localActor ("", false);
-      local-> getSession ()-> get ()-> sendU32 ((uint32_t) ActorSystem::Protocol::SYSTEM_KILL_ALL);
+      local-> getSession ()-> get (5)-> sendU32 ((uint32_t) ActorSystem::Protocol::SYSTEM_KILL_ALL);
     } catch (...) {
       LOG_ERROR ("Failed to connect to local system... Aborting.");
       this-> onSystemKill ();
@@ -67,8 +66,9 @@ namespace rd_utils::concurrency::actor {
 
   std::shared_ptr <ActorRef> ActorSystem::localActor (const std::string & name, bool check) {
     if (check) {
-      auto it = this-> _actors.find (name);
-      if (it == this-> _actors.end ()) throw std::runtime_error ("No local actor named : " + name);
+      std::shared_ptr <ActorBase> act;
+      concurrency::mutex m;
+      if (!this-> getActor (name, act, m)) throw std::runtime_error ("No local actor named : " + name);
     }
 
     auto addr = net::SockAddrV4 (net::Ipv4Address ("127.0.0.1"), this-> _server.port ());
@@ -106,7 +106,7 @@ namespace rd_utils::concurrency::actor {
     }
 
     if (check) {
-      auto session = pool-> get ();
+      auto session = pool-> get (5);
       session-> sendU32 ((uint32_t) ActorSystem::Protocol::ACTOR_EXIST_REQ, true);
       session-> sendU32 (name.length (), true);
       session-> sendStr (name, true);
@@ -123,6 +123,18 @@ namespace rd_utils::concurrency::actor {
     return this-> _lastU;
   }
 
+  void ActorSystem::registerRequestId (uint64_t id) {
+    WITH_LOCK (this-> _rqMut) {
+      this-> _requestIds.emplace (id);
+    }
+  }
+
+  void ActorSystem::removeRequestId (uint64_t id) {
+    WITH_LOCK (this-> _rqMut) {
+      this-> _requestIds.erase (id);
+    }
+  }
+
   void ActorSystem::closingRemote (net::SockAddrV4 addr) {
     WITH_LOCK (this-> _connM) {
       auto str = this-> _conn.find (addr.toString ());
@@ -136,12 +148,14 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::dispose () {
-    for (auto & it : this-> _actors) {
-      WITH_LOCK (this-> _actorMutexes.find (it.first)-> second) {
-        try {
-          it.second-> onQuit ();
-        } catch (const std::runtime_error & e) {
-          LOG_ERROR ("Actor ", it.first, " crashed on exit ", e.what (), ". Continuing..");
+    WITH_LOCK (this-> _actMut) {
+      for (auto & it : this-> _actors) {
+        WITH_LOCK (this-> _actorMutexes.find (it.first)-> second) {
+          try {
+            it.second-> onQuit ();
+          } catch (...) {
+            LOG_ERROR ("Actor ", it.first, " crashed on exit. Continuing..");
+          }
         }
       }
     }
@@ -179,16 +193,37 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::pushResponse (Response rep) {
+    WITH_LOCK (this-> _rqMut) {
+      if (this-> _requestIds.find (rep.reqId) == this-> _requestIds.end ()) {
+        LOG_WARN ("Request response after timeout");
+        return;
+      }
+    }
+
     this-> _responses.send (rep);
     this-> _waitResponse.post ();
   }
 
   void ActorSystem::pushResponseBig (ResponseBig rep) {
+    WITH_LOCK (this-> _rqMut) {
+      if (this-> _requestIds.find (rep.reqId) == this-> _requestIds.end ()) {
+        LOG_WARN ("Request response after timeout");
+        return;
+      }
+    }
+
     this-> _responseBigs.send (rep);
     this-> _waitResponseBig.post ();
   }
 
   void ActorSystem::pushResponseStream (ResponseStream rep) {
+    WITH_LOCK (this-> _rqMut) {
+      if (this-> _requestIds.find (rep.reqId) == this-> _requestIds.end ()) {
+        LOG_WARN ("Request response after timeout");
+        return;
+      }
+    }
+
     this-> _responseStreams.send (rep);
     this-> _waitResponseStream.post ();
   }
@@ -229,8 +264,8 @@ namespace rd_utils::concurrency::actor {
         (*session)-> close ();
         break;
       }
-    } catch (const std::runtime_error & err) {
-      LOG_INFO ("Remote connection out : ", err.what ());
+    } catch (...) {
+      LOG_INFO ("Session failed. Remote connection out.");
       (*session)-> close ();
     }
 
@@ -240,8 +275,9 @@ namespace rd_utils::concurrency::actor {
     auto name = this-> readActorName (session);
     LOG_DEBUG ("Actor existence : ", name);
 
-    auto it = this-> _actors.find (name);
-    if (it != this-> _actors.end ()) {
+    std::shared_ptr <ActorBase> act;
+    concurrency::mutex m;
+    if (this-> getActor (name, act, m)) {
       (*session)-> sendU32 (1, true);
     } else {
       (*session)-> sendU32 (0, true);
@@ -250,21 +286,21 @@ namespace rd_utils::concurrency::actor {
 
   void ActorSystem::onActorMsg (std::shared_ptr <net::TcpSession> session) {
     auto name = this-> readActorName (session);
-    LOG_DEBUG ("Actor msg : ", name);
-
     this-> readAddress (session);
     auto msg = this-> readMessage (session);
 
-    auto it = this-> _actors.find (name);
-    if (it == this-> _actors.end ()) {
+    std::shared_ptr <ActorBase> act;
+    concurrency::mutex m;
+    if (!this-> getActor (name, act, m)) {
       (*session)-> close ();
-    } else {
-      WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
-        try {
-          it-> second-> onMessage (*msg);
-        } catch (...) {
-          (*session)-> close ();
-        }
+      return;
+    }
+
+    WITH_LOCK (m) {
+      try {
+        act-> onMessage (*msg);
+      } catch (...) {
+        (*session)-> close ();
       }
     }
   }
@@ -276,18 +312,26 @@ namespace rd_utils::concurrency::actor {
     auto reqId = (*session)-> receiveU64 ();
     auto msg = this-> readMessage (session);
 
-    auto it = this-> _actors.find (name);
-    if (it == this-> _actors.end ()) {
+    std::shared_ptr <ActorBase> act;
+    concurrency::mutex m;
+    if (!this-> getActor (name, act, m)) {
       (*session)-> close ();
-    } else {
-      WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
+      return;
+    }
+
+    WITH_LOCK (m) {
+      try {
+        auto result = act-> onRequest (*msg);
         try {
-          auto result = it-> second-> onRequest (*msg);
           auto actorRef = this-> remoteActor ("", addr, false);
-          actorRef-> response (reqId, result);
-        } catch (std::runtime_error & e) {
+          actorRef-> response (reqId, result, 5);
+        } catch (...) {
+          LOG_ERROR ("Failed to send response");
           (*session)-> close ();
         }
+      } catch (...) {
+        LOG_ERROR ("Sesssion failed");
+        (*session)-> close ();
       }
     }
   }
@@ -299,20 +343,26 @@ namespace rd_utils::concurrency::actor {
     auto reqId = (*session)-> receiveU64 ();
     auto msg = this-> readMessage (session);
 
-    auto it = this-> _actors.find (name);
-    if (it == this-> _actors.end ()) {
+    std::shared_ptr <ActorBase> act;
+    concurrency::mutex m;
+    if (!this-> getActor (name, act, m)) {
       (*session)-> close ();
-    } else {
-      WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
+      return;
+    }
+
+    WITH_LOCK (m) {
+      try {
+        auto result = act-> onRequestList (*msg);
         try {
-          auto result = it-> second-> onRequestList (*msg);
-          if (result != nullptr) {
-            auto actorRef = this-> remoteActor ("", addr, false);
-            actorRef-> responseBig (reqId, result);
-          }
-        } catch (std::runtime_error & e) {
-          (*session)-> close ();
+          auto actorRef = this-> remoteActor ("", addr, false);
+          actorRef-> responseBig (reqId, result, 10);
+        } catch (...) {
+            LOG_ERROR ("Failed to send response");
+            (*session)-> close ();
         }
+      } catch (...) {
+        LOG_ERROR ("Sesssion failed");
+        (*session)-> close ();
       }
     }
   }
@@ -324,24 +374,27 @@ namespace rd_utils::concurrency::actor {
     auto reqId = (*session)-> receiveU64 ();
     auto msg = this-> readMessage (session);
 
-    auto it = this-> _actors.find (name);
-    if (it == this-> _actors.end ()) {
+    std::shared_ptr <ActorBase> act;
+    concurrency::mutex m;
+    if (!this-> getActor (name, act, m)) {
       (*session)-> close ();
-    } else {
-      WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
-        try {
-          auto actorRef = this-> remoteActor ("", addr, false);
-          auto conn = actorRef-> getSession ()-> get ();
+      return;
+    }
 
-          conn-> sendU32 ((uint32_t) ActorSystem::Protocol::ACTOR_RESP_STREAM, true);
-          conn-> sendU32 (reqId, true);
+    WITH_LOCK (m) {
+      try {
+        auto actorRef = this-> remoteActor ("", addr, false);
+        auto conn = actorRef-> getSession ()-> get (5);
 
-          ActorStream stream (std::move (*session), std::move (conn), false);
+        conn-> sendU32 ((uint32_t) ActorSystem::Protocol::ACTOR_RESP_STREAM, true);
+        conn-> sendU32 (reqId, true);
 
-          it-> second-> onStream (*msg, stream);
-        } catch (std::runtime_error & e) {
-          (*session)-> close ();
-        }
+        ActorStream stream (std::move (*session), std::move (conn), false);
+
+        act-> onStream (*msg, stream);
+      } catch (...) {
+        LOG_ERROR ("Failed to send response");
+        (*session)-> close ();
       }
     }
   }
@@ -378,12 +431,14 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::onSystemKill () {
-    for (auto & it : this-> _actors) {
-      WITH_LOCK (this-> _actorMutexes.find (it.first)-> second) {
-        try {
-          it.second-> onQuit ();
-        } catch (const std::runtime_error & e) {
-          LOG_ERROR ("Actor ", it.first, " crashed on exit ", e.what (), ". Continuing..");
+    WITH_LOCK (this-> _actMut) {
+      for (auto & it : this-> _actors) {
+        WITH_LOCK (this-> _actorMutexes.find (it.first)-> second) {
+          try {
+            it.second-> onQuit ();
+          } catch (...) {
+            LOG_ERROR ("Actor ", it.first, " crashed on exit. Continuing..");
+          }
         }
       }
     }
@@ -411,10 +466,24 @@ namespace rd_utils::concurrency::actor {
   }
 
   std::shared_ptr<utils::config::ConfigNode> ActorSystem::readMessage (std::shared_ptr <net::TcpSession> stream) {
-    try {
-      return utils::raw::parse (*(*stream));
-    } catch (...) {
-      return nullptr;
+    return utils::raw::parse (*(*stream));
+  }
+
+  bool ActorSystem::getActor (const std::string & name, std::shared_ptr <ActorBase>& act, concurrency::mutex & actMut) {
+    WITH_LOCK (this-> _actMut) {
+      auto it = this-> _actors.find (name);
+      if (it == this-> _actors.end ()) return false;
+
+      act = it-> second;
+      actMut = this-> _actorMutexes.find (name)-> second;
+      return true;
+    }
+  }
+
+  void ActorSystem::removeActor (const std::string & name) {
+    WITH_LOCK (this-> _actMut) {
+      this-> _actors.erase (name);
+      this-> _actorMutexes.erase (name);
     }
   }
 

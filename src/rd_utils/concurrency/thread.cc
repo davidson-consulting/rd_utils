@@ -26,6 +26,7 @@ namespace rd_utils {
 			pthread_join (th.id, nullptr);
 		}
 
+
 		namespace internal {
 			void* thread_fn_main (void * inner) {
 				fn_thread_launcher * fn = (fn_thread_launcher*)(inner);

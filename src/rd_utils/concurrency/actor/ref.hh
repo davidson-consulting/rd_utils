@@ -48,23 +48,36 @@ namespace rd_utils::concurrency::actor {
 
     /**
      * Send a message to the actor
+     * @params:
+     *    - msg: the message to send
+     *    - timeout: timeout of the connection to the other actor
+     * @info: if timeout < 0 wait indefinitely
      */
-    void send (const rd_utils::utils::config::ConfigNode & msg);
+    void send (const rd_utils::utils::config::ConfigNode & msg, float timeout = 5);
 
     /**
      * Send a request to the actor
+     * @params:
+     *    - timeout: the timeout of the request (-1 = forever)
      */
-    std::shared_ptr<rd_utils::utils::config::ConfigNode> request (const rd_utils::utils::config::ConfigNode & msg);
+    std::shared_ptr<rd_utils::utils::config::ConfigNode> request (const rd_utils::utils::config::ConfigNode & msg, float timeout= 5);
 
-
-    std::shared_ptr<ActorStream> requestStream (const rd_utils::utils::config::ConfigNode & msg);
+    /**
+     * Send a request to open a stream to the actor
+     * @params:
+     *    - timeout: the timeout of the request (-1 = forever)
+     */
+    std::shared_ptr<ActorStream> requestStream (const rd_utils::utils::config::ConfigNode & msg, float timeout= 5);
 
     /**
      * Send a request and wait for a big response
+     * @params:
+     *    - timeout: the timeout of the request (-1 = forever)
      */
     template <typename T>
-    std::shared_ptr <rd_utils::memory::cache::collection::CacheArray<T> > requestBig (const rd_utils::utils::config::ConfigNode & msg) {
-      auto session = this-> _conn-> get ();
+    std::shared_ptr <rd_utils::memory::cache::collection::CacheArray<T> > requestBig (const rd_utils::utils::config::ConfigNode & msg, float timeout= 5) {
+      concurrency::timer t;
+      auto session = this-> _conn-> get (timeout);
 
       session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ_BIG));
       session-> sendU32 (this-> _name.length ());
@@ -72,19 +85,34 @@ namespace rd_utils::concurrency::actor {
       session-> sendU32 (this-> _sys-> port ());
 
       uint64_t uniqId = this-> _sys-> genUniqId ();
+      this-> _sys-> registerRequestId (uniqId);
+
       session-> sendU64 (uniqId);
 
       utils::raw::dump (*session, msg);
+      float rest = timeout;
       for (;;) {
-        this-> _sys-> _waitResponseBig.wait ();
-        ActorSystem::ResponseBig resp;
-        if (this-> _sys-> _responseBigs.receive (resp)) {
-          if (resp.reqId == uniqId) {
-            return std::static_pointer_cast <rd_utils::memory::cache::collection::CacheArray <T> > (resp.msg);
+        if (timeout > 0) {
+          rest = timeout - t.time_since_start ();
+          if (t.time_since_start () > timeout) {
+            this-> _sys-> removeRequestId (uniqId);
+            throw std::runtime_error ("timeout");
           }
         }
 
-        this-> _sys-> pushResponseBig (resp);
+        if (this-> _sys-> _waitResponseBig.wait (rest)) {
+          ActorSystem::ResponseBig resp;
+          if (this-> _sys-> _responseBigs.receive (resp)) {
+            if (resp.reqId == uniqId) {
+              return std::static_pointer_cast <rd_utils::memory::cache::collection::CacheArray <T> > (resp.msg);
+            }
+          }
+
+          this-> _sys-> pushResponseBig (resp);
+        } else {
+          this-> _sys-> removeRequestId (uniqId);
+          throw std::runtime_error ("timeout");
+        }
       }
     }
 
@@ -112,9 +140,9 @@ namespace rd_utils::concurrency::actor {
 
     friend ActorSystem;
 
-    void response (uint64_t reqId, std::shared_ptr <rd_utils::utils::config::ConfigNode> msg);
+    void response (uint64_t reqId, std::shared_ptr <rd_utils::utils::config::ConfigNode> msg, float timeout);
 
-    void responseBig (uint64_t reqId, std::shared_ptr <rd_utils::memory::cache::collection::ArrayListBase> & array);
+    void responseBig (uint64_t reqId, std::shared_ptr <rd_utils::memory::cache::collection::ArrayListBase> & array, float timeout);
 
   };
 

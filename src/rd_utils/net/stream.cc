@@ -104,7 +104,7 @@ namespace rd_utils::net {
 			uint32_t lenToSend = len;
 			const uint8_t * curr = buffer;
 			while (lenToSend != 0) {
-				uint32_t sent = ::send (this-> _sockfd, curr, lenToSend, 0);
+				auto sent = ::send (this-> _sockfd, curr, lenToSend, 0);
 				if (sent < 1) {
 					this-> _error = true;
 					if (t) throw std::runtime_error ("Stream is closed");
