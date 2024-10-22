@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <iostream>
 
 namespace rd_utils::utils {
 
@@ -55,7 +56,17 @@ namespace rd_utils::utils {
      */
     uint64_t gigabytes () const;
 
+
+    MemorySize operator+ (MemorySize other) const;
+    MemorySize operator- (MemorySize other) const;
+    MemorySize operator* (uint64_t cst) const;
+    MemorySize operator/ (uint64_t cst) const;
+
+    static MemorySize min (MemorySize A, MemorySize B);
+    static MemorySize max (MemorySize A, MemorySize B);
   };
 
 
 }
+
+std::ostream & operator<< (std::ostream & o, rd_utils::utils::MemorySize m);
