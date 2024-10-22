@@ -1,10 +1,29 @@
 #include "mem_size.hh"
+#include <cctype>
 
 namespace rd_utils::utils {
 
   MemorySize::MemorySize (uint64_t nb)
     :_size (nb)
   {}
+
+  MemorySize MemorySize::unit (uint64_t nb, const std::string & unit) {
+    if (unit.length () == 1 && unit [0] == 'b') return MemorySize::B (nb);
+    if (unit.length () != 2) throw std::runtime_error ("unknown unit");
+    if (tolower (unit [1]) != 'b') throw std::runtime_error ("unknown unit");
+
+    switch (tolower (unit [0])) {
+    case 'k' :
+      return MemorySize::KB (nb);
+    case 'm':
+      return MemorySize::KB (nb);
+    case 'g':
+      return MemorySize::GB (nb);
+    default:
+      throw std::runtime_error ("unknown unit");
+    }
+  }
+
 
   MemorySize MemorySize::unit (uint64_t nb, MemorySize::Unit unit) {
     switch (unit) {

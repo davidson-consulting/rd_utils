@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <string>
 
 namespace rd_utils::utils {
 
@@ -22,6 +23,8 @@ namespace rd_utils::utils {
     MemorySize (uint64_t);
 
   public:
+
+    static MemorySize unit (uint64_t nb, const std::string & unit);
 
     static MemorySize unit (uint64_t nb, MemorySize::Unit unit);
 
@@ -72,7 +75,6 @@ namespace rd_utils::utils {
     MemorySize operator- (MemorySize other) const;
     MemorySize operator* (uint64_t cst) const;
     MemorySize operator/ (uint64_t cst) const;
-
 
 
     static MemorySize min (MemorySize A, MemorySize B);
