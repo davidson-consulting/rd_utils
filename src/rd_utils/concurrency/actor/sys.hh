@@ -283,7 +283,7 @@ namespace rd_utils::concurrency::actor {
     /**
      * Treat a request to kill the system
      */
-    void onSystemKill (std::shared_ptr <net::TcpSession> session);
+    void onSystemKill ();
 
     /**
      * @returns: the name of the actor

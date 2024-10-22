@@ -37,13 +37,16 @@ namespace rd_utils::concurrency::actor {
 
       this-> _actors.erase (name);
       this-> _actorMutexes.erase (name);
-
-      if (lock) {
-        WITH_LOCK (m) {
+      try {
+        if (lock) {
+          WITH_LOCK (m) {
+            v-> onQuit ();
+          }
+        } else {
           v-> onQuit ();
         }
-      } else {
-        v-> onQuit ();
+      } catch (const std::runtime_error & e) {
+        LOG_ERROR ("Actor ", name, " crashed on exit ", e.what (), ". Continuing..");
       }
     }
 
@@ -53,8 +56,13 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::poisonPill () {
-    auto local = this-> localActor ("", false);
-    local-> getSession ()-> get ()-> sendU32 ((uint32_t) ActorSystem::Protocol::SYSTEM_KILL_ALL);
+    try {
+      auto local = this-> localActor ("", false);
+      local-> getSession ()-> get ()-> sendU32 ((uint32_t) ActorSystem::Protocol::SYSTEM_KILL_ALL);
+    } catch (...) {
+      LOG_ERROR ("Failed to connect to local system... Aborting.");
+      this-> onSystemKill ();
+    }
   }
 
   std::shared_ptr <ActorRef> ActorSystem::localActor (const std::string & name, bool check) {
@@ -130,7 +138,11 @@ namespace rd_utils::concurrency::actor {
   void ActorSystem::dispose () {
     for (auto & it : this-> _actors) {
       WITH_LOCK (this-> _actorMutexes.find (it.first)-> second) {
-        it.second-> onQuit ();
+        try {
+          it.second-> onQuit ();
+        } catch (const std::runtime_error & e) {
+          LOG_ERROR ("Actor ", it.first, " crashed on exit ", e.what (), ". Continuing..");
+        }
       }
     }
 
@@ -211,7 +223,7 @@ namespace rd_utils::concurrency::actor {
         this-> onActorRespStream (session);
         break;
       case ActorSystem::Protocol::SYSTEM_KILL_ALL:
-        this-> onSystemKill (session);
+        this-> onSystemKill ();
         break;
       default :
         (*session)-> close ();
@@ -365,10 +377,14 @@ namespace rd_utils::concurrency::actor {
     this-> pushResponseStream ({.reqId = reqId, .stream = session});
   }
 
-  void ActorSystem::onSystemKill (std::shared_ptr<net::TcpSession> session) {
+  void ActorSystem::onSystemKill () {
     for (auto & it : this-> _actors) {
       WITH_LOCK (this-> _actorMutexes.find (it.first)-> second) {
-        it.second-> onQuit ();
+        try {
+          it.second-> onQuit ();
+        } catch (const std::runtime_error & e) {
+          LOG_ERROR ("Actor ", it.first, " crashed on exit ", e.what (), ". Continuing..");
+        }
       }
     }
 
