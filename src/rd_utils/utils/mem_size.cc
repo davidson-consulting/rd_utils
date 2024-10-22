@@ -6,6 +6,21 @@ namespace rd_utils::utils {
     :_size (nb)
   {}
 
+  MemorySize MemorySize::unit (uint64_t nb, MemorySize::Unit unit) {
+    switch (unit) {
+    case MemorySize::Unit::B :
+      return MemorySize::B (nb);
+    case MemorySize::Unit::KB :
+      return MemorySize::KB (nb);
+    case MemorySize::Unit::MB :
+      return MemorySize::MB (nb);
+    case MemorySize::Unit::GB :
+      return MemorySize::GB (nb);
+    default:
+      throw std::runtime_error ("unknown unit");
+    }
+  }
+
   MemorySize MemorySize::B (uint64_t nb) {
     return MemorySize (nb);
   }

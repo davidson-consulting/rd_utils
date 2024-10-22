@@ -6,6 +6,15 @@
 namespace rd_utils::utils {
 
   struct MemorySize {
+  public:
+
+    enum class Unit : uint8_t {
+      B = 1,
+      KB,
+      MB,
+      GB
+    };
+
   private:
 
     // The size in bytes
@@ -13,6 +22,8 @@ namespace rd_utils::utils {
     MemorySize (uint64_t);
 
   public:
+
+    static MemorySize unit (uint64_t nb, MemorySize::Unit unit);
 
     /**
      * Create a memory size from Bytes
@@ -61,6 +72,8 @@ namespace rd_utils::utils {
     MemorySize operator- (MemorySize other) const;
     MemorySize operator* (uint64_t cst) const;
     MemorySize operator/ (uint64_t cst) const;
+
+
 
     static MemorySize min (MemorySize A, MemorySize B);
     static MemorySize max (MemorySize A, MemorySize B);
