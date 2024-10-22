@@ -16,7 +16,7 @@ namespace rd_utils::utils {
     case 'k' :
       return MemorySize::KB (nb);
     case 'm':
-      return MemorySize::KB (nb);
+      return MemorySize::MB (nb);
     case 'g':
       return MemorySize::GB (nb);
     default:
