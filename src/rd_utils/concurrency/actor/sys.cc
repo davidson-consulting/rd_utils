@@ -251,6 +251,7 @@ namespace rd_utils::concurrency::actor {
         try {
           it-> second-> onMessage (*msg);
         } catch (...) {
+          (*session)-> close ();
         }
       }
     }
