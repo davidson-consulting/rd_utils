@@ -63,24 +63,23 @@ namespace rd_utils::net {
             }
         }
 
-        if (this-> _release.wait (timeout)) {
-            std::shared_ptr <TcpStream> conn = nullptr;
-            if (this-> _free.receive (conn)) {
-                return TcpSession (conn, this);
-            }
-
-            if (timeout < 0) {
-                return this-> get (-1);
-            } else {
-                auto rest = timeout - t.time_since_start ();
-                if (rest < 0) {
-                    throw std::runtime_error ("failed to find a valid socket");
+        float rest = timeout;
+        for (;;) {
+            if (rest > 0) {
+                rest = timeout - t.time_since_start ();
+                if (t.time_since_start () > timeout) {
+                    throw std::runtime_error ("timeout");
                 }
-
-                return this-> get (rest);
             }
-        } else {
-            throw std::runtime_error ("failed to find a valid socket");
+
+            if (this-> _release.wait (rest)) {
+                std::shared_ptr <TcpStream> conn = nullptr;
+                if (this-> _free.receive (conn)) {
+                    return TcpSession (conn, this);
+                }
+            } else {
+                throw std::runtime_error ("timeout");
+            }
         }
     }
 

@@ -104,6 +104,7 @@ namespace rd_utils::concurrency::actor {
           ActorSystem::ResponseBig resp;
           if (this-> _sys-> _responseBigs.receive (resp)) {
             if (resp.reqId == uniqId) {
+              if (resp.msg == nullptr) throw std::runtime_error ("No response");
               return std::static_pointer_cast <rd_utils::memory::cache::collection::CacheArray <T> > (resp.msg);
             }
           }

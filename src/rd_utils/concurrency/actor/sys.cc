@@ -16,8 +16,8 @@
 namespace rd_utils::concurrency::actor {
 
   ActorSystem::ActorSystem (net::SockAddrV4 addr, int nbThreads, int maxCon) :
-    _server (addr, nbThreads == -1 ? std::thread::hardware_concurrency() : nbThreads, maxCon)
-    ,_nbThreads (nbThreads == -1 ? std::thread::hardware_concurrency() : nbThreads)
+    _server (addr, nbThreads == -1 ? std::thread::hardware_concurrency() : nbThreads + 1, maxCon)
+    ,_nbThreads (nbThreads == -1 ? std::thread::hardware_concurrency() : nbThreads + 1)
     ,_localConn (nullptr)
   {}
 

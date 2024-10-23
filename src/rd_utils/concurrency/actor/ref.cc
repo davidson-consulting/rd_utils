@@ -50,7 +50,6 @@ namespace rd_utils::concurrency::actor {
         rest = timeout - t.time_since_start ();
         if (t.time_since_start () > timeout) {
           this-> _sys-> removeRequestId (uniqId);
-          std::cout << "A" << timeout << " " << t.time_since_start () << std::endl;
           throw std::runtime_error ("timeout");
         }
       }
@@ -59,13 +58,13 @@ namespace rd_utils::concurrency::actor {
         ActorSystem::Response resp;
         if (this-> _sys-> _responses.receive (resp)) {
           if (resp.reqId == uniqId) {
+            if (resp.msg == nullptr) throw std::runtime_error ("No response");
             return resp.msg;
           }
 
           this-> _sys-> pushResponse (resp);
         }
       } else {
-        std::cout << "B" << timeout << " " << t.time_since_start () << std::endl;
         this-> _sys-> removeRequestId (uniqId);
         throw std::runtime_error ("timeout");
       }
