@@ -65,9 +65,11 @@ namespace rd_utils::net {
     void operator=(TcpPool &&);
 
     /**
+     * @params:
+     *    - timeout: -1 means wait until found, otherwise throw if not found before timeout
      * @returns: an avalaible stream
      */
-    TcpSession get ();
+    TcpSession get (float timeout = 5);
 
 
     /**

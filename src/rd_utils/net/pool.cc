@@ -39,7 +39,8 @@ namespace rd_utils::net {
         other._max = 0;
     }
 
-    TcpSession TcpPool::get () {
+    TcpSession TcpPool::get (float timeout) {
+        concurrency::timer t;
         WITH_LOCK (this-> _m) {
             if (this-> _open.size () < this-> _max) {
                 auto s = std::make_shared <TcpStream> (this-> _addr);
@@ -62,16 +63,24 @@ namespace rd_utils::net {
             }
         }
 
-        // LOG_DEBUG ("Waiting ?", pthread_self ());
-        this-> _release.wait ();
-        // LOG_DEBUG ("NO ?", pthread_self ());
+        float rest = timeout;
+        for (;;) {
+            if (rest > 0) {
+                rest = timeout - t.time_since_start ();
+                if (t.time_since_start () > timeout) {
+                    throw std::runtime_error ("timeout");
+                }
+            }
 
-        std::shared_ptr <TcpStream> conn = nullptr;
-        if (this-> _free.receive (conn)) {
-            return TcpSession (conn, this);
+            if (this-> _release.wait (rest)) {
+                std::shared_ptr <TcpStream> conn = nullptr;
+                if (this-> _free.receive (conn)) {
+                    return TcpSession (conn, this);
+                }
+            } else {
+                throw std::runtime_error ("timeout");
+            }
         }
-
-        return this-> get ();
     }
 
     void TcpPool::release (std::shared_ptr <TcpStream> s) {

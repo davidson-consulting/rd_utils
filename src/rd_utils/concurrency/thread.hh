@@ -30,6 +30,7 @@ namespace rd_utils {
 			 * @returns: the self thread (current thread id)
 			 */
 			static pthread_t self ();
+
 		};
 
 		namespace internal {
