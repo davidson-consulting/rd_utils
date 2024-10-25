@@ -111,7 +111,7 @@ namespace rd_utils::concurrency {
 
       this-> launchUploadCmd ();
     } catch (Rd_UtilsError & err) {
-      error_message = err.getMessage ();
+      error_message = err.what ();
     }
 
     if (pubset) ssh_key_free (pub);
@@ -162,7 +162,7 @@ namespace rd_utils::concurrency {
 
       this-> launchDownloadCmd ();
     } catch (Rd_UtilsError & err) {
-      error_message = err.getMessage ();
+      error_message = err.what ();
     }
 
     if (pubset) ssh_key_free (pub);

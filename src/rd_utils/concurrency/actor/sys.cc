@@ -1,3 +1,4 @@
+#define LOG_LEVEL 10
 
 #ifndef __PROJECT__
 #define __PROJECT__ "ACTOR_SYSTEM"
@@ -136,6 +137,7 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::dispose () {
+    std::cout << "here ?" << std::endl;
     for (auto & it : this-> _actors) {
       WITH_LOCK (this-> _actorMutexes.find (it.first)-> second) {
         try {
@@ -280,14 +282,18 @@ namespace rd_utils::concurrency::actor {
     if (it == this-> _actors.end ()) {
       (*session)-> close ();
     } else {
-      WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
-        try {
-          auto result = it-> second-> onRequest (*msg);
-          auto actorRef = this-> remoteActor ("", addr, false);
-          actorRef-> response (reqId, result);
-        } catch (std::runtime_error & e) {
-          (*session)-> close ();
+      try {
+        auto actorRef = this-> remoteActor ("", addr, false);
+        WITH_LOCK (this-> _actorMutexes.find (name)-> second) {
+          try {
+            auto result = it-> second-> onRequest (*msg);
+            actorRef-> response (reqId, result);
+        } catch (const std::runtime_error & e) {
+            (*session)-> close ();
+          }
         }
+      } catch (const std::runtime_error & e) {
+        LOG_ERROR ("Failed to find remote actor in system");
       }
     }
   }

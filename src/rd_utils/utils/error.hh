@@ -2,27 +2,17 @@
 
 #include <iostream>
 #include <cstdint>
+#include <stdexcept>
 
 namespace rd_utils::utils {
 
-  class Rd_UtilsError {
-
-    // The error message of the error
-    std::string _msg;
-
+  class Rd_UtilsError : public std::runtime_error {
   public:
 
     /**
      * Create an error with a specific message
      */
     Rd_UtilsError(const std::string& msg);
-
-    /**
-     * @returns: the error message of the error
-     */
-    const std::string& getMessage() const;
-
-    virtual ~Rd_UtilsError();
 
   };
 

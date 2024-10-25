@@ -102,7 +102,7 @@ namespace rd_utils::concurrency {
 
       this-> launchCmd ();
     } catch (Rd_UtilsError & err) {
-      error_message = err.getMessage ();
+      error_message = err.what ();
     }
 
   // exit:
