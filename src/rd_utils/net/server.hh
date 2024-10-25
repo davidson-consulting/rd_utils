@@ -69,6 +69,12 @@ namespace rd_utils::net {
                 // The fds of the open sockets (a socket can be closed manually during a session)
                 std::map <std::shared_ptr <TcpStream>, int> _socketFds;
 
+                // Timeout of the recv methods of the session created by this server
+                float _recvTimeout = -1;
+
+                // Timeout of the send methods of the session created by this server
+                float _sendTimeout = -1;
+
         private: // Task pool
 
                 // True if the polling is running
@@ -217,6 +223,20 @@ namespace rd_utils::net {
                  * Remember a socket that was forgotten
                  */
                 void release (std::shared_ptr <net::TcpStream> stream);
+
+                /**
+                 * Set the timeout of the recv methods created by this server
+                 * @params:
+                 *    - timeout: the time in seconds, <= 0 means indefinite
+                 */
+                void setRecvTimeout (float timeout);
+
+                /**
+                 * Set the timeout of the send methods created by this server
+                 * @params:
+                 *    - timeout: the time in seconds, <= 0 means indefinite
+                 */
+                void setSendTimeout (float timeout);
 
                 /**
                  * Stop the server in the future

@@ -51,4 +51,4 @@ namespace rd_utils {
 
 
 #define WITH_LOCK(m)												\
-	if (auto m_ = rd_utils::concurrency::mutex_locker (m)  ; true)
+	if (auto m_ = rd_utils::concurrency::mutex_locker (m) ; true)

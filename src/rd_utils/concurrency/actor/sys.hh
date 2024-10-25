@@ -16,6 +16,10 @@ namespace rd_utils::concurrency::actor {
   class ActorBase;
   class ActorStream;
 
+  enum class ActorSystemLimits : int32_t {
+    BASE_TIMEOUT = 5
+  };
+
   /**
    * Actor system class used to register actors, and manage communications
    */
@@ -46,9 +50,6 @@ namespace rd_utils::concurrency::actor {
     // Number of threads the actor system can manage at the same time
     uint64_t _nbThreads;
 
-    // The connection to the local server
-    std::shared_ptr <net::TcpPool> _localConn;
-
     // The list of local actors
     std::map <std::string, std::shared_ptr <ActorBase> > _actors;
 
@@ -64,32 +65,20 @@ namespace rd_utils::concurrency::actor {
     // Mutex to manage the _conn collection
     concurrency::mutex _connM;
 
-    // Connection to remote actor systems
-    std::map <std::string, std::pair <uint32_t, std::shared_ptr<net::TcpPool> > > _conn;
-
     // True while the system is running
     bool _isRunning = false;
 
     // mailbox of responses
-    concurrency::Mailbox <Response> _responses;
+    std::map <uint64_t, Response> _responses;
 
     // mailbox of big responses
-    concurrency::Mailbox <ResponseBig> _responseBigs;
+    std::map <uint64_t, ResponseBig> _responseBigs;
 
     // Streaming response
-    concurrency::Mailbox <ResponseStream> _responseStreams;
+    std::map <uint64_t, ResponseStream> _responseStreams;
 
     // Request being resolved but that might timeout
-    std::set <uint64_t> _requestIds;
-
-    // Semaphore when a response is available
-    semaphore _waitResponse;
-
-    // Semaphore when a big response is available
-    semaphore _waitResponseBig;
-
-    // Semaphore when a stream response is available
-    semaphore _waitResponseStream;
+    std::map <uint64_t, std::shared_ptr <semaphore> > _requestIds;
 
     // Uniq id
     uint64_t _lastU = 0;
@@ -209,11 +198,6 @@ namespace rd_utils::concurrency::actor {
     uint32_t port ();
 
     /**
-     * An actor ref to a remote is closing
-     */
-    void closingRemote (net::SockAddrV4 addr);
-
-    /**
      * Clean
      */
     ~ActorSystem ();
@@ -248,12 +232,27 @@ namespace rd_utils::concurrency::actor {
     /**
      * Register the fact that an actor is waiting for the request to be resolved
      */
-    void registerRequestId (uint64_t id);
+    void registerRequestId (uint64_t id, std::shared_ptr <semaphore> who);
 
     /**
      * Register the fact that the actor waiting for the request ceise to wait
      */
     void removeRequestId (uint64_t id);
+
+    /**
+     * Consume the response if it exists
+     */
+    bool consumeResponse (uint64_t id, Response & resp);
+
+    /**
+     * Consume the response if it exists
+     */
+    bool consumeResponseBig (uint64_t id, ResponseBig & resp);
+
+    /**
+     * Consume the response if it exists
+     */
+    bool consumeResponseStream (uint64_t id, ResponseStream & resp);
 
     /**
      * Called when a tcpstream message is received

@@ -25,6 +25,8 @@ namespace rd_utils::net {
         , _max (other._max)    
     {
         other._max = 0;
+        other._sendTimeout = -1;
+        other._recvTimeout = -1;
     }
 
     void TcpPool::operator= (TcpPool && other) {
@@ -35,8 +37,20 @@ namespace rd_utils::net {
         this->_m = std::move(other._m);
         this->_release = std::move(other._release);
         this->_max = other._max;
+        this-> _recvTimeout = other._recvTimeout;
+        this-> _sendTimeout = other._sendTimeout;
 
         other._max = 0;
+        other._sendTimeout = -1;
+        other._recvTimeout = -1;
+    }
+
+    void TcpPool::setRecvTimeout (float timeout) {
+        this-> _recvTimeout = timeout;
+    }
+
+    void TcpPool::setSendTimeout (float timeout) {
+        this-> _sendTimeout = timeout;
     }
 
     TcpSession TcpPool::get (float timeout) {
@@ -44,6 +58,9 @@ namespace rd_utils::net {
         WITH_LOCK (this-> _m) {
             if (this-> _open.size () < this-> _max) {
                 auto s = std::make_shared <TcpStream> (this-> _addr);
+                s-> setSendTimeout (this-> _sendTimeout);
+                s-> setRecvTimeout (this-> _recvTimeout);
+
                 try {
                     s-> connect ();
                 } catch (utils::Rd_UtilsError & err) { // failed to connect

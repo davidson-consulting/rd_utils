@@ -59,6 +59,41 @@ namespace rd_utils::net {
 		}
 	}
 
+
+	TcpStream & TcpStream::setRecvTimeout (float timeout) {
+		if (this-> isOpen ()) {
+			timespec tv;
+			if (timeout < 0) {
+				tv.tv_sec = 0;
+				tv.tv_nsec = 0;
+			} else {
+				tv.tv_sec = (uint64_t) timeout;
+				tv.tv_nsec =  (uint64_t) (timeout * 1000000000) % 1000000000;
+			}
+
+			::setsockopt(this-> _sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*) &tv, sizeof tv);
+		}
+
+		return *this;
+	}
+
+	TcpStream & TcpStream::setSendTimeout (float timeout) {
+		if (this-> isOpen ()) {
+			timespec tv;
+			if (timeout < 0) {
+				tv.tv_sec = 0;
+				tv.tv_nsec = 0;
+			} else {
+				tv.tv_sec = (uint64_t) timeout;
+				tv.tv_nsec =  (uint64_t) (timeout * 1000000000) % 1000000000;
+			}
+
+			::setsockopt(this-> _sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char*) &tv, sizeof tv);
+		}
+
+		return *this;
+	}
+
 	/**
 	 * ================================================================================
 	 * ================================================================================
