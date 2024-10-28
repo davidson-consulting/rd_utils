@@ -84,6 +84,11 @@ namespace rd_utils::net {
     TcpStream& operator* ();
 
     /**
+     * Kill the session and don't return it dispose it
+     */
+    void kill ();
+
+    /**
      * Dispose the session, and return the stream to the pool/server
      */
     void dispose ();

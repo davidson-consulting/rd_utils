@@ -353,12 +353,12 @@ namespace rd_utils::concurrency::actor {
         this-> onSystemKill ();
         break;
       default :
-        (*session)-> close ();
+        session-> kill ();
         break;
       }
     } catch (...) {
       LOG_INFO ("Session failed. Remote connection out.");
-      (*session)-> close ();
+      session-> kill ();
     }
 
   }
@@ -384,7 +384,7 @@ namespace rd_utils::concurrency::actor {
     std::shared_ptr <ActorBase> act;
     concurrency::mutex m;
     if (!this-> getActor (name, act, m)) {
-      (*session)-> close ();
+      session-> kill ();
       return;
     }
 
@@ -392,7 +392,7 @@ namespace rd_utils::concurrency::actor {
       try {
         act-> onMessage (*msg);
       } catch (...) {
-        (*session)-> close ();
+        session-> kill ();
       }
     }
   }
@@ -407,7 +407,7 @@ namespace rd_utils::concurrency::actor {
     std::shared_ptr <ActorBase> act;
     concurrency::mutex m;
     if (!this-> getActor (name, act, m)) {
-      (*session)-> close ();
+      session-> kill ();
       return;
     }
 
@@ -419,11 +419,11 @@ namespace rd_utils::concurrency::actor {
           actorRef-> response (reqId, result, 5);
         } catch (...) {
           LOG_ERROR ("Failed to send response");
-          (*session)-> close ();
+          session-> kill ();
         }
       } catch (...) {
         LOG_ERROR ("Sesssion failed");
-        (*session)-> close ();
+        session-> kill ();
       }
     }
   }
@@ -438,7 +438,7 @@ namespace rd_utils::concurrency::actor {
     std::shared_ptr <ActorBase> act;
     concurrency::mutex m;
     if (!this-> getActor (name, act, m)) {
-      (*session)-> close ();
+      session-> kill ();
       return;
     }
 
@@ -450,11 +450,11 @@ namespace rd_utils::concurrency::actor {
           actorRef-> responseBig (reqId, result, 10);
         } catch (...) {
             LOG_ERROR ("Failed to send response");
-            (*session)-> close ();
+            session-> kill ();
         }
       } catch (...) {
         LOG_ERROR ("Sesssion failed");
-        (*session)-> close ();
+        session-> kill ();
       }
     }
   }
@@ -469,7 +469,7 @@ namespace rd_utils::concurrency::actor {
     std::shared_ptr <ActorBase> act;
     concurrency::mutex m;
     if (!this-> getActor (name, act, m)) {
-      (*session)-> close ();
+      session-> kill ();
       return;
     }
 
@@ -479,14 +479,14 @@ namespace rd_utils::concurrency::actor {
         auto conn = actorRef-> getSession ()-> get (5);
 
         conn-> sendU32 ((uint32_t) ActorSystem::Protocol::ACTOR_RESP_STREAM, true);
-        conn-> sendU32 (reqId, true);
+        conn-> sendU64 ((uint64_t) reqId, true);
 
         ActorStream stream (std::move (*session), std::move (conn), false);
 
         act-> onStream (*msg, stream);
       } catch (...) {
         LOG_ERROR ("Failed to send response");
-        (*session)-> close ();
+        session-> kill ();
       }
     }
   }

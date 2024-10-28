@@ -17,19 +17,26 @@ union Packer {
 namespace rd_utils::net {
 
 	Ipv4Address::Ipv4Address (const std::string & addr) {
-		std::vector <std::string> tokens = utils::tokenize (addr, {".", " "}, {" "});
-		if (tokens.size () != 7) {
-			throw utils::AddrError (std::string ("Malformed addr : ") + addr);
-		}
+		if (addr == "localhost") {
+			this-> _a = 127;
+			this-> _b = 0;
+			this-> _c = 0;
+			this-> _d = 1;
+		} else {
+			std::vector <std::string> tokens = utils::tokenize (addr, {".", " "}, {" "});
+			if (tokens.size () != 7) {
+				throw utils::AddrError (std::string ("Malformed addr : ") + addr);
+			}
 
-		if (tokens [1] != "." || tokens [3] != "." || tokens [5] != ".") {
-			throw utils::AddrError (std::string ("Malformed addr : ") + addr);
-		}
+			if (tokens [1] != "." || tokens [3] != "." || tokens [5] != ".") {
+				throw utils::AddrError (std::string ("Malformed addr : ") + addr);
+			}
 
-		this-> _a = std::atoi (tokens [0].c_str ());
-		this-> _b = std::atoi (tokens [2].c_str ());
-		this-> _c = std::atoi (tokens [4].c_str ());
-		this-> _d = std::atoi (tokens [6].c_str ());
+			this-> _a = std::atoi (tokens [0].c_str ());
+			this-> _b = std::atoi (tokens [2].c_str ());
+			this-> _c = std::atoi (tokens [4].c_str ());
+			this-> _d = std::atoi (tokens [6].c_str ());
+		}
 	}
 
 	Ipv4Address::Ipv4Address (int full) {

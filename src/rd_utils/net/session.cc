@@ -48,7 +48,7 @@ namespace rd_utils::net {
   }
 
   void TcpSession::dispose () {
-    if (this-> _context != nullptr) {
+    if (this-> _context != nullptr && this-> _stream != nullptr) {
       if (this-> _server) {
         if (this-> _ignored) this-> _stream-> close ();
         reinterpret_cast <TcpServer*> (this-> _context)-> release (this-> _stream);
@@ -63,6 +63,13 @@ namespace rd_utils::net {
 
   TcpSession::~TcpSession () {
     this-> dispose ();
+  }
+
+  void TcpSession::kill () {
+    if (this-> _stream != nullptr) {
+      this-> _stream-> close ();
+      this-> dispose ();
+    }
   }
 
   std::shared_ptr <TcpStream> TcpSession::operator-> () {
