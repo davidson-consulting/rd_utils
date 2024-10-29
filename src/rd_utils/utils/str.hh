@@ -80,3 +80,13 @@ namespace rd_utils::utils {
   };
 
 }
+
+
+#define match_v(value)                       \
+  auto ref = value;
+
+#define of_v(value)                          \
+  if (ref == value) {
+
+#define elof_v(value)                        \
+  } else of_v (value)

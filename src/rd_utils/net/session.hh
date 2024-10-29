@@ -17,9 +17,9 @@ namespace rd_utils::net {
 
     std::shared_ptr <TcpStream> _stream;
 
-    void * _context;
+    TcpPool * _pool = nullptr;
 
-    bool _server;
+    TcpServer * _server = nullptr;
 
     // If true the session was never used
     bool _ignored;

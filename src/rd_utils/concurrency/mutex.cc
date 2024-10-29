@@ -2,8 +2,9 @@
 
 namespace rd_utils::concurrency {
 
-  mutex::mutex () : _m (PTHREAD_MUTEX_INITIALIZER)
-  {}
+  mutex::mutex () {
+    pthread_mutex_init (&this-> _m, nullptr);
+  }
 
   void mutex::lock () {
     pthread_mutex_lock (&this-> _m);

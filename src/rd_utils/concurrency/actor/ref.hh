@@ -31,7 +31,7 @@ namespace rd_utils::concurrency::actor {
     net::SockAddrV4 _addr;
 
     // The connection to the actor system
-    std::shared_ptr <net::TcpPool> _conn;
+    net::TcpPool _conn;
 
     // The local actor system used to serialize messages
     ActorSystem * _sys;
@@ -77,9 +77,9 @@ namespace rd_utils::concurrency::actor {
       concurrency::timer _t;
       uint64_t _reqId;
       float _timeout;
-      net::TcpSession _session;
+      std::shared_ptr <net::TcpSession> _session;
       std::shared_ptr <semaphore> _wait;
-      RequestStreamFuture (uint64_t reqId, ActorSystem * sys, concurrency::timer t, net::TcpSession && session, std::shared_ptr <semaphore> wait, float timeout = 5);
+      RequestStreamFuture (uint64_t reqId, ActorSystem * sys, concurrency::timer t, std::shared_ptr <net::TcpSession> session, std::shared_ptr <semaphore> wait, float timeout = 5);
 
       friend ActorRef;
 
@@ -87,8 +87,6 @@ namespace rd_utils::concurrency::actor {
 
       RequestStreamFuture (const RequestStreamFuture &) = delete;
       void operator=(const RequestStreamFuture &) = delete;
-
-      RequestStreamFuture (RequestStreamFuture && other);
 
       /**
        * Wait for the request to complete
@@ -152,14 +150,15 @@ namespace rd_utils::concurrency::actor {
 
   public :
 
-
+    ActorRef (const ActorRef &) = delete;
+    void operator=(const ActorRef&) = delete;
 
     /**
      * @params:
      *    - name: the name of the actor
      *    - sock: the socket of the actor
      */
-    ActorRef (bool local, const std::string & name, net::SockAddrV4 addr, std::shared_ptr <net::TcpPool> & conn, ActorSystem * sys);
+    ActorRef (bool local, const std::string & name, net::SockAddrV4 addr, ActorSystem * sys);
 
     /**
      * Send a message to the actor
@@ -192,7 +191,7 @@ namespace rd_utils::concurrency::actor {
     template <typename T>
     RequestBigFuture<T> requestBig (const rd_utils::utils::config::ConfigNode & msg, float timeout = 5) {
       concurrency::timer t;
-      auto session = this-> _conn-> get (timeout);
+      auto session = this-> _conn.get (timeout);
 
       session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ_BIG));
       session-> sendU32 (this-> _name.length ());
@@ -217,7 +216,7 @@ namespace rd_utils::concurrency::actor {
     /**
      * @returns: the opened socket
      */
-    std::shared_ptr <net::TcpPool> getSession ();
+    net::TcpPool& getSession ();
 
     /**
      * Close the actor reference

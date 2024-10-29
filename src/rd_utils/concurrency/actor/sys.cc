@@ -48,40 +48,20 @@ namespace rd_utils::concurrency::actor {
    * ====================================================================================================
    */
 
-  std::shared_ptr <ActorRef> ActorSystem::localActor (const std::string & name, bool check) {
-    if (check) {
-      std::shared_ptr <ActorBase> act;
-      concurrency::mutex m;
-      if (!this-> getActor (name, act, m)) throw std::runtime_error ("No local actor named : " + name);
-    }
-
+  std::shared_ptr <ActorRef> ActorSystem::localActor (const std::string & name) {
     auto addr = net::SockAddrV4 (net::Ipv4Address ("127.0.0.1"), this-> _server.port ());
-    auto pool = std::make_shared<net::TcpPool> (addr, 1);
-    pool-> setSendTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
-    pool-> setRecvTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
-
-    return std::make_shared<ActorRef> (true, name, addr, pool, this);
+    return std::make_shared<ActorRef> (true, name, addr, this);
   }
 
-  std::shared_ptr<ActorRef> ActorSystem::remoteActor (const std::string & name, net::SockAddrV4 addr, bool check) {
+  std::shared_ptr<ActorRef> ActorSystem::remoteActor (const std::string & name, net::SockAddrV4 addr) {
     auto isl = this-> isLocal (addr);
-    if (isl) return this-> localActor (name, check);
+    if (isl) return this-> localActor (name);
 
     std::shared_ptr <net::TcpPool> pool = std::make_shared <net::TcpPool> (addr, 1);
     pool-> setSendTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
     pool-> setRecvTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
 
-    if (check) {
-      auto session = pool-> get (5);
-      session-> sendU32 ((uint32_t) ActorSystem::Protocol::ACTOR_EXIST_REQ, true);
-      session-> sendU32 (name.length (), true);
-      session-> sendStr (name, true);
-
-      auto exists = session-> receiveU32 ();
-      if (exists == 0) throw std::runtime_error ("Remote actor " + name + " does not exist in remote system : " + addr.toString ());
-    }
-
-    return std::make_shared<ActorRef> (false, name, addr, pool, this);
+    return std::make_shared<ActorRef> (false, name, addr, this);
   }
 
   uint32_t ActorSystem::port () {
@@ -148,8 +128,8 @@ namespace rd_utils::concurrency::actor {
 
   void ActorSystem::poisonPill () {
     try {
-      auto local = this-> localActor ("", false);
-      local-> getSession ()-> get (5)-> sendU32 ((uint32_t) ActorSystem::Protocol::SYSTEM_KILL_ALL);
+      auto local = this-> localActor ("");
+      local-> getSession ().get (5)-> sendU32 ((uint32_t) ActorSystem::Protocol::SYSTEM_KILL_ALL);
     } catch (...) {
       LOG_ERROR ("Failed to connect to local system... Aborting.");
       this-> onSystemKill ();
@@ -415,7 +395,7 @@ namespace rd_utils::concurrency::actor {
       try {
         auto result = act-> onRequest (*msg);
         try {
-          auto actorRef = this-> remoteActor ("", addr, false);
+          auto actorRef = this-> remoteActor ("", addr);
           actorRef-> response (reqId, result, 5);
         } catch (...) {
           LOG_ERROR ("Failed to send response");
@@ -446,7 +426,7 @@ namespace rd_utils::concurrency::actor {
       try {
         auto result = act-> onRequestList (*msg);
         try {
-          auto actorRef = this-> remoteActor ("", addr, false);
+          auto actorRef = this-> remoteActor ("", addr);
           actorRef-> responseBig (reqId, result, 10);
         } catch (...) {
             LOG_ERROR ("Failed to send response");
@@ -475,13 +455,13 @@ namespace rd_utils::concurrency::actor {
 
     WITH_LOCK (m) {
       try {
-        auto actorRef = this-> remoteActor ("", addr, false);
-        auto conn = actorRef-> getSession ()-> get (5);
+        auto actorRef = this-> remoteActor ("", addr);
+        auto conn = actorRef-> getSession ().get (5);
 
         conn-> sendU32 ((uint32_t) ActorSystem::Protocol::ACTOR_RESP_STREAM, true);
         conn-> sendU64 ((uint64_t) reqId, true);
 
-        ActorStream stream (std::move (*session), std::move (conn), false);
+        ActorStream stream (session, std::make_shared <net::TcpSession> (std::move (conn)));
 
         act-> onStream (*msg, stream);
       } catch (...) {

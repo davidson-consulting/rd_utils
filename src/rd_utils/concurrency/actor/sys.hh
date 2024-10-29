@@ -173,14 +173,12 @@ namespace rd_utils::concurrency::actor {
     /**
      * @returns: an actor reference to a local actor
      */
-    std::shared_ptr<ActorRef> localActor (const std::string & name, bool check = true);
+    std::shared_ptr<ActorRef> localActor (const std::string & name);
 
     /**
      * @returns: an actor reference to a remote actor
-     * @params:
-     *    - check: ask remote if the actor exists
      */
-    std::shared_ptr<ActorRef> remoteActor (const std::string & name, net::SockAddrV4 addr, bool check = true);
+    std::shared_ptr<ActorRef> remoteActor (const std::string & name, net::SockAddrV4 addr);
 
     /**
      * Close the actor system and all registered actors

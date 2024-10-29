@@ -11,8 +11,8 @@ namespace rd_utils::concurrency::actor {
   class ActorStream {
   private:
 
-    net::TcpSession _input;
-    net::TcpSession _output;
+    std::shared_ptr <net::TcpSession> _input;
+    std::shared_ptr <net::TcpSession> _output;
     bool _left; // left side is the one that asked for a stream
 
   private:
@@ -22,20 +22,16 @@ namespace rd_utils::concurrency::actor {
 
   public:
 
-    ActorStream (net::TcpSession && input, net::TcpSession && output, bool left);
-
-    void write (const utils::config::ConfigNode & node);
-
-    std::shared_ptr <utils::config::ConfigNode> read ();
+    ActorStream (std::shared_ptr <net::TcpSession> input, std::shared_ptr <net::TcpSession> output);
 
     template <typename T>
     void writeRaw (const T & data) {
-      this-> _output-> sendRaw (&data, 1);
+      (*this-> _output)-> sendRaw (&data, 1);
     }
 
     template <typename T>
     void readRaw (T & data) {
-      this-> _input-> receiveRaw (&data, 1);
+      (*this-> _input)-> receiveRaw (&data, 1);
     }
 
     uint8_t readOr (uint8_t v);
@@ -57,8 +53,6 @@ namespace rd_utils::concurrency::actor {
     uint64_t readU64 ();
 
     bool isOpen ();
-
-    void close ();
 
     ~ActorStream ();
 

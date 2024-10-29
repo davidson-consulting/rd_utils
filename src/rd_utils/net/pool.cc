@@ -13,13 +13,16 @@ namespace rd_utils::net {
     TcpPool::TcpPool (SockAddrV4 addr, int max) :
         _addr (addr)
         , _max (max)
-    {}
+    {
+        if (this-> _max > 0) {
+            for (uint64_t i = 0 ; i < this-> _max ; i++) {
+                this-> _release.post ();
+            }
+        }
+    }
 
     TcpPool::TcpPool (TcpPool && other):
         _addr (std::move(other._addr))
-        , _open (std::move(other._open))
-        , _socketFds (std::move(other._socketFds))
-        , _free (std::move(other._free))
         , _m (std::move(other._m))
         , _release (std::move(other._release))
         , _max (other._max)    
@@ -31,9 +34,6 @@ namespace rd_utils::net {
 
     void TcpPool::operator= (TcpPool && other) {
         this->_addr = std::move(other._addr);
-        this->_open = std::move(other._open);
-        this->_socketFds = std::move(other._socketFds);
-        this->_free = std::move(other._free);
         this->_m = std::move(other._m);
         this->_release = std::move(other._release);
         this->_max = other._max;
@@ -55,30 +55,6 @@ namespace rd_utils::net {
 
     TcpSession TcpPool::get (float timeout) {
         concurrency::timer t;
-        WITH_LOCK (this-> _m) {
-            if (this-> _open.size () < this-> _max) {
-                auto s = std::make_shared <TcpStream> (this-> _addr);
-                s-> setSendTimeout (this-> _sendTimeout);
-                s-> setRecvTimeout (this-> _recvTimeout);
-
-                try {
-                    s-> connect ();
-                } catch (utils::Rd_UtilsError & err) { // failed to connect
-                    throw std::runtime_error ("Failed to connect");
-                }
-
-                // std::cout << "New socket : " << s-> getHandle () << " " << s.get () << std::endl;
-                if (s != nullptr) {
-                    // WARNING: if a socket is closed by hand, then we might reopen a second socket with the same fd
-                    // In that case, socketFds might have the same values multiple times
-                    this-> _open.emplace (s-> getHandle (), s);
-
-                    // Socket might be closed manually, we need to store the current handle to clear later on
-                    this-> _socketFds.emplace ((uint64_t) s.get (), s-> getHandle ());
-                    return TcpSession (s, this);
-                }
-            }
-        }
 
         float rest = timeout;
         for (;;) {
@@ -90,48 +66,41 @@ namespace rd_utils::net {
             }
 
             if (this-> _release.wait (rest)) {
-                std::shared_ptr <TcpStream> conn = nullptr;
-                if (this-> _free.receive (conn)) {
-                    return TcpSession (conn, this);
-                }
-            } else {
-                throw std::runtime_error ("timeout");
+                return this-> openNew ();
             }
+
+            throw std::runtime_error ("timeout");
+        }
+    }
+
+    TcpSession TcpPool::openNew () {
+        WITH_LOCK (this-> _m) {
+            auto s = std::make_shared <TcpStream> (this-> _addr);
+            s-> setSendTimeout (this-> _sendTimeout);
+            s-> setRecvTimeout (this-> _recvTimeout);
+
+            try {
+                s-> connect ();
+            } catch (utils::Rd_UtilsError & err) { // failed to connect
+                throw std::runtime_error ("Failed to connect");
+            }
+
+            // std::cout << "New socket in Pool : " << s-> getHandle () << " " << s.get () << std::endl;
+            if (s != nullptr) {
+                return TcpSession (s, this);
+            }
+
+            throw std::runtime_error ("Failed to connect");
         }
     }
 
     void TcpPool::release (std::shared_ptr <TcpStream> s) {
-        if (!s-> isOpen ()) {
-            WITH_LOCK (this-> _m) { // closing the socket that is either broken or closed on the other side
-                auto handle = this-> _socketFds.find ((uint64_t) s.get ());
-
-                auto it = this-> _open.find (handle-> second);
-                if (it != this-> _open.end () && it-> second == s) {
-                    // we might have inserted a new socket with the same handle in between if the socket was closed by hand
-                    this-> _open.erase (handle-> second);
-                }
-
-                // However, the pointer of the stream is OK
-                this-> _socketFds.erase ((uint64_t) s.get ());
-                s-> close ();
-            }
-        } else {
-            this-> _free.send (s);
-        }
-
-        this-> _release.post ();
-    }
-
-    void TcpPool::dispose () {
         WITH_LOCK (this-> _m) {
-            this-> _free.dispose ();
-            this-> _open.clear ();
+            s-> close ();
+            this-> _release.post ();
         }
     }
 
-    TcpPool::~TcpPool () {
-        this-> dispose ();
-    }
-
+    TcpPool::~TcpPool () {}
 
 }

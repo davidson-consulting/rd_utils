@@ -23,6 +23,8 @@ namespace rd_utils {
 			/// The address connected or not depending on _sockfd
 			SockAddrV4 _addr;
 
+			bool _connect = false;
+
 		private :
 
 			friend TcpListener;

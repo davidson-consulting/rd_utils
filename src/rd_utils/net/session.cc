@@ -13,50 +13,54 @@ namespace rd_utils::net {
 
   TcpSession::TcpSession (std::shared_ptr <TcpStream> stream, TcpServer * context) :
     _stream (stream)
-    , _context (static_cast<void*> (context))
-    , _server (true)
+    , _pool (nullptr)
+    , _server (context)
+    , _ignored (true)
   {}
 
   TcpSession::TcpSession (std::shared_ptr <TcpStream> stream, TcpPool * context) :
     _stream (stream)
-    , _context (static_cast<void*> (context))
-    , _server (false)
+    , _pool (context)
+    , _server (nullptr)
     , _ignored (true)
   {}
 
   TcpSession::TcpSession (TcpSession && other) :
     _stream (other._stream)
-    , _context (other._context)
+    , _pool (other._pool)
     , _server (other._server)
     , _ignored (other._ignored)
   {
     other._stream = nullptr;
-    other._context = nullptr;
+    other._pool = nullptr;
+    other._server = nullptr;
     other._ignored = false;
   }
 
   void TcpSession::operator= (TcpSession && other) {
     this-> dispose ();
     this-> _stream = other._stream;
-    this-> _context = other._context;
+    this-> _pool = other._pool;
     this-> _server = other._server;
     this-> _ignored = other._ignored;
 
     other._stream = nullptr;
-    other._context = nullptr;
+    other._server = nullptr;
+    other._pool = nullptr;
     other._ignored = false;
   }
 
   void TcpSession::dispose () {
-    if (this-> _context != nullptr && this-> _stream != nullptr) {
-      if (this-> _server) {
+    if (this-> _stream != nullptr) {
+      if (this-> _server != nullptr) {
         if (this-> _ignored) this-> _stream-> close ();
-        reinterpret_cast <TcpServer*> (this-> _context)-> release (this-> _stream);
-      } else {
-        reinterpret_cast <TcpPool*> (this-> _context)-> release (this-> _stream);
+        this-> _server-> release (this-> _stream);
+      } else if (this-> _pool != nullptr) {
+        this-> _pool-> release (this-> _stream);
       }
 
-      this-> _context = nullptr;
+      this-> _server = nullptr;
+      this-> _pool = nullptr;
       this-> _stream = nullptr;
     }
   }

@@ -13,21 +13,23 @@
 
 namespace rd_utils::net {
 
-	TcpStream::TcpStream (int sock, SockAddrV4 addr) :
-		_sockfd (sock),
-		_addr (addr)
+	TcpStream::TcpStream (int sock, SockAddrV4 addr)
+		: _sockfd (sock)
+		, _addr (addr)
+		, _connect (false)
+	{}
+
+	TcpStream::TcpStream (SockAddrV4 addr)
+		: _sockfd (0)
+		, _addr (addr)
+		, _connect (false)
 	{
 	}
 
-	TcpStream::TcpStream (SockAddrV4 addr) :
-		_sockfd (0),
-		_addr (addr)
-	{
-	}
-
-	TcpStream::TcpStream (TcpStream && other) :
-		_sockfd (other._sockfd),
-		_addr (other._addr)
+	TcpStream::TcpStream (TcpStream && other)
+		: _sockfd (other._sockfd)
+		, _addr (other._addr)
+		, _connect (other._connect)
 	{
 		other._sockfd = 0;
 		other._addr = SockAddrV4 (Ipv4Address (0), 0);
@@ -37,6 +39,7 @@ namespace rd_utils::net {
 		this-> close ();
 		this-> _sockfd = other._sockfd;
 		this-> _addr = other._addr;
+		this-> _connect = other._connect;
 
 		other._sockfd = 0;
 		other._addr = SockAddrV4 (Ipv4Address (0), 0);
@@ -57,6 +60,8 @@ namespace rd_utils::net {
 		if (::connect (this-> _sockfd, (sockaddr*) &sin, sizeof (sockaddr_in)) != 0) {
 			throw utils::Rd_UtilsError ("Error creating socket.");
 		}
+
+		this-> _connect = true;
 	}
 
 

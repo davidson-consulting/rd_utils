@@ -19,13 +19,16 @@ namespace rd_utils::concurrency::actor {
    * ====================================================================================================
    */
 
-  ActorRef::ActorRef (bool local, const std::string & name, net::SockAddrV4 addr, std::shared_ptr<net::TcpPool> & conn, ActorSystem * sys) :
+  ActorRef::ActorRef (bool local, const std::string & name, net::SockAddrV4 addr, ActorSystem * sys) :
     _isLocal (local)
     , _name (name)
     , _addr (addr)
-    , _conn (conn)
+    , _conn (net::TcpPool (addr, 1))
     , _sys (sys)
-  {}
+  {
+    this-> _conn.setSendTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
+    this-> _conn.setRecvTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
+  }
 
   ActorRef::RequestFuture::RequestFuture (uint64_t reqId, ActorSystem * sys, concurrency::timer t, std::shared_ptr <semaphore> wait, float timeout) :
     _sys (sys)
@@ -36,7 +39,7 @@ namespace rd_utils::concurrency::actor {
   {}
 
 
-  ActorRef::RequestStreamFuture::RequestStreamFuture (uint64_t reqId, ActorSystem * sys, concurrency::timer t, net::TcpSession && s, std::shared_ptr <semaphore> wait, float timeout) :
+  ActorRef::RequestStreamFuture::RequestStreamFuture (uint64_t reqId, ActorSystem * sys, concurrency::timer t, std::shared_ptr <net::TcpSession> s, std::shared_ptr <semaphore> wait, float timeout) :
     _sys (sys)
     , _t (t)
     , _reqId (reqId)
@@ -44,16 +47,6 @@ namespace rd_utils::concurrency::actor {
     , _session (std::move (s))
     , _wait (wait)
   {}
-
-  ActorRef::RequestStreamFuture::RequestStreamFuture (ActorRef::RequestStreamFuture && other) :
-    _sys (other._sys)
-    , _t (other._t)
-    , _reqId (other._reqId)
-    , _timeout (other._timeout)
-    , _session (std::move (other._session))
-    , _wait (std::move (other._wait))
-  {}
-
 
   /*!
    * ====================================================================================================
@@ -64,7 +57,7 @@ namespace rd_utils::concurrency::actor {
    */
 
   void ActorRef::send (const rd_utils::utils::config::ConfigNode & node, float timeout) {
-    auto session = this-> _conn-> get (timeout);
+    auto session = this-> _conn.get (timeout);
 
     auto & s = *session;
     s.sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_MSG));
@@ -86,7 +79,7 @@ namespace rd_utils::concurrency::actor {
 
   ActorRef::RequestFuture ActorRef::request (const rd_utils::utils::config::ConfigNode & node, float timeout) {
     concurrency::timer t;
-    auto session = this-> _conn-> get (timeout);
+    auto session = this-> _conn.get (timeout);
 
     session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ));
     session-> sendU32 (this-> _name.length ());
@@ -139,7 +132,7 @@ namespace rd_utils::concurrency::actor {
 
   ActorRef::RequestStreamFuture ActorRef::requestStream (const rd_utils::utils::config::ConfigNode & msg, float timeout) {
     concurrency::timer t;
-    auto session = this-> _conn-> get (timeout);
+    auto session = this-> _conn.get (timeout);
 
     session-> sendU32 ((uint32_t) ActorSystem::Protocol::ACTOR_REQ_STREAM);
     session-> sendU32 (this-> _name.length ());
@@ -153,7 +146,7 @@ namespace rd_utils::concurrency::actor {
     session-> sendU64 (uniqId);
     utils::raw::dump (*session, msg);
 
-    return RequestStreamFuture (uniqId, this-> _sys, t, std::move (session), wait, timeout);
+    return RequestStreamFuture (uniqId, this-> _sys, t, std::make_shared <net::TcpSession> (std::move (session)), wait, timeout);
   }
 
   std::shared_ptr <ActorStream> ActorRef::RequestStreamFuture::wait () {
@@ -169,7 +162,7 @@ namespace rd_utils::concurrency::actor {
     if (this-> _wait-> wait (rest)) {
       ActorSystem::ResponseStream resp;
       if (this-> _sys-> consumeResponseStream (this-> _reqId, resp)) {
-        return std::make_shared <ActorStream> (std::move (*resp.stream), std::move (this-> _session), true);
+        return std::make_shared <ActorStream> (resp.stream, this-> _session);
       } else {
         this-> _sys-> removeRequestId (this-> _reqId);
         throw std::runtime_error ("not found");
@@ -189,7 +182,7 @@ namespace rd_utils::concurrency::actor {
    */
 
   void ActorRef::response (uint64_t reqId, std::shared_ptr <rd_utils::utils::config::ConfigNode> node, float timeout) {
-    auto session = this-> _conn-> get (timeout);
+    auto session = this-> _conn.get (timeout);
     session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP));
     session-> sendU64 (reqId);
 
@@ -202,7 +195,7 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorRef::responseBig (uint64_t reqId, std::shared_ptr <rd_utils::memory::cache::collection::ArrayListBase> & array, float timeout) {
-    auto session = this-> _conn-> get (timeout);
+    auto session = this-> _conn.get (timeout);
 
     session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP_BIG));
     session-> sendU64 (reqId);
@@ -215,7 +208,7 @@ namespace rd_utils::concurrency::actor {
     }
   }
 
-  std::shared_ptr <net::TcpPool> ActorRef::getSession () {
+  net::TcpPool& ActorRef::getSession () {
     return this-> _conn;
   }
 
@@ -223,9 +216,7 @@ namespace rd_utils::concurrency::actor {
     return this-> _name;
   }
 
-  void ActorRef::dispose () {
-    this-> _conn = nullptr;
-  }
+  void ActorRef::dispose () {}
 
   ActorRef::~ActorRef () {
     this-> dispose ();
