@@ -23,6 +23,7 @@ namespace rd_utils::utils {
     MemorySize (uint64_t);
 
   public:
+    MemorySize();
 
     static MemorySize unit (uint64_t nb, const std::string & unit);
 

@@ -2,6 +2,8 @@
 #include <cctype>
 
 namespace rd_utils::utils {
+  
+  MemorySize::MemorySize(): _size(0) {}
 
   MemorySize::MemorySize (uint64_t nb)
     :_size (nb)
