@@ -75,6 +75,8 @@ namespace rd_utils::utils {
     MemorySize operator- (MemorySize other) const;
     MemorySize operator* (uint64_t cst) const;
     MemorySize operator/ (uint64_t cst) const;
+    bool operator> (MemorySize other) const;
+    bool operator< (MemorySize other) const;
 
 
     static MemorySize min (MemorySize A, MemorySize B);

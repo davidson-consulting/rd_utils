@@ -88,6 +88,14 @@ namespace rd_utils::utils {
     return MemorySize (this-> _size / cst);
   }
 
+  bool MemorySize::operator> (MemorySize other) const {
+    return this->bytes() > other.bytes();
+  }
+
+  bool MemorySize::operator< (MemorySize other) const {
+    return this->bytes() < other.bytes();
+  }
+
   MemorySize MemorySize::min (MemorySize A, MemorySize B) {
     return MemorySize (A._size > B._size ? B._size : A._size);
   }
@@ -95,7 +103,6 @@ namespace rd_utils::utils {
   MemorySize MemorySize::max (MemorySize A, MemorySize B) {
     return MemorySize (A._size > B._size ? A._size : B._size);
   }
-
 }
 
 
