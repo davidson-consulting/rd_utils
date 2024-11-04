@@ -82,6 +82,8 @@ namespace rd_utils::net {
             try {
                 s-> connect ();
             } catch (utils::Rd_UtilsError & err) { // failed to connect
+                // We consumed a release, but in some way closed the new socket ?
+                this-> _release.post ();
                 throw std::runtime_error ("Failed to connect");
             }
 
@@ -90,6 +92,8 @@ namespace rd_utils::net {
                 return TcpSession (s, this);
             }
 
+            // We consumed a release, but in some way closed the new socket ?
+            this-> _release.post ();
             throw std::runtime_error ("Failed to connect");
         }
     }

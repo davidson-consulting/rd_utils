@@ -5,9 +5,10 @@
 namespace rd_utils::concurrency::actor {
 
 
-  ActorBase::ActorBase (const std::string & name, ActorSystem * sys) :
+  ActorBase::ActorBase (const std::string & name, ActorSystem * sys, bool isAtomic) :
     _name (name)
     , _system (sys)
+    , _isAtomic (isAtomic)
   {}
 
   void ActorBase::onMessage (const rd_utils::utils::config::ConfigNode & msg) {
@@ -27,6 +28,14 @@ namespace rd_utils::concurrency::actor {
 
   std::shared_ptr<ActorRef> ActorBase::getRef () {
     return this-> _system-> localActor (this-> _name);
+  }
+
+  mutex& ActorBase::getMutex () {
+    return this-> _m;
+  }
+
+  bool ActorBase::isAtomic () const {
+    return this-> _isAtomic;
   }
 
   void ActorBase::exit () {

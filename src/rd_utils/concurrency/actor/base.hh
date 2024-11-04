@@ -2,6 +2,7 @@
 
 #include <string>
 #include "stream.hh"
+#include "../mutex.hh"
 
 namespace rd_utils::concurrency::actor {
 
@@ -20,15 +21,22 @@ namespace rd_utils::concurrency::actor {
     // The system in which the actor is running
     ActorSystem * _system;
 
+    // Mutex used to lock the actor
+    concurrency::mutex _m;
+
+    // True if the actor is synchronized
+    bool _isAtomic;
+
   public:
 
     /**
      * @params:
      *    - name: the name of the actor
      *    - sys: the system in which the actor is running
+     *    - isAtomic: true iif the actor must be executed on only one thread at a time
      * @warning: nothing actor related should be done here, the actor is not yet registered
      */
-    ActorBase (const std::string & name, ActorSystem * sys);
+    ActorBase (const std::string & name, ActorSystem * sys, bool isAtomic = true);
 
     /**
      * Called the actor is registered in the system
@@ -59,6 +67,16 @@ namespace rd_utils::concurrency::actor {
      * @returns: the actor reference of this actor
      */
     std::shared_ptr <ActorRef> getRef ();
+
+    /**
+     * @returns: the mutex of the actor
+     */
+    concurrency::mutex & getMutex ();
+
+    /**
+     * @returns: true if the actor is atomic
+     */
+    bool isAtomic () const;
 
     /**
      * Function called to kill the actor

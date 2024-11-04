@@ -29,7 +29,7 @@ namespace rd_utils::concurrency {
   }
 
   void condition::wait (mutex & m) {
-    ::pthread_cond_wait (&this-> _cond, &m._m);
+    ::pthread_cond_wait (&this-> _cond, m._m);
   }
 
   void condition::signal () {

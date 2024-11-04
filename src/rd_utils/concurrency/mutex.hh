@@ -1,6 +1,7 @@
 #pragma once
 
 #include <pthread.h>
+#include <memory>
 
 namespace rd_utils {
 
@@ -12,12 +13,16 @@ namespace rd_utils {
 
 		class mutex {
 
-			pthread_mutex_t _m;
-
+			pthread_mutex_t* _m;
 		public:
-	    
-			mutex ();
 
+			mutex (const mutex&) = delete;
+			void operator=(const mutex&) = delete;
+
+			mutex (mutex&&);
+			void operator=(mutex&&);
+
+			mutex ();
 
 			void lock ();
 

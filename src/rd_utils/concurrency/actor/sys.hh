@@ -53,9 +53,6 @@ namespace rd_utils::concurrency::actor {
     // The list of local actors
     std::map <std::string, std::shared_ptr <ActorBase> > _actors;
 
-    // Mutexes of actors used to make sure actors only manage one message at a time
-    std::map <std::string, concurrency::mutex> _actorMutexes;
-
     // The mutex locked when manupulating actor collection
     concurrency::mutex _actMut;
 
@@ -134,7 +131,6 @@ namespace rd_utils::concurrency::actor {
 
       WITH_LOCK (this-> _actMut) {
         this-> _actors.emplace (name, act);
-        this-> _actorMutexes.emplace (name, concurrency::mutex ());
       }
 
       act-> onStart ();
@@ -155,7 +151,6 @@ namespace rd_utils::concurrency::actor {
 
       WITH_LOCK (this-> _actMut) {
         this-> _actors.emplace (name, act);
-        this-> _actorMutexes.emplace (name, concurrency::mutex ());
       }
 
       act-> onStart ();
@@ -328,7 +323,7 @@ namespace rd_utils::concurrency::actor {
     /**
      * @returns: an actor in the system
      */
-    bool getActor (const std::string & name, std::shared_ptr <ActorBase>& act, concurrency::mutex & actMut);
+    bool getActor (const std::string & name, std::shared_ptr <ActorBase>& act);
 
     /**
      * Remove an actor from the system
