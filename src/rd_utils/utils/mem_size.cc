@@ -2,6 +2,8 @@
 #include <cctype>
 
 namespace rd_utils::utils {
+  
+  MemorySize::MemorySize(): _size(0) {}
 
   MemorySize::MemorySize (uint64_t nb)
     :_size (nb)
@@ -88,6 +90,30 @@ namespace rd_utils::utils {
     return MemorySize (this-> _size / cst);
   }
 
+  bool MemorySize::operator> (MemorySize other) const {
+    return this->bytes() > other.bytes();
+  }
+
+  bool MemorySize::operator< (MemorySize other) const {
+    return this->bytes() < other.bytes();
+  }
+
+  bool MemorySize::operator== (MemorySize other) const {
+    return this->bytes() == other.bytes();
+  }
+  
+  bool MemorySize::operator!= (MemorySize other) const {
+    return this->bytes() != other.bytes();
+  }
+
+  void MemorySize::operator-= (MemorySize other) {
+    this->_size -= other._size;
+  }
+
+  void MemorySize::operator+= (MemorySize other) {
+    this->_size += other._size;
+  }
+
   MemorySize MemorySize::min (MemorySize A, MemorySize B) {
     return MemorySize (A._size > B._size ? B._size : A._size);
   }
@@ -95,7 +121,6 @@ namespace rd_utils::utils {
   MemorySize MemorySize::max (MemorySize A, MemorySize B) {
     return MemorySize (A._size > B._size ? A._size : B._size);
   }
-
 }
 
 

@@ -23,6 +23,7 @@ namespace rd_utils::utils {
     MemorySize (uint64_t);
 
   public:
+    MemorySize();
 
     static MemorySize unit (uint64_t nb, const std::string & unit);
 
@@ -76,6 +77,13 @@ namespace rd_utils::utils {
     MemorySize operator* (uint64_t cst) const;
     MemorySize operator/ (uint64_t cst) const;
 
+    bool operator> (MemorySize other) const;
+    bool operator< (MemorySize other) const;
+    bool operator== (MemorySize other) const;
+    bool operator!= (MemorySize other) const;
+
+    void operator-= (MemorySize other);
+    void operator+= (MemorySize other);
 
     static MemorySize min (MemorySize A, MemorySize B);
     static MemorySize max (MemorySize A, MemorySize B);
