@@ -15,7 +15,11 @@
 
 #define elfo } else                             \
 
-
+#define CONF_LET(A, B, C)                         \
+  auto A = C;                                     \
+  try {                                           \
+    A = B;                                        \
+  } catch (...) {}
 
 namespace rd_utils::utils::config {
 

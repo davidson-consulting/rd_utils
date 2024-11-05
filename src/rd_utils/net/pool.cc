@@ -74,35 +74,31 @@ namespace rd_utils::net {
     }
 
     TcpSession TcpPool::openNew () {
-        WITH_LOCK (this-> _m) {
-            auto s = std::make_shared <TcpStream> (this-> _addr);
-            s-> setSendTimeout (this-> _sendTimeout);
-            s-> setRecvTimeout (this-> _recvTimeout);
+        auto s = std::make_shared <TcpStream> (this-> _addr);
+        s-> setSendTimeout (this-> _sendTimeout);
+        s-> setRecvTimeout (this-> _recvTimeout);
 
-            try {
-                s-> connect ();
-            } catch (utils::Rd_UtilsError & err) { // failed to connect
-                // We consumed a release, but in some way closed the new socket ?
-                this-> _release.post ();
-                throw std::runtime_error ("Failed to connect");
-            }
-
-            // std::cout << "New socket in Pool : " << s-> getHandle () << " " << s.get () << std::endl;
-            if (s != nullptr) {
-                return TcpSession (s, this);
-            }
-
+        try {
+            s-> connect ();
+        } catch (utils::Rd_UtilsError & err) { // failed to connect
             // We consumed a release, but in some way closed the new socket ?
             this-> _release.post ();
             throw std::runtime_error ("Failed to connect");
         }
+
+        // std::cout << "New socket in Pool : " << s-> getHandle () << " " << s.get () << std::endl;
+        if (s != nullptr) {
+            return TcpSession (s, this);
+        }
+
+        // We consumed a release, but in some way closed the new socket ?
+        this-> _release.post ();
+        throw std::runtime_error ("Failed to connect");
     }
 
     void TcpPool::release (std::shared_ptr <TcpStream> s) {
-        WITH_LOCK (this-> _m) {
-            s-> close ();
-            this-> _release.post ();
-        }
+        s-> close ();
+        this-> _release.post ();
     }
 
     TcpPool::~TcpPool () {}
