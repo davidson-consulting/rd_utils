@@ -74,6 +74,10 @@ namespace rd_utils::utils {
 
     MemorySize operator+ (MemorySize other) const;
     MemorySize operator- (MemorySize other) const;
+    MemorySize operator* (MemorySize other) const;
+    MemorySize operator/ (MemorySize other) const;
+    MemorySize operator% (MemorySize other) const;
+
     MemorySize operator* (uint64_t cst) const;
     MemorySize operator/ (uint64_t cst) const;
 

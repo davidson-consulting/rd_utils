@@ -82,6 +82,18 @@ namespace rd_utils::utils {
     return MemorySize (this-> _size - other._size);
   }
 
+  MemorySize MemorySize::operator* (MemorySize other) const {
+    return this->bytes() * other.bytes();
+  }
+
+  MemorySize MemorySize::operator/ (MemorySize other) const {
+    return this->bytes() / other.bytes();
+  }
+
+  MemorySize MemorySize::operator% (MemorySize other) const {
+    return this->bytes() % other.bytes();
+  }
+
   MemorySize MemorySize::operator* (uint64_t cst) const {
     return MemorySize (this-> _size * cst);
   }
@@ -104,7 +116,7 @@ namespace rd_utils::utils {
   
   bool MemorySize::operator!= (MemorySize other) const {
     return this->bytes() != other.bytes();
-  }
+  } 
 
   void MemorySize::operator-= (MemorySize other) {
     this->_size -= other._size;
