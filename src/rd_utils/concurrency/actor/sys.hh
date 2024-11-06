@@ -124,16 +124,28 @@ namespace rd_utils::concurrency::actor {
      */
     template <typename T>
     void add (const std::string & name) {
-      auto it = this-> _actors.find (name);
-      if (it != this-> _actors.end ()) throw std::runtime_error ("Already an actor named : " + name);
-
-      auto act = std::make_shared <T> (name, this);
-
       WITH_LOCK (this-> _actMut) {
-        this-> _actors.emplace (name, act);
+        auto it = this-> _actors.find (name);
+        if (it != this-> _actors.end ()) {
+          LOG_ERROR ("Already an actor named '" + name + "'");
+          throw std::runtime_error ("Already an actor named '" + name + "'");
+        }
       }
 
-      act-> onStart ();
+      try {
+        auto act = std::make_shared <T> (name, this);
+        WITH_LOCK (this-> _actMut) {
+          this-> _actors.emplace (name, act);
+        }
+
+        act-> onStart ();
+      } catch (...) {
+        LOG_ERROR ("Actor '", name, "' crashed at startup");
+        WITH_LOCK (this-> _actMut) {
+          this-> _actors.erase (name);
+        }
+        throw std::runtime_error ("Actor '" + name + "' crashed at startup");
+      }
     }
 
     /**
@@ -144,16 +156,29 @@ namespace rd_utils::concurrency::actor {
      */
     template <typename T, typename ... Args>
     void add (const std::string & name, Args... a) {
-      auto it = this-> _actors.find (name);
-      if (it != this-> _actors.end ()) throw std::runtime_error ("Already an actor named : " + name);
-
-      auto act = std::make_shared <T> (name, this, a...);
-
       WITH_LOCK (this-> _actMut) {
-        this-> _actors.emplace (name, act);
+        auto it = this-> _actors.find (name);
+        if (it != this-> _actors.end ()) {
+          LOG_ERROR ("Already an actor named '" + name + "'");
+          throw std::runtime_error ("Already an actor named '" + name + "'");
+        }
       }
 
-      act-> onStart ();
+      try {
+        auto act = std::make_shared <T> (name, this, a...);
+        WITH_LOCK (this-> _actMut) {
+          this-> _actors.emplace (name, act);
+        }
+
+        act-> onStart ();
+      } catch (...) {
+        LOG_ERROR ("Actor '", name, "' crashed at startup");
+        WITH_LOCK (this-> _actMut) {
+          this-> _actors.erase (name);
+        }
+
+        throw std::runtime_error ("Actor '" + name + "' crashed at startup");
+      }
     }
 
     /**
