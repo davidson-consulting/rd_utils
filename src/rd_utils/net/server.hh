@@ -9,21 +9,9 @@
 #include <set>
 #include <tuple>
 #include <memory>
+#include <stdexcept>
 
 namespace rd_utils::net {
-
-        class TcpSession;
-        enum class TcpSessionKind : int {
-                NEW,
-                OLD,
-                NONE
-        };
-
-        struct MailElement {
-                TcpSessionKind kind;
-                std::shared_ptr <TcpStream> stream;
-        };
-
 
         /**
          * A Tcp server is used to managed arriving clients from a Tcp connection pool.
@@ -60,15 +48,6 @@ namespace rd_utils::net {
                 // The context of the queuing
                 TcpListener _context;
 
-                // The maximum number of clients that are allowed to connect at the same time
-                int _maxConn;
-
-                // The list of opened socket
-                std::map <int, std::shared_ptr <TcpStream> > _openSockets;
-
-                // The fds of the open sockets (a socket can be closed manually during a session)
-                std::map <std::shared_ptr <TcpStream>, int> _socketFds;
-
                 // Timeout of the recv methods of the session created by this server
                 float _recvTimeout = -1;
 
@@ -81,7 +60,7 @@ namespace rd_utils::net {
                 bool _started = false;
 
                 // The number of threads in the pool
-                int _nbThreads;
+                uint32_t _nbThreads;
 
                 // The polling thread
                 concurrency::Thread _th;
@@ -90,10 +69,7 @@ namespace rd_utils::net {
                 std::map <int, concurrency::Thread> _runningThreads;
 
                 // The signal emitted when a session is started
-                concurrency::signal<TcpSessionKind, TcpSession& > _onSession;
-
-                // The signal emitted when a session is started using a ptr
-                concurrency::signal<TcpSessionKind, std::shared_ptr <TcpSession> > _onSessionPtr;
+                concurrency::signal<std::shared_ptr <TcpStream> > _onSession;
 
         private: // Task jobs/completed
 
@@ -101,16 +77,7 @@ namespace rd_utils::net {
                 int _nbSubmitted = 0;
 
                 // The list of socket whose session has to be launched
-                concurrency::Mailbox<MailElement> _jobs;
-
-                // The number of session completed
-                int _nbCompleted = 0;
-
-                // The list of socket whose session is finished
-                concurrency::Mailbox<std::shared_ptr <TcpStream> > _completed;
-
-                // Closed threads
-                concurrency::Mailbox<int> _closed;
+                concurrency::Mailbox<std::shared_ptr <net::TcpStream> > _jobs;
 
         private: // Synchronization
 
@@ -126,10 +93,12 @@ namespace rd_utils::net {
                 // Signal emitted when a task is ready
                 concurrency::semaphore _waitTask;
 
-        private:
+        public:
 
-                TcpServer (const TcpServer & other);
-                void operator=(const TcpServer& other);
+                TcpServer (const TcpServer & other) = delete;
+                void operator=(const TcpServer& other) = delete;
+                TcpServer (TcpServer && other) = delete;
+                void operator=(TcpServer && other) = delete;
 
         public:
 
@@ -141,31 +110,14 @@ namespace rd_utils::net {
                 /**
                  * Create a tcp watcher
                  */
-                TcpServer (SockAddrV4 addr, int nbThreads, int maxCon = -1);
-
-                /**
-                 * Move ctor
-                 */
-                TcpServer (TcpServer && other);
-
-                /**
-                 * Move affectation
-                 */
-                void operator=(TcpServer && other);
+                TcpServer (SockAddrV4 addr, int nbThreads);
 
                 /**
                  * Start the server
                  * @params:
                  *    - onSession: the function to call when a stream is ready to read/write
                  */
-                void start (void (*onSession)(TcpSessionKind, TcpSession&));
-
-                /**
-                 * Start the server
-                 * @params:
-                 *    - onSession: the function to call when a stream is ready to read/write
-                 */
-                void start (void (*onSession)(TcpSessionKind, std::shared_ptr<TcpSession>));
+                void start (void (*onSession)(std::shared_ptr<TcpStream>));
 
                 /**
                  * Start the server
@@ -173,33 +125,11 @@ namespace rd_utils::net {
                  *    - onSession: the function to call when a stream is ready to read/write
                  */
                 template <class X>
-                void start (X* x, void (X::*onSession)(TcpSessionKind, TcpSession&)) {
-                        if (this-> _started) throw utils::Rd_UtilsError ("Already running");
+                void start (X* x, void (X::*onSession)(std::shared_ptr <TcpStream> )) {
+                        if (this-> _started) throw std::runtime_error ("Already running");
 
                         this-> _onSession.dispose ();
-                        this-> _onSessionPtr.dispose ();
                         this-> _onSession.connect (x, onSession);
-
-                        // need to to that in the main thread to catch the exception on binding failure
-                        this-> configureEpoll ();
-
-                        // Then spawning the thread with working tcplistener already configured
-                        this-> _th = concurrency::spawn (this, &TcpServer::pollMain);
-                        this-> _ready.wait ();
-                }
-
-                /**
-                 * Start the server
-                 * @params:
-                 *    - onSession: the function to call when a stream is ready to read/write
-                 */
-                template <class X>
-                void start (X* x, void (X::*onSession)(TcpSessionKind, std::shared_ptr <TcpSession> )) {
-                        if (this-> _started) throw utils::Rd_UtilsError ("Already running");
-
-                        this-> _onSession.dispose ();
-                        this-> _onSessionPtr.dispose ();
-                        this-> _onSessionPtr.connect (x, onSession);
 
                         // need to to that in the main thread to catch the exception on binding failure
                         this-> configureEpoll ();
@@ -213,16 +143,6 @@ namespace rd_utils::net {
                  * @return: the port number of the listener
                  */
                 int port () const;
-
-                /**
-                 * @returns: the current number of connected socket
-                 */
-                int nbConnected () const;
-
-                /**
-                 * Remember a socket that was forgotten
-                 */
-                void release (std::shared_ptr <net::TcpStream> stream);
 
                 /**
                  * Set the timeout of the recv methods created by this server
@@ -253,7 +173,12 @@ namespace rd_utils::net {
                 /**
                  * Close all opened connection
                  */
-                void dispose ();
+                bool dispose ();
+
+                /**
+                 * @returns: true if the current thread is a worker thread instead of a main thread
+                 */
+                bool isWorkerThread () const;
 
                 /**
                  * this-> dispose ()
@@ -273,16 +198,6 @@ namespace rd_utils::net {
                 void configureEpoll ();
 
                 /**
-                 * Add file descriptor to epoll list
-                 */
-                void addEpoll (TcpSessionKind, int fd);
-
-                /**
-                 * delete file descriptor from epoll list
-                 */
-                void delEpoll (int fd);
-
-                /**
                  * The main loop of the poll
                  */
                 void pollMain (concurrency::Thread);
@@ -295,12 +210,7 @@ namespace rd_utils::net {
                 /**
                  * Submit a new session to the task pool
                  */
-                void submit (TcpSessionKind, std::shared_ptr <TcpStream> stream);
-
-                /**
-                 * Reload all the socket whose session is finished
-                 */
-                void reloadAllFinished ();
+                void submit (std::shared_ptr <TcpStream> stream);
 
                 /**
                  * Spawn the worker threads
@@ -312,10 +222,6 @@ namespace rd_utils::net {
                  */
                 void waitAllCompletes ();
 
-                /**
-                 * @returns: true if the current thread is a worker thread instead of a main thread
-                 */
-                bool isWorkerThread () const;
 
         };
 

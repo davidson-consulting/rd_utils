@@ -66,6 +66,10 @@ namespace rd_utils {
 			return TcpStream (sock, addr);
 		}
 
+		int TcpListener::getHandle () const {
+			return this-> _sockfd;
+		}
+
 		void TcpListener::close () {
 			if (this-> _sockfd != 0) {
 				::shutdown (this-> _sockfd, SHUT_RDWR);

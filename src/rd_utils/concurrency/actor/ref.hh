@@ -8,7 +8,6 @@
 #include <rd_utils/utils/raw_parser.hh>
 #include <rd_utils/memory/cache/_.hh>
 #include "stream.hh"
-#include <rd_utils/net/session.hh>
 
 
 namespace rd_utils::concurrency::actor {
@@ -29,9 +28,6 @@ namespace rd_utils::concurrency::actor {
 
     // The remote address
     net::SockAddrV4 _addr;
-
-    // The connection to the actor system
-    net::TcpPool _conn;
 
     // The local actor system used to serialize messages
     ActorSystem * _sys;
@@ -77,9 +73,9 @@ namespace rd_utils::concurrency::actor {
       concurrency::timer _t;
       uint64_t _reqId;
       float _timeout;
-      std::shared_ptr <net::TcpSession> _session;
+      std::shared_ptr <net::TcpStream> _str;
       std::shared_ptr <semaphore> _wait;
-      RequestStreamFuture (uint64_t reqId, ActorSystem * sys, concurrency::timer t, std::shared_ptr <net::TcpSession> session, std::shared_ptr <semaphore> wait, float timeout = 5);
+      RequestStreamFuture (uint64_t reqId, ActorSystem * sys, concurrency::timer t, std::shared_ptr <net::TcpStream> stream, std::shared_ptr <semaphore> wait, float timeout = 5);
 
       friend ActorRef;
 
@@ -92,59 +88,6 @@ namespace rd_utils::concurrency::actor {
        * Wait for the request to complete
        */
       std::shared_ptr <ActorStream> wait ();
-    };
-
-
-
-    /**
-     * Future returned by the ref when a request is sent
-     */
-    template <typename T>
-    class RequestBigFuture {
-      ActorSystem * _sys;
-      concurrency::timer _t;
-      uint64_t _reqId;
-      float _timeout;
-      std::shared_ptr <semaphore> _wait;
-      RequestBigFuture (uint64_t reqId, ActorSystem * sys, concurrency::timer t, std::shared_ptr <semaphore> wait, float timeout):
-        _sys (sys)
-        , _t (t)
-        , _reqId (reqId)
-        , _timeout (timeout)
-        , _wait (wait)
-      {}
-
-      friend ActorRef;
-
-    public :
-
-      /**
-       * Wait for the request to complete
-       */
-      std::shared_ptr <rd_utils::memory::cache::collection::CacheArray<T> > wait () {
-        float rest = this-> _timeout;
-        if (this-> _timeout > 0) {
-          rest = this-> _timeout - this-> _t.time_since_start ();
-          if (this-> _t.time_since_start () > this-> _timeout) {
-            this-> _sys-> removeRequestId (this-> _reqId);
-            throw std::runtime_error ("timeout");
-          }
-        }
-
-        if (this-> _wait-> wait (rest)) {
-          ActorSystem::ResponseBig resp;
-          if (this-> _sys-> consumeResponseBig (this-> _reqId, resp)) {
-            if (resp.msg == nullptr) throw std::runtime_error ("No response");
-            return std::static_pointer_cast <rd_utils::memory::cache::collection::CacheArray <T> > (resp.msg);
-          } else {
-            this-> _sys-> removeRequestId (this-> _reqId);
-            throw std::runtime_error ("not found");
-          }
-        }
-
-        this-> _sys-> removeRequestId (this-> _reqId);
-        throw std::runtime_error ("timeout");
-      }
     };
 
 
@@ -167,7 +110,7 @@ namespace rd_utils::concurrency::actor {
      *    - timeout: timeout of the connection to the other actor
      * @info: if timeout < 0 wait indefinitely
      */
-    void send (const rd_utils::utils::config::ConfigNode & msg, float timeout = 5);
+    void send (const rd_utils::utils::config::ConfigNode & msg);
 
     /**
      * Send a request to the actor
@@ -184,39 +127,14 @@ namespace rd_utils::concurrency::actor {
     RequestStreamFuture requestStream (const rd_utils::utils::config::ConfigNode & msg, float timeout = 5);
 
     /**
-     * Send a request and wait for a big response
-     * @params:
-     *    - timeout: the timeout of the request (-1 = forever)
-     */
-    template <typename T>
-    RequestBigFuture<T> requestBig (const rd_utils::utils::config::ConfigNode & msg, float timeout = 5) {
-      concurrency::timer t;
-      auto session = this-> _conn.get (timeout);
-
-      session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ_BIG));
-      session-> sendU32 (this-> _name.length ());
-      session-> sendStr (this-> _name);
-      session-> sendU32 (this-> _sys-> port ());
-
-      auto wait = std::make_shared <semaphore> ();
-      uint64_t uniqId = this-> _sys-> genUniqId ();
-      this-> _sys-> registerRequestId (uniqId, wait);
-
-      session-> sendU64 (uniqId);
-
-      utils::raw::dump (*session, msg);
-      return RequestBigFuture<T> (uniqId, this-> _sys, t, wait, timeout);
-    }
-
-    /**
      * @returns: the name of the actor
      */
     const std::string & getName () const;
 
     /**
-     * @returns: the opened socket
+     * @returns: an opened socket to the remote actor system
      */
-    net::TcpPool& getSession ();
+    std::shared_ptr <net::TcpStream> stream ();
 
     /**
      * Close the actor reference
@@ -232,9 +150,7 @@ namespace rd_utils::concurrency::actor {
 
     friend ActorSystem;
 
-    void response (uint64_t reqId, std::shared_ptr <rd_utils::utils::config::ConfigNode> msg, float timeout);
-
-    void responseBig (uint64_t reqId, std::shared_ptr <rd_utils::memory::cache::collection::ArrayListBase> & array, float timeout);
+    void response (uint64_t reqId, std::shared_ptr <rd_utils::utils::config::ConfigNode> msg);
 
   };
 

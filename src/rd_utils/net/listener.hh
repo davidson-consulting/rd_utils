@@ -72,6 +72,11 @@ namespace rd_utils {
 			unsigned short port () const;
 
 			/**
+			 * @returns: the fd of the listener
+			 */
+			int getHandle () const;
+
+			/**
 			 * this-> close ()
 			 */
 			~TcpListener ();

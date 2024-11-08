@@ -56,7 +56,7 @@ namespace rd_utils::memory::cache::remote {
      *    - blockSize: the size of a block
      *    - maxCon: the maximum number of clients that can be connected to the repository at the same time
      */
-    Repository (net::SockAddrV4 addr, uint32_t nbBlocks, uint32_t blockSize, int maxCon = -1);
+    Repository (net::SockAddrV4 addr, uint32_t nbBlocks, uint32_t blockSize);
 
     /**
      * Start the repository, now ready for incoming connections and requests
@@ -92,7 +92,7 @@ namespace rd_utils::memory::cache::remote {
      *    - kind: new connection, or old
      *    - stream: the tcp stream of the client
      */
-    void onSession (net::TcpSessionKind, std::shared_ptr <net::TcpSession>);
+    void onSession (std::shared_ptr <net::TcpStream>);
 
     /**
      * Store a block received from the stream

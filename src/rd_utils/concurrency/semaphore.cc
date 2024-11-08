@@ -10,43 +10,42 @@ namespace rd_utils::concurrency {
 
 
   semaphore::semaphore () {
-    ::sem_init (&this-> _sem, 0, 0);
-    this-> _init = true;
+    this-> _sem = new sem_t ();
+    ::sem_init (this-> _sem, 0, 0);
   }
 
-  semaphore::semaphore (semaphore && other) :
-    _sem (other._sem),
-    _init (other._init)
-    {
-      other._init = false;
-      other._sem = sem_t{0};
-    }
+  semaphore::semaphore (semaphore && other)
+    : _sem (other._sem)
+  {
+    other._sem = nullptr;
+  }
 
 
   void semaphore::operator=(semaphore && other) {
     this-> dispose ();
-    this-> _init = other._init;
     this-> _sem = other._sem;
 
-    other._init = false;
-    other._sem = sem_t{0};
+    other._sem = nullptr;
   }
 
   void semaphore::dispose () {
-    if (this-> _init) {
-      ::sem_destroy (&this-> _sem);
-      this-> _init = false;
-      this-> _sem = sem_t{0};
+    if (this-> _sem != nullptr) {
+      ::sem_destroy (this-> _sem);
+      delete this-> _sem;
+      this-> _sem = nullptr;
     }
   }
 
   void semaphore::post () {
-    ::sem_post (&this-> _sem);
+    if (this-> _sem != nullptr) {
+      ::sem_post (this-> _sem);
+    }
   }
 
   bool semaphore::wait (float timeout) {
+    if (this-> _sem == nullptr) return false;
     if (timeout < 0) {
-      ::sem_wait (&this-> _sem);
+      ::sem_wait (this-> _sem);
       return true;
     } else {
       timespec ts;
@@ -62,13 +61,14 @@ namespace rd_utils::concurrency {
         ts.tv_sec += 1;
       }
 
-      return  ::sem_timedwait (&this-> _sem, &ts) == 0;
+      return  ::sem_timedwait (this-> _sem, &ts) == 0;
     }
   }
 
   int semaphore::get () {
+    if (this-> _sem == nullptr) return 0;
     int i = 0;
-    ::sem_getvalue (&this-> _sem, &i);
+    ::sem_getvalue (this-> _sem, &i);
 
     return i;
   }

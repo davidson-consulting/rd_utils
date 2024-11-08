@@ -31,24 +31,21 @@ namespace rd_utils::concurrency::actor {
       std::shared_ptr <rd_utils::utils::config::ConfigNode> msg;
     };
 
-    struct ResponseBig {
-      uint64_t reqId;
-      std::shared_ptr <rd_utils::memory::cache::collection::CacheArrayBase> msg;
-    };
-
     struct ResponseStream {
       uint64_t reqId;
-      std::shared_ptr <net::TcpSession> stream;
+      std::shared_ptr <net::TcpStream> stream;
     };
 
   private:
 
+    struct Job {
+      uint32_t protId;
+      std::shared_ptr <net::TcpStream> stream;
+    };
 
-    // The server used to communicate between actors
-    net::TcpServer _server;
 
-    // Number of threads the actor system can manage at the same time
-    uint64_t _nbThreads;
+    // If true the server should be killed when all actors are killed
+    bool _stopOnEmpty = false;
 
     // The list of local actors
     std::map <std::string, std::shared_ptr <ActorBase> > _actors;
@@ -65,11 +62,47 @@ namespace rd_utils::concurrency::actor {
     // True while the system is running
     bool _isRunning = false;
 
+  private:
+
+    // The epoll list
+    int _epoll_fd = 0;
+
+    // The context of the queuing
+    net::TcpListener _listener;
+
+    // The number of threads in the pool
+    uint32_t _nbJobThreads;
+    uint32_t _nbManageThreads;
+
+    // The polling thread
+    concurrency::Thread _th;
+
+    // The worker threads
+    std::map <int, concurrency::Thread> _runningJobThreads;
+    std::map <int, concurrency::Thread> _runningManageThreads;
+
+    concurrency::Mailbox <Job> _jobs;
+    concurrency::Mailbox <Job> _manages;
+
+
+    concurrency::ThreadPipe _trigger;
+    concurrency::mutex _triggerM;
+    concurrency::semaphore _ready;
+    concurrency::semaphore _waitJobTask;
+    concurrency::semaphore _waitManageTask;
+
+  private:
+
+    /*!
+     * ====================================================================================================
+     * ====================================================================================================
+     * ====================================          REQUESTS          ====================================
+     * ====================================================================================================
+     * ====================================================================================================
+     */
+
     // mailbox of responses
     std::map <uint64_t, Response> _responses;
-
-    // mailbox of big responses
-    std::map <uint64_t, ResponseBig> _responseBigs;
 
     // Streaming response
     std::map <uint64_t, ResponseStream> _responseStreams;
@@ -79,8 +112,6 @@ namespace rd_utils::concurrency::actor {
 
     // Uniq id
     uint64_t _lastU = 0;
-
-    bool _stopOnEmpty = false;
 
   public:
 
@@ -103,8 +134,9 @@ namespace rd_utils::concurrency::actor {
      * @params:
      *    - addr: the accepted by the actor system
      *    - nbThreads: the number of threads used (-1 means nb cores available on system)
+     *    - nbManageThreads: the number of threads used to the management
      */
-    ActorSystem (net::SockAddrV4 addr, int nbThreads = -1, int maxCon = -1);
+    ActorSystem (net::SockAddrV4 addr, int nbThreads = -1, int nbManageThreads = 1);
 
     /**
      * Stop the system when all the actors are exited after start
@@ -202,13 +234,17 @@ namespace rd_utils::concurrency::actor {
 
     /**
      * Close the actor system and all registered actors
+     * @returns: true if the dispose was successful
+     * @info: only an external thread can dispose the system (not a thread spawned by the system itself)
      */
-    void dispose ();
+    bool dispose ();
 
     /**
      * Wait for the actor system to be disposed
+     * @returns: true if the join was successful
+     * @info: only an external thread can join the system (not a thread spawned by the system itself)
      */
-    void join ();
+    bool join ();
 
     /**
      * @returns: the port of the listening server
@@ -223,24 +259,89 @@ namespace rd_utils::concurrency::actor {
 
   private:
 
+    /*!
+     * ====================================================================================================
+     * ====================================================================================================
+     * ===================================          TASK POOL          ====================================
+     * ====================================================================================================
+     * ====================================================================================================
+     */
+
+
+    /**
+     * The main loop of the actor system accepting connection
+     * This loop submits the connection to the task pool to be executed by the actors
+     */
+    void pollMain (concurrency::Thread);
+
+    /**
+     * Configure the epoll
+     */
+    void configureEpoll ();
+
+    /**
+     * Submit a new client to the task pool
+     */
+    void submitJob (uint32_t, std::shared_ptr <net::TcpStream> stream);
+    void submitManage (uint32_t, std::shared_ptr <net::TcpStream> stream);
+
+
+    /*!
+     * ====================================================================================================
+     * ====================================================================================================
+     * ====================================          WORKERS          =====================================
+     * ====================================================================================================
+     * ====================================================================================================
+     */
+
+    /**
+     * Spawn the threads
+     */
+    void spawnJobThreads ();
+    void spawnManageThreads ();
+
+    /**
+     * The main loop of a worker thread
+     */
+    void workerJobThread (concurrency::Thread);
+    void workerManageThread (concurrency::Thread);
+
+    /**
+     * Called when a tcpstream message is received
+     * @params:
+     *    - stream: the stream to the tcp client
+     */
+    void onSession (uint32_t, std::shared_ptr <net::TcpStream> stream);
+    void onManage (uint32_t, std::shared_ptr <net::TcpStream> stream);
+
+    /**
+     * @returns: true iif this is a worker thread
+     */
+    bool isWorkerThread () const;
+
+  private:
+
     friend ActorRef;
 
     void poisonPill ();
 
+    /*!
+     * ====================================================================================================
+     * ====================================================================================================
+     * ===================================          RESPONSES          ====================================
+     * ====================================================================================================
+     * ====================================================================================================
+     */
+
     /**
      * Push a response
      */
-    void pushResponse (Response rep);
-
-    /**
-     * Push a big response
-     */
-    void pushResponseBig (ResponseBig rep);
+    void pushResponse (Response && rep);
 
     /**
      * Push a stream response
      */
-    void pushResponseStream (ResponseStream rep);
+    void pushResponseStream (ResponseStream && rep);
 
     /**
      * generate a uniq id
@@ -265,85 +366,74 @@ namespace rd_utils::concurrency::actor {
     /**
      * Consume the response if it exists
      */
-    bool consumeResponseBig (uint64_t id, ResponseBig & resp);
-
-    /**
-     * Consume the response if it exists
-     */
     bool consumeResponseStream (uint64_t id, ResponseStream & resp);
-
-    /**
-     * Called when a tcpstream message is received
-     * @params:
-     *    - kind: the kind of message (new, old)
-     *    - session: the stream to the tcp session
-     */
-    void onSession (net::TcpSessionKind kind, std::shared_ptr <net::TcpSession> session);
 
     /**
      * Treat an actor existance request
      */
-    void onActorExistReq (std::shared_ptr <net::TcpSession> session);
+    void onActorExistReq (std::shared_ptr <net::TcpStream> session);
+
+    /*!
+     * ====================================================================================================
+     * ====================================================================================================
+     * ====================================          MESSAGES          ====================================
+     * ====================================================================================================
+     * ====================================================================================================
+     */
 
     /**
      * Treat an actor message
      */
-    void onActorMsg (std::shared_ptr <net::TcpSession> session);
+    void onActorMsg (std::shared_ptr <net::TcpStream> session);
 
     /**
      * Treat an actor request (msg with response)
      */
-    void onActorReq (std::shared_ptr <net::TcpSession> session);
-
-    /**
-     * Treat an actor request (msg with response of type cache array)
-     */
-    void onActorReqBig (std::shared_ptr <net::TcpSession> session);
+    void onActorReq (std::shared_ptr <net::TcpStream> session);
 
     /**
      * Treat an actor request msg to open a stream between two actors
      */
-    void onActorReqStream (std::shared_ptr <net::TcpSession> session);
+    void onActorReqStream (std::shared_ptr <net::TcpStream> session);
 
     /**
      * Treat an actor response
      */
-    void onActorResp (std::shared_ptr <net::TcpSession> session);
+    void onActorResp (std::shared_ptr <net::TcpStream> session);
 
     /**
      * Treat an actor big response
      */
-    void onActorRespBig (std::shared_ptr <net::TcpSession> session);
-
-    /**
-     * Treat an actor big response
-     */
-    void onActorRespStream (std::shared_ptr <net::TcpSession> session);
+    void onActorRespStream (std::shared_ptr <net::TcpStream> session);
 
     /**
      * Treat a request to kill the system
      */
     void onSystemKill ();
 
+    /*!
+     * ====================================================================================================
+     * ====================================================================================================
+     * ======================================          MISC          ======================================
+     * ====================================================================================================
+     * ====================================================================================================
+     */
+
     /**
      * @returns: the name of the actor
      */
-    std::string readActorName (std::shared_ptr <net::TcpSession> stream);
+    std::string readActorName (std::shared_ptr <net::TcpStream> stream);
 
     /**
      * @returns: read an address from remote stream
      */
-    net::SockAddrV4 readAddress (std::shared_ptr <net::TcpSession> stream);
+    net::SockAddrV4 readAddress (std::shared_ptr <net::TcpStream> stream);
 
     /**
      * @returns: a message
      */
-    std::shared_ptr<utils::config::ConfigNode> readMessage (std::shared_ptr <net::TcpSession> stream);
+    std::shared_ptr<utils::config::ConfigNode> readMessage (std::shared_ptr <net::TcpStream> stream);
 
-    /**
-     * @returns: true if the addr is the address of the local system
-     */
-    bool isLocal (net::SockAddrV4 addr) const;
 
     /**
      * @returns: an actor in the system
@@ -354,6 +444,9 @@ namespace rd_utils::concurrency::actor {
      * Remove an actor from the system
      */
     void removeActor (const std::string & name);
+
+
+    void waitAllCompletes ();
 
   };
 

@@ -1,3 +1,4 @@
+#include <rd_utils/utils/log.hh>
 #include <rd_utils/concurrency/mutex.hh>
 #include <memory>
 
@@ -27,12 +28,14 @@ namespace rd_utils::concurrency {
 
   void mutex::lock () {
     if (this-> _m != nullptr) {
+      LOG_INFO ("Locking : ", this-> _m);
       pthread_mutex_lock (this-> _m);
     }
   }
 
   void mutex::unlock () {
     if (this-> _m != nullptr) {
+      LOG_INFO ("Unlocking : ", this-> _m);
       pthread_mutex_unlock (this-> _m);
     }
   }

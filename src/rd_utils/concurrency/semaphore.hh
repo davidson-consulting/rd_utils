@@ -11,9 +11,7 @@ namespace rd_utils::concurrency {
      */
     class semaphore {
 
-        sem_t _sem;
-
-        bool _init = false;
+        sem_t* _sem = nullptr;
 
     private :
 

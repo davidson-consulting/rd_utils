@@ -13,8 +13,7 @@ namespace rd_utils::concurrency {
    */
   class condition {
 
-    bool _init = false;
-    pthread_cond_t _cond;
+    pthread_cond_t * _cond;
 
   private:
 

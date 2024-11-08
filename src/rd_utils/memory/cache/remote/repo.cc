@@ -1,13 +1,12 @@
 #include "repo.hh"
-#include <rd_utils/net/session.hh>
 
 namespace rd_utils::memory::cache::remote {
 
-  Repository::Repository (net::SockAddrV4 addr, uint32_t nbBlocks, uint32_t blockSize, int maxCon) :
+  Repository::Repository (net::SockAddrV4 addr, uint32_t nbBlocks, uint32_t blockSize) :
     _nbBlocks (nbBlocks)
     , _blockSize (blockSize)
     , _addr (addr)
-    , _server (addr, 1, maxCon)
+    , _server (addr, 1)
   {
     this-> _persister = new LocalPersister ();
   }
@@ -32,31 +31,31 @@ namespace rd_utils::memory::cache::remote {
     this-> dispose ();
   }
 
-  void Repository::onSession (net::TcpSessionKind kind, std::shared_ptr <net::TcpSession> str) {
-    auto proto = (*str)-> receiveU32 ();
+  void Repository::onSession (std::shared_ptr <net::TcpStream> str) {
+    auto proto = str-> receiveU32 ();
     switch ((RepositoryProtocol) proto) {
     case RepositoryProtocol::EXISTS :
-      this-> exists (*(*str));
+      this-> exists (*str);
       break;
     case RepositoryProtocol::STORE:
-      this-> store (*(*str));
+      this-> store (*str);
       break;
     case RepositoryProtocol::LOAD:
-      this-> load (*(*str));
+      this-> load (*str);
       break;
     case RepositoryProtocol::ERASE:
-      this-> erase (*(*str));
+      this-> erase (*str);
       break;
     case RepositoryProtocol::REGISTER:
       LOG_INFO ("New client");
       this-> _userId ++;
-      (*str)-> sendU32 (this-> _userId);
+      str-> sendU32 (this-> _userId);
       break;
     default :
       break;
     }
 
-    (*str)-> close ();
+    str-> close ();
   }
 
   void Repository::exists (net::TcpStream & str) {

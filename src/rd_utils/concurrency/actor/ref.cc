@@ -23,11 +23,9 @@ namespace rd_utils::concurrency::actor {
     _isLocal (local)
     , _name (name)
     , _addr (addr)
-    , _conn (net::TcpPool (addr, 1))
     , _sys (sys)
   {
-    this-> _conn.setSendTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
-    this-> _conn.setRecvTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
+
   }
 
   ActorRef::RequestFuture::RequestFuture (uint64_t reqId, ActorSystem * sys, concurrency::timer t, std::shared_ptr <semaphore> wait, float timeout) :
@@ -39,12 +37,12 @@ namespace rd_utils::concurrency::actor {
   {}
 
 
-  ActorRef::RequestStreamFuture::RequestStreamFuture (uint64_t reqId, ActorSystem * sys, concurrency::timer t, std::shared_ptr <net::TcpSession> s, std::shared_ptr <semaphore> wait, float timeout) :
+  ActorRef::RequestStreamFuture::RequestStreamFuture (uint64_t reqId, ActorSystem * sys, concurrency::timer t, std::shared_ptr <net::TcpStream> s, std::shared_ptr <semaphore> wait, float timeout) :
     _sys (sys)
     , _t (t)
     , _reqId (reqId)
     , _timeout (timeout)
-    , _session (std::move (s))
+    , _str (std::move (s))
     , _wait (wait)
   {}
 
@@ -56,16 +54,15 @@ namespace rd_utils::concurrency::actor {
    * ====================================================================================================
    */
 
-  void ActorRef::send (const rd_utils::utils::config::ConfigNode & node, float timeout) {
-    auto session = this-> _conn.get (timeout);
+  void ActorRef::send (const rd_utils::utils::config::ConfigNode & node) {
+    auto session = this-> stream ();
 
-    auto & s = *session;
-    s.sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_MSG));
-    s.sendU32 (this-> _name.length ());
-    s.sendStr (this-> _name);
-    s.sendU32 (this-> _sys-> port ());
+    session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_MSG));
+    session-> sendU32 (this-> _name.length ());
+    session-> sendStr (this-> _name);
+    session-> sendU32 (this-> _sys-> port ());
 
-    utils::raw::dump (s, node);
+    utils::raw::dump (*session, node);
   }
 
   /*!
@@ -79,7 +76,7 @@ namespace rd_utils::concurrency::actor {
 
   ActorRef::RequestFuture ActorRef::request (const rd_utils::utils::config::ConfigNode & node, float timeout) {
     concurrency::timer t;
-    auto session = this-> _conn.get (timeout);
+    auto session = this-> stream ();
 
     session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ));
     session-> sendU32 (this-> _name.length ());
@@ -118,7 +115,7 @@ namespace rd_utils::concurrency::actor {
     }
 
     this-> _sys-> removeRequestId (this-> _reqId);
-    throw std::runtime_error ("timeout");
+    throw std::runtime_error ("timeout " + std::to_string (this-> _reqId));
 
   }
 
@@ -132,7 +129,7 @@ namespace rd_utils::concurrency::actor {
 
   ActorRef::RequestStreamFuture ActorRef::requestStream (const rd_utils::utils::config::ConfigNode & msg, float timeout) {
     concurrency::timer t;
-    auto session = this-> _conn.get (timeout);
+    auto session = this-> stream ();
 
     session-> sendU32 ((uint32_t) ActorSystem::Protocol::ACTOR_REQ_STREAM);
     session-> sendU32 (this-> _name.length ());
@@ -146,7 +143,7 @@ namespace rd_utils::concurrency::actor {
     session-> sendU64 (uniqId);
     utils::raw::dump (*session, msg);
 
-    return RequestStreamFuture (uniqId, this-> _sys, t, std::make_shared <net::TcpSession> (std::move (session)), wait, timeout);
+    return RequestStreamFuture (uniqId, this-> _sys, t, session, wait, timeout);
   }
 
   std::shared_ptr <ActorStream> ActorRef::RequestStreamFuture::wait () {
@@ -162,7 +159,7 @@ namespace rd_utils::concurrency::actor {
     if (this-> _wait-> wait (rest)) {
       ActorSystem::ResponseStream resp;
       if (this-> _sys-> consumeResponseStream (this-> _reqId, resp)) {
-        return std::make_shared <ActorStream> (resp.stream, this-> _session);
+        return std::make_shared <ActorStream> (resp.stream, this-> _str);
       } else {
         this-> _sys-> removeRequestId (this-> _reqId);
         throw std::runtime_error ("not found");
@@ -170,7 +167,7 @@ namespace rd_utils::concurrency::actor {
     }
 
     this-> _sys-> removeRequestId (this-> _reqId);
-    throw std::runtime_error ("timeout");
+    throw std::runtime_error ("timeout " + std::to_string (this-> _reqId));
   }
 
   /*!
@@ -181,35 +178,34 @@ namespace rd_utils::concurrency::actor {
    * ====================================================================================================
    */
 
-  void ActorRef::response (uint64_t reqId, std::shared_ptr <rd_utils::utils::config::ConfigNode> node, float timeout) {
-    auto session = this-> _conn.get (timeout);
-    session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP));
-    session-> sendU64 (reqId);
+  void ActorRef::response (uint64_t reqId, std::shared_ptr <rd_utils::utils::config::ConfigNode> node) {
+    {
+      auto session = this-> stream ();
+      session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP));
+      session-> sendU64 (reqId);
 
-    if (node == nullptr) {
-      session-> sendU32 (0);
-    } else {
-      session-> sendU32 (1);
-      utils::raw::dump (*session, *node);
+      if (node == nullptr) {
+        session-> sendU32 (0);
+      } else {
+        session-> sendU32 (1);
+        utils::raw::dump (*session, *node);
+      }
     }
   }
 
-  void ActorRef::responseBig (uint64_t reqId, std::shared_ptr <rd_utils::memory::cache::collection::ArrayListBase> & array, float timeout) {
-    auto session = this-> _conn.get (timeout);
+  std::shared_ptr <net::TcpStream> ActorRef::stream () {
+    auto s = std::make_shared <net::TcpStream> (this-> _addr);
 
-    session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP_BIG));
-    session-> sendU64 (reqId);
+    s-> setSendTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
+    s-> setRecvTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
 
-    if (array == nullptr) {
-      session-> sendU32 (0);
-    } else {
-      session-> sendU32 (1);
-      array-> send (*session, ARRAY_BUFFER_SIZE);
+    try {
+      s-> connect ();
+    } catch (utils::Rd_UtilsError & err) { // failed to connect
+      throw std::runtime_error ("Failed to connect");
     }
-  }
 
-  net::TcpPool& ActorRef::getSession () {
-    return this-> _conn;
+    return s;
   }
 
   const std::string & ActorRef::getName () const {
