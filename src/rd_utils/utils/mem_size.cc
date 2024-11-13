@@ -133,6 +133,27 @@ namespace rd_utils::utils {
   MemorySize MemorySize::max (MemorySize A, MemorySize B) {
     return MemorySize (A._size > B._size ? A._size : B._size);
   }
+
+  MemorySize MemorySize::nextPow2 (MemorySize A) {
+    if (A.bytes () == 1) return A;
+    else {
+      return MemorySize::B (1 << (64 - __builtin_clzl (A.bytes () - 1)));
+    }
+  }
+
+  MemorySize MemorySize::roundUp (MemorySize A, MemorySize rnd) {
+    if (rnd.bytes () == 0) {
+      return A;
+    }
+
+    uint64_t remainder = A.bytes () % rnd.bytes ();
+    if (remainder == 0) {
+      return A;
+    }
+
+    return A + (rnd - remainder);
+  }
+
 }
 
 

@@ -91,6 +91,17 @@ namespace rd_utils::utils {
 
     static MemorySize min (MemorySize A, MemorySize B);
     static MemorySize max (MemorySize A, MemorySize B);
+
+    /**
+     * @returns: the next power of 2 size
+     */
+    static MemorySize nextPow2 (MemorySize x);
+
+    /**
+     * Round the memory size A to a factor of rnd
+     */
+    static MemorySize roundUp (MemorySize A, MemorySize rnd);
+
   };
 
 
