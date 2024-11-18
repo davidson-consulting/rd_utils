@@ -157,7 +157,7 @@ namespace rd_utils::utils {
 }
 
 
-std::ostream & operator<< (std::ostream & o, rd_utils::utils::MemorySize m) {
-  o << "M (" << m.bytes () << "B)";
+std::ostream & operator<< (std::ostream & o, const rd_utils::utils::MemorySize & m) {
+  o << "M (" << m.megabytes () << "MB)";
   return o;
 }

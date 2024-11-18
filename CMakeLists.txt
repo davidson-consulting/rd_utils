@@ -97,6 +97,12 @@ file(
   src/rd_utils/utils/config/*.hh
   )
 
+file(
+  GLOB
+  HEADER_TRACE
+  src/rd_utils/utils/trace/*.hh
+  )
+
 find_package(nlohmann_json 3.7.3 REQUIRED)
 add_library (rd_utils ${SRC} ${SRC_C})
 
@@ -116,6 +122,7 @@ install (FILES ${HEADER_MEMORY_CACHE_COLL} DESTINATION /usr/include/rd_utils/mem
 install (FILES ${HEADER_MEMORY_CACHE_ALGOS} DESTINATION /usr/include/rd_utils/memory/cache/algorithm)
 install (FILES ${HEADER_MEMORY_CACHE_REPO} DESTINATION /usr/include/rd_utils/memory/cache/remote)
 install (FILES ${HEADER_CONFIG} DESTINATION /usr/include/rd_utils/utils/config)
+install (FILES ${HEADER_TRACE} DESTINATION /usr/include/rd_utils/utils/trace)
 install (FILES ${HEADER_ROOT} DESTINATION /usr/include/rd_utils/)
 
 

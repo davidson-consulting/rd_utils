@@ -178,7 +178,6 @@ namespace rd_utils::concurrency {
       return;
     }
 
-    std::cout << parent_directory (this-> _out) << " " << this-> _out << std::endl;
     this-> _copy = ssh_scp_new (this-> _session, SSH_SCP_WRITE | SSH_SCP_RECURSIVE , parent_directory(this-> _out).c_str ());
     if (this-> _copy == nullptr) {
       throw Rd_UtilsError ("Failed to open scp");
@@ -190,7 +189,6 @@ namespace rd_utils::concurrency {
     int rc = ssh_scp_init (this-> _copy);
     if (rc != SSH_OK) {
       std::string err = ssh_get_error (this-> _session);
-      std::cout << err << std::endl;
       ssh_scp_free (this-> _copy);
       this-> _copy = nullptr;
       throw Rd_UtilsError (err);
@@ -289,7 +287,6 @@ namespace rd_utils::concurrency {
     int rc = ssh_scp_init (this-> _copy);
     if (rc != SSH_OK) {
       std::string err = ssh_get_error (this-> _session);
-      std::cout << err << std::endl;
       ssh_scp_free (this-> _copy);
       this-> _copy = nullptr;
       throw Rd_UtilsError (err);
