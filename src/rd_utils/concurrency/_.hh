@@ -16,3 +16,4 @@
 #include <rd_utils/concurrency/thread.hh>
 #include <rd_utils/concurrency/actor/_.hh>
 #include <rd_utils/concurrency/timer.hh>
+#include <rd_utils/concurrency/routine.hh>
