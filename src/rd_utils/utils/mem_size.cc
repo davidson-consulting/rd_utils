@@ -9,6 +9,15 @@ namespace rd_utils::utils {
     :_size (nb)
   {}
 
+  MemorySize MemorySize::str (const std::string & value) {
+    if (value.length () > 2) {
+      auto unit = value.substr (value.length () - 2);
+      return MemorySize::unit (std::strtoull (value.substr (0, value.length () - 2).c_str (), nullptr, 0), unit);
+    }
+
+    throw std::runtime_error ("malformed memory size");
+  }
+
   MemorySize MemorySize::unit (uint64_t nb, const std::string & unit) {
     if (unit.length () == 1 && unit [0] == 'b') return MemorySize::B (nb);
     if (unit.length () != 2) throw std::runtime_error ("unknown unit");

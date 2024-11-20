@@ -250,8 +250,16 @@ namespace rd_utils::concurrency {
 
     char buffer[1024];
 
-    if (ssh_scp_pull_request(this-> _copy) == SSH_SCP_REQUEST_NEWFILE) {
-      ssh_scp_request_get_size (this-> _copy);
+    rc = ssh_scp_pull_request(this-> _copy);
+    std::string warning;
+    if (rc == SSH_SCP_REQUEST_WARNING) {
+      warning = std::string (ssh_scp_request_get_warning (this-> _copy));
+    }
+
+    if (rc != SSH_ERROR && rc != SSH_SCP_REQUEST_NEWDIR) {
+      auto size = ssh_scp_request_get_size (this-> _copy);
+      if (size == 0) throw Rd_UtilsError ("Failed to scp (" + warning + ")");
+
       ssh_scp_accept_request (this-> _copy);
 
       std::ofstream out (this-> _out, std::ios::binary);
@@ -264,13 +272,12 @@ namespace rd_utils::concurrency {
         if (len == -1) break;
       } while (true);
 
-
       out.close ();
     } else {
       ssh_scp_close (this-> _copy);
       ssh_scp_free (this-> _copy);
       this-> _copy = nullptr;
-      throw Rd_UtilsError ("Failed to read scp file");
+      throw Rd_UtilsError ("Failed to read scp file (" + warning + ")");
     }
 
     ssh_scp_close (this-> _copy);
@@ -279,7 +286,7 @@ namespace rd_utils::concurrency {
   }
 
   void SCPProcess::launchUploadCmdFromInput () {
-    this-> _copy = ssh_scp_new (this-> _session, SSH_SCP_WRITE | SSH_SCP_RECURSIVE , parent_directory(this-> _out).c_str ());
+    this-> _copy = ssh_scp_new (this-> _session, SSH_SCP_WRITE | SSH_SCP_RECURSIVE , parent_directory (this-> _out).c_str ());
     if (this-> _copy == nullptr) {
       throw Rd_UtilsError ("Failed to open scp");
     }
@@ -302,6 +309,7 @@ namespace rd_utils::concurrency {
       std::string err = ssh_get_error (this-> _session);
       ssh_scp_free (this-> _copy);
       this-> _copy = nullptr;
+
       throw Rd_UtilsError (err);
     }
 

@@ -10,6 +10,8 @@
 #include <dirent.h>
 #include <sstream>
 #include <fstream>
+#include <cstdlib>
+#include <cstring>
 
 namespace rd_utils::utils {
 
@@ -246,6 +248,15 @@ namespace rd_utils::utils {
 		ss << f.rdbuf ();
 
 		return ss.str ();
+	}
+
+	std::string create_temp_dirname (const std::string & prefix) {
+		auto templ = "/tmp/" + prefix + "XXXXXXXX";
+		char buffer [255];
+		::memset (buffer, 0, sizeof (buffer));
+		::memcpy (buffer, templ.c_str (), std::min (templ.length (), (uint64_t) sizeof (buffer)));
+
+		return std::string (mkdtemp (buffer));
 	}
 
 	void write_file (const std::string & path, const std::string & content) {

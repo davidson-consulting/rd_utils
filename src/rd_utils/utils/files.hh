@@ -100,6 +100,10 @@ namespace rd_utils::utils {
      */
     std::string read_file (const std::string & path);
 
+    /**
+     * @returns: a directory name create for temporary file creations
+     */
+    std::string create_temp_dirname (const std::string & prefix);
 
     void write_file (const std::string & path, const std::string & content);
 
