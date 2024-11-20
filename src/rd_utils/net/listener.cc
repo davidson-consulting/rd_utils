@@ -100,7 +100,7 @@ namespace rd_utils {
 				throw utils::Rd_UtilsError ("Error binding socket");
 			}
 
-			if (listen (this-> _sockfd, 100) != 0) {
+			if (listen (this-> _sockfd, 2048) != 0) {
 				::close (this-> _sockfd);
 				this-> _sockfd = 0;
 

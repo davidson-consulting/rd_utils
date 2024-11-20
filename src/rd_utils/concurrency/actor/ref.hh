@@ -134,7 +134,7 @@ namespace rd_utils::concurrency::actor {
     /**
      * @returns: an opened socket to the remote actor system
      */
-    std::shared_ptr <net::TcpStream> stream (uint32_t nbRetries = 100, float sleepBetweenRetries = 0.05);
+    std::shared_ptr <net::TcpStream> stream (uint32_t nbRetries = 4, float sleepBetweenRetries = 0.05);
 
     /**
      * Close the actor reference
