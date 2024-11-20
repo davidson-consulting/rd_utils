@@ -2,6 +2,7 @@
 
 #include <rd_utils/net/addr.hh>
 #include <rd_utils/net/stream.hh>
+#include <memory>
 
 
 namespace rd_utils {
@@ -22,10 +23,10 @@ namespace rd_utils {
 
 			friend TcpServer;
 
-		private:
+		public :
 
-			TcpListener (const TcpListener &);
-			void operator=(const TcpListener&);
+			TcpListener (const TcpListener &) = delete;
+			void operator=(const TcpListener&) = delete;
 
 		public :
 
@@ -42,16 +43,6 @@ namespace rd_utils {
 			TcpListener (SockAddrV4 addr);
 
 			/**
-			 * Move ctor
-			 */
-			TcpListener (TcpListener && other);
-
-			/**
-			 * Move affectation
-			 */
-			void operator=(TcpListener && other);
-
-			/**
 			 * Start the tcp listener
 			 */
 			void start ();
@@ -59,7 +50,7 @@ namespace rd_utils {
 			/**
 			 * Accept incoming connexions
 			 */
-			TcpStream accept ();
+		  std::shared_ptr <TcpStream> accept ();
 
 			/**
 			 * Close the tcp listener

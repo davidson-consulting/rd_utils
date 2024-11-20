@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <cstdint>
 #include <optional>
+#include <rd_utils/concurrency/mutex.hh>
 
 namespace rd_utils {
 
@@ -14,6 +15,8 @@ namespace rd_utils {
 		class TcpListener;
 		class TcpStream {
 
+		  concurrency::mutex _m;
+		  
 			// True when the socket failed to read or write
 			bool _error = false;
 
@@ -25,31 +28,24 @@ namespace rd_utils {
 
 			bool _connect = false;
 
-		private :
+		// private :
 
-			friend TcpListener;
+		// 	friend TcpListener;
+
+
+		public:
+		  
+			TcpStream (const TcpStream & other) = delete;
+			void operator=(const TcpStream & other) = delete;
+
+		public :
 
 			/**
 			 * Construction of a stream from an already connected socket
 			 * @warning: should be used only by the listener
 			 */
 			TcpStream (int sock, SockAddrV4 addr);
-
-			TcpStream (const TcpStream & other);
-			void operator=(const TcpStream & other);
-
-		public :
-
-			/**
-			 * Move ctor
-			 */
-			TcpStream (TcpStream && other);
-
-			/**
-			 * Move affectation
-			 */
-			void operator=(TcpStream && other);
-
+		  
 			/**
 			 * Construction of a stream for a given tcp address
 			 * @warning: does not connect the stream (cf. this-> connect);
@@ -377,7 +373,7 @@ namespace rd_utils {
 			 * this-> close ();
 			 */
 			~TcpStream ();
-
+		  
 		private:
 
 			/**

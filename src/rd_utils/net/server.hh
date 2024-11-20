@@ -45,8 +45,10 @@ namespace rd_utils::net {
                 // The epoll list
                 int _epoll_fd = 0;
 
+	  net::SockAddrV4 _addr;
+	  
                 // The context of the queuing
-                TcpListener _context;
+	  std::shared_ptr <TcpListener> _context;
 
                 // Timeout of the recv methods of the session created by this server
                 float _recvTimeout = -1;

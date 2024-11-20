@@ -61,9 +61,6 @@ namespace rd_utils::concurrency::actor {
     return this-> _input-> isOpen () && this-> _output-> isOpen ();
   }
 
-  ActorStream::~ActorStream () {
-    this-> _input-> close ();
-    this-> _output-> close ();
-  }
+  ActorStream::~ActorStream () {}
 
 }

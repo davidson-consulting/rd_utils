@@ -17,10 +17,12 @@
 namespace rd_utils::concurrency::actor {
 
   ActorSystem::ActorSystem (net::SockAddrV4 addr, int nbThreads, int nbManageThreads)
-    :  _listener (addr)
+    : _addr (addr)
+    , _listener (nullptr)
     , _nbJobThreads (nbThreads <= 0 ? std::thread::hardware_concurrency() : nbThreads + 1)
     , _nbManageThreads (nbManageThreads <= 0 ? std::thread::hardware_concurrency() : nbManageThreads + 1)
     , _th (0, nullptr)
+    , _treatTh (0, nullptr)
   {}
 
 
@@ -41,12 +43,15 @@ namespace rd_utils::concurrency::actor {
     // Then spawning the thread with working tcplistener already configured
     this-> _th = concurrency::spawn (this, &ActorSystem::pollMain);
     this-> _ready.wait ();
+
+    this-> _treatTh = spawn (this, &ActorSystem::workerTreatThread);
+    this-> _ready.wait ();
   }
 
   void ActorSystem::configureEpoll () {
     this-> _epoll_fd = epoll_create1 (0);
-
-    this-> _listener.start ();
+    this-> _listener = std::make_shared <net::TcpListener> (this-> _addr);    
+    this-> _listener-> start ();
     this-> _trigger.setNonBlocking ();
 
     epoll_event event;
@@ -55,8 +60,8 @@ namespace rd_utils::concurrency::actor {
     epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, event.data.fd, &event);
 
     event.events = EPOLLIN | EPOLLHUP;
-    event.data.fd = this-> _listener.getHandle ();
-    epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, this-> _listener.getHandle (), &event);
+    event.data.fd = this-> _listener-> getHandle ();
+    epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, this-> _listener-> getHandle (), &event);
   }
 
   /*!
@@ -70,7 +75,7 @@ namespace rd_utils::concurrency::actor {
   void ActorSystem::pollMain (concurrency::Thread) {
     this-> _isRunning = true;
     this-> _ready.post ();
-
+    
     epoll_event event;
     while (this-> _isRunning) {
       int event_count = epoll_wait (this-> _epoll_fd, &event, 1, -1);
@@ -78,24 +83,12 @@ namespace rd_utils::concurrency::actor {
         throw std::runtime_error ("Error while tcp waiting");
       }
 
-      if (event.data.fd == this-> _listener.getHandle ()) { // -> New socket
+      if (event.data.fd == this-> _listener-> getHandle ()) { // -> New socket
         try {
-          net::TcpStream cl = this-> _listener.accept ();
+	  auto stream = this-> _listener-> accept ();
+	  this-> _treat.send (stream);
+	  this-> _waitTreatTask.post ();
 
-          auto stream = std::make_shared <net::TcpStream> (std::move (cl));
-          stream-> setSendTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
-          stream-> setRecvTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
-
-          auto protId = stream-> receiveU32 ();
-          switch ((ActorSystem::Protocol) protId) {
-          case ActorSystem::Protocol::ACTOR_MSG:
-          case ActorSystem::Protocol::ACTOR_REQ:
-          case ActorSystem::Protocol::ACTOR_REQ_STREAM:
-            this-> submitJob (protId, stream);
-            break;
-          default :
-            this-> submitManage (protId, stream);
-          }
         } catch (const std::runtime_error & err) {
           LOG_WARN ("Connection failed on accept. ignoring.");
         }
@@ -165,6 +158,34 @@ namespace rd_utils::concurrency::actor {
     }
   }
 
+  void ActorSystem::workerTreatThread (concurrency::Thread t) {
+    this-> _ready.post ();
+    
+    for (;;) {
+      this-> _waitTreatTask.wait ();
+      if (!this-> _isRunning) break;
+
+      std::shared_ptr <net::TcpStream> stream;
+      if (this-> _treat.receive (stream)) {
+	stream-> setSendTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
+	stream-> setRecvTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
+
+	auto protId = stream-> receiveU32 ();
+	switch ((ActorSystem::Protocol) protId) {
+	case ActorSystem::Protocol::ACTOR_MSG:
+	case ActorSystem::Protocol::ACTOR_REQ:
+	case ActorSystem::Protocol::ACTOR_REQ_STREAM:
+	  this-> submitJob (protId, stream);
+	  break;
+	default :
+	  this-> submitManage (protId, stream);
+	}
+      } else {
+	break;
+      }
+    }
+  }
+  
   void ActorSystem::workerJobThread (concurrency::Thread t) {
     this-> _ready.post ();
 
@@ -172,14 +193,12 @@ namespace rd_utils::concurrency::actor {
       this-> _waitJobTask.wait ();
       if (!this-> _isRunning) break;
 
-      for (;;) {
-        Job job;
-        if (this-> _jobs.receive (job)) {
-          this-> onSession (job.protId, job.stream);
-        } else {
-          break;
-        }
-      }
+      Job job;
+      if (this-> _jobs.receive (job)) {
+	this-> onSession (job.protId, job.stream);
+      } else {
+	break;
+      }      
     }
 
     WITH_LOCK (this-> _triggerM) {
@@ -194,13 +213,11 @@ namespace rd_utils::concurrency::actor {
       this-> _waitManageTask.wait ();
       if (!this-> _isRunning) break;
 
-      for (;;) {
-        Job job;
-        if (this-> _manages.receive (job)) {
-          this-> onManage (job.protId, job.stream);
-        } else {
-          break;
-        }
+      Job job;
+      if (this-> _manages.receive (job)) {
+	this-> onManage (job.protId, job.stream);
+      } else {
+	break;      
       }
     }
 
@@ -238,7 +255,7 @@ namespace rd_utils::concurrency::actor {
    */
 
   std::shared_ptr <ActorRef> ActorSystem::localActor (const std::string & name) {
-    auto addr = net::SockAddrV4 (net::Ipv4Address ("127.0.0.1"), this-> _listener.port ());
+    auto addr = net::SockAddrV4 (net::Ipv4Address ("127.0.0.1"), this-> port ());
     return std::make_shared<ActorRef> (true, name, addr, this);
   }
 
@@ -247,7 +264,8 @@ namespace rd_utils::concurrency::actor {
   }
 
   uint32_t ActorSystem::port () {
-    return this-> _listener.port ();
+    if (this-> _listener == nullptr) return 0;
+    return this-> _listener-> port ();
   }
 
   bool ActorSystem::getActor (const std::string & name, std::shared_ptr <ActorBase>& act) {
@@ -405,6 +423,11 @@ namespace rd_utils::concurrency::actor {
       }
 
       concurrency::join (this-> _th); // waiting for the main thread epolling
+
+      this-> _waitTreatTask.post ();      
+      concurrency::join (this-> _treatTh);
+      this->  _th = concurrency::Thread (0, nullptr);
+      this-> _treatTh = concurrency::Thread (0, nullptr);
     }
 
     this-> _jobs.clear ();
@@ -456,7 +479,7 @@ namespace rd_utils::concurrency::actor {
 
     this-> waitAllCompletes ();
     this-> _actors.clear ();
-    this-> _listener.close ();
+    this-> _listener.reset ();
 
     return true;
   }
@@ -512,12 +535,10 @@ namespace rd_utils::concurrency::actor {
         this-> onSystemKill ();
         break;
       default :
-        session-> close ();
         break;
       }
     } catch (...) {
       LOG_INFO ("Session failed. Remote connection out.");
-      session-> close ();
     }
   }
 
@@ -534,12 +555,10 @@ namespace rd_utils::concurrency::actor {
         this-> onActorReqStream (session);
         break;
       default :
-        session-> close ();
         break;
       }
     } catch (...) {
       LOG_INFO ("Session failed. Remote connection out.");
-      session-> close ();
     }
   }
 
@@ -572,7 +591,6 @@ namespace rd_utils::concurrency::actor {
 
     std::shared_ptr <ActorBase> act;
     if (!this-> getActor (name, act)) {
-      session-> close ();
       return;
     }
 
@@ -587,11 +605,9 @@ namespace rd_utils::concurrency::actor {
         actorRef-> response (reqId, result);
       } catch (...) {
         LOG_ERROR ("Failed to send response");
-        session-> close ();
       }
     } catch (...) {
       LOG_ERROR ("Sesssion failed");
-      session-> close ();
     }
 
     if (act-> isAtomic ()) {
@@ -608,7 +624,6 @@ namespace rd_utils::concurrency::actor {
 
     std::shared_ptr <ActorBase> act;
     if (!this-> getActor (name, act)) {
-      session-> close ();
       return;
     }
 
@@ -628,7 +643,6 @@ namespace rd_utils::concurrency::actor {
       act-> onStream (*msg, stream);
     } catch (const std::runtime_error & err) {
       LOG_ERROR ("Failed to send response ", err.what (), " to : ", addr);
-      session-> close ();
     }
 
     if (act-> isAtomic ()) {
@@ -652,7 +666,6 @@ namespace rd_utils::concurrency::actor {
 
     std::shared_ptr <ActorBase> act;
     if (!this-> getActor (name, act)) {
-      session-> close ();
       return;
     }
 
@@ -663,7 +676,6 @@ namespace rd_utils::concurrency::actor {
     try {
       act-> onMessage (*msg);
     } catch (...) {
-      session-> close ();
     }
 
     if (act-> isAtomic ()) {

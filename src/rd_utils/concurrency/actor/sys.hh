@@ -67,8 +67,10 @@ namespace rd_utils::concurrency::actor {
     // The epoll list
     int _epoll_fd = 0;
 
+    net::SockAddrV4 _addr;
+    
     // The context of the queuing
-    net::TcpListener _listener;
+    std::shared_ptr <net::TcpListener> _listener;
 
     // The number of threads in the pool
     uint32_t _nbJobThreads;
@@ -80,9 +82,11 @@ namespace rd_utils::concurrency::actor {
     // The worker threads
     std::map <int, concurrency::Thread> _runningJobThreads;
     std::map <int, concurrency::Thread> _runningManageThreads;
-
+    concurrency::Thread _treatTh;
+    
     concurrency::Mailbox <Job> _jobs;
     concurrency::Mailbox <Job> _manages;
+    concurrency::Mailbox <std::shared_ptr <net::TcpStream> > _treat;
 
 
     concurrency::ThreadPipe _trigger;
@@ -90,7 +94,8 @@ namespace rd_utils::concurrency::actor {
     concurrency::semaphore _ready;
     concurrency::semaphore _waitJobTask;
     concurrency::semaphore _waitManageTask;
-
+    concurrency::semaphore _waitTreatTask;
+    
   private:
 
     /*!
@@ -305,6 +310,7 @@ namespace rd_utils::concurrency::actor {
      */
     void workerJobThread (concurrency::Thread);
     void workerManageThread (concurrency::Thread);
+    void workerTreatThread (concurrency::Thread);    
 
     /**
      * Called when a tcpstream message is received

@@ -30,14 +30,16 @@ namespace rd_utils::net {
 
   TcpServer::TcpServer () :
      _epoll_fd (0)
-    , _context (SockAddrV4 (0, 0))
+     , _addr (0, 0)
+    , _context (nullptr)
     , _th (0, nullptr)
      , _trigger (false)
   {}
 
   TcpServer::TcpServer (SockAddrV4 v4, int nbThreads) :
     _epoll_fd (0)
-    , _context (v4)
+    , _addr (v4)
+    , _context (nullptr)
     ,_nbThreads (getNbThreads (nbThreads))
     ,_th (0, nullptr)
     ,_trigger (true)
@@ -67,7 +69,9 @@ namespace rd_utils::net {
   void TcpServer::configureEpoll () {
     this-> _epoll_fd = epoll_create1 (0);
 
-    this-> _context.start ();
+    this-> _context = std::make_shared <TcpListener> (this-> _addr);
+    this-> _context-> start ();
+    
     this-> _trigger.setNonBlocking ();
 
     epoll_event event;
@@ -76,8 +80,8 @@ namespace rd_utils::net {
     epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, event.data.fd, &event);
 
     event.events = EPOLLIN | EPOLLHUP;
-    event.data.fd = this-> _context._sockfd;
-    epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, this-> _context._sockfd, &event);
+    event.data.fd = this-> _context-> getHandle ();
+    epoll_ctl (this-> _epoll_fd, EPOLL_CTL_ADD, this-> _context-> getHandle (), &event);
   }
 
   /*!
@@ -99,11 +103,9 @@ namespace rd_utils::net {
         throw std::runtime_error ("Error while tcp waiting");
       }
 
-      if (event.data.fd == this-> _context._sockfd) { // -> New socket
+      if (event.data.fd == this-> _context-> getHandle ()) { // -> New socket
         try {
-          TcpStream cl = this-> _context.accept ();
-
-          auto stream = std::make_shared <TcpStream> (std::move (cl));
+	  auto stream = this-> _context-> accept ();
           stream-> setSendTimeout (this-> _sendTimeout);
           stream-> setRecvTimeout (this-> _recvTimeout);
 
@@ -188,7 +190,8 @@ namespace rd_utils::net {
    */
 
   int TcpServer::port () const {
-    return this-> _context.port ();
+    if (this-> _context == nullptr) return 0;
+    return this-> _context-> port ();
   }
 
   /*!
@@ -279,7 +282,7 @@ namespace rd_utils::net {
       this-> _epoll_fd = 0;
     }
 
-    this-> _context.close ();
+    this-> _context.reset ();
     this-> _trigger.dispose ();
     return true;
   }

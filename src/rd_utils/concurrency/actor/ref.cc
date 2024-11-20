@@ -193,23 +193,19 @@ namespace rd_utils::concurrency::actor {
     }
   }
 
-  std::shared_ptr <net::TcpStream> ActorRef::stream (uint32_t nbRetries, float sleepBetweenRetries) {
+  std::shared_ptr <net::TcpStream> ActorRef::stream () {
     auto s = std::make_shared <net::TcpStream> (this-> _addr);
 
     s-> setSendTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
     s-> setRecvTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
 
-    for (uint32_t nb = 0 ; nb < nbRetries ; nb++) {
-      try {
-        s-> connect ();
-        return s;
-      } catch (utils::Rd_UtilsError & err) { // failed to connect
-        if (nb >= nbRetries) break;
-        concurrency::timer::sleep (sleepBetweenRetries);
-      }
-    }
+    try {
+      s-> connect ();
+    } catch (utils::Rd_UtilsError & err) { // failed to connect
+      throw std::runtime_error ("Failed to connect : " + this-> _addr.toString () + " (" + err.what () + ")");
+    }    
 
-    throw std::runtime_error ("Failed to connect");
+    return s;
   }
 
   const std::string & ActorRef::getName () const {
