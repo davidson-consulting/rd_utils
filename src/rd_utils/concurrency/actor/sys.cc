@@ -85,9 +85,9 @@ namespace rd_utils::concurrency::actor {
 
       if (event.data.fd == this-> _listener-> getHandle ()) { // -> New socket
         try {
-	  auto stream = this-> _listener-> accept ();
-	  this-> _treat.send (stream);
-	  this-> _waitTreatTask.post ();
+          auto stream = this-> _listener-> accept ();
+          this-> _treat.send (stream);
+          this-> _waitTreatTask.post ();
 
         } catch (const std::runtime_error & err) {
           LOG_WARN ("Connection failed on accept. ignoring.");
@@ -167,21 +167,21 @@ namespace rd_utils::concurrency::actor {
 
       std::shared_ptr <net::TcpStream> stream;
       if (this-> _treat.receive (stream)) {
-	stream-> setSendTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
-	stream-> setRecvTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
+        stream-> setSendTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
+        stream-> setRecvTimeout (static_cast <float> (ActorSystemLimits::BASE_TIMEOUT));
 
-	auto protId = stream-> receiveU32 ();
-	switch ((ActorSystem::Protocol) protId) {
-	case ActorSystem::Protocol::ACTOR_MSG:
-	case ActorSystem::Protocol::ACTOR_REQ:
-	case ActorSystem::Protocol::ACTOR_REQ_STREAM:
-	  this-> submitJob (protId, stream);
-	  break;
-	default :
-	  this-> submitManage (protId, stream);
-	}
+        auto protId = stream-> receiveU32 ();
+        switch ((ActorSystem::Protocol) protId) {
+        case ActorSystem::Protocol::ACTOR_MSG:
+        case ActorSystem::Protocol::ACTOR_REQ:
+        case ActorSystem::Protocol::ACTOR_REQ_STREAM:
+          this-> submitJob (protId, stream);
+          break;
+        default :
+          this-> submitManage (protId, stream);
+        }
       } else {
-	break;
+        break;
       }
     }
   }
@@ -195,9 +195,9 @@ namespace rd_utils::concurrency::actor {
 
       Job job;
       if (this-> _jobs.receive (job)) {
-	this-> onSession (job.protId, job.stream);
+        this-> onSession (job.protId, job.stream);
       } else {
-	break;
+        break;
       }      
     }
 
@@ -215,9 +215,9 @@ namespace rd_utils::concurrency::actor {
 
       Job job;
       if (this-> _manages.receive (job)) {
-	this-> onManage (job.protId, job.stream);
+        this-> onManage (job.protId, job.stream);
       } else {
-	break;      
+        break;
       }
     }
 

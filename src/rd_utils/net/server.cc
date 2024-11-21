@@ -29,11 +29,11 @@ namespace rd_utils::net {
   }
 
   TcpServer::TcpServer () :
-     _epoll_fd (0)
-     , _addr (0, 0)
+    _epoll_fd (0)
+    , _addr (0, 0)
     , _context (nullptr)
     , _th (0, nullptr)
-     , _trigger (false)
+    , _trigger (false)
   {}
 
   TcpServer::TcpServer (SockAddrV4 v4, int nbThreads) :
@@ -105,7 +105,7 @@ namespace rd_utils::net {
 
       if (event.data.fd == this-> _context-> getHandle ()) { // -> New socket
         try {
-	  auto stream = this-> _context-> accept ();
+          auto stream = this-> _context-> accept ();
           stream-> setSendTimeout (this-> _sendTimeout);
           stream-> setRecvTimeout (this-> _recvTimeout);
 

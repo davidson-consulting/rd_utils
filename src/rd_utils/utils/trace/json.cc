@@ -55,7 +55,13 @@ namespace rd_utils::utils::trace {
                 for (auto & it : dc-> getKeys ()) {
                     try {
                         auto & val = cfg [it];
-                        s << ", \"" << it << "\" : " << val;
+                        match (val) {
+                            of (config::String, g) {
+                                s << ", \"" << it << "\" : \"" << val << "\"";
+                            } elfo {
+                                s << ", \"" << it << "\" : " << val;
+                            }
+                        }
                     } catch (...) {}
                 }
             } fo;

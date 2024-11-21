@@ -32,16 +32,16 @@ namespace rd_utils::net {
     WITH_LOCK (this-> _m) {
       this-> _sockfd = socket (AF_INET, SOCK_STREAM, 0);
       if (this-> _sockfd == -1) {
-	this-> _sockfd = 0;
-	throw utils::Rd_UtilsError ("Error creating socket.");
+        this-> _sockfd = 0;
+        throw utils::Rd_UtilsError ("Error creating socket.");
       }
 
       int opts = 1;
       if (setsockopt(this-> _sockfd, SOL_SOCKET, SO_REUSEADDR, (char *) &opts, sizeof(int)) != 0) {        
-	LOG_ERROR ("Errno : ", errno, " ", strerror (errno));
-	::close (this-> _sockfd);
-	this-> _sockfd = 0;
-	throw utils::Rd_UtilsError ("Error configuring.");	
+        LOG_ERROR ("Errno : ", errno, " ", strerror (errno));
+        ::close (this-> _sockfd);
+        this-> _sockfd = 0;
+        throw utils::Rd_UtilsError ("Error configuring.");
       }
       
       struct sockaddr_in listen_addr;
@@ -50,10 +50,10 @@ namespace rd_utils::net {
       listen_addr.sin_addr.s_addr = INADDR_ANY;
 
       if (::bind(this-> _sockfd, (struct sockaddr *) &listen_addr, sizeof(listen_addr)) != 0) {
-	LOG_ERROR ("Errno bind : ", errno, " ", strerror (errno));
-	::close (this-> _sockfd);
-	this-> _sockfd = 0;
-	throw utils::Rd_UtilsError ("Error binding.");
+        LOG_ERROR ("Errno bind : ", errno, " ", strerror (errno));
+        ::close (this-> _sockfd);
+        this-> _sockfd = 0;
+        throw utils::Rd_UtilsError ("Error binding.");
       }
       
       sockaddr_in sin;
@@ -63,10 +63,10 @@ namespace rd_utils::net {
       sin.sin_family = AF_INET;
 
       if (::connect (this-> _sockfd, (sockaddr*) &sin, sizeof (sockaddr_in)) != 0) {
-	LOG_ERROR ("Errno : ", errno, " ", strerror (errno));
-	::close (this-> _sockfd);
-	this-> _sockfd = 0;
-	throw utils::Rd_UtilsError ("Error connecting.");
+        LOG_ERROR ("Errno : ", errno, " ", strerror (errno));
+        ::close (this-> _sockfd);
+        this-> _sockfd = 0;
+        throw utils::Rd_UtilsError ("Error connecting.");
       }
 
       this-> _connect = true;
@@ -78,14 +78,14 @@ namespace rd_utils::net {
     if (this-> isOpen ()) {
       timespec tv;
       if (timeout < 0) {
-	tv.tv_sec = 0;
-	tv.tv_nsec = 0;
+        tv.tv_sec = 0;
+        tv.tv_nsec = 0;
       } else {
-	tv.tv_sec = (uint64_t) timeout;
-	tv.tv_nsec =  (uint64_t) (timeout * 1000000000) % 1000000000;
+        tv.tv_sec = (uint64_t) timeout;
+        tv.tv_nsec =  (uint64_t) (timeout * 1000000000) % 1000000000;
       }
       WITH_LOCK (this-> _m) {
-	::setsockopt(this-> _sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*) &tv, sizeof tv);
+        ::setsockopt(this-> _sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*) &tv, sizeof tv);
       }
     }
 
@@ -96,15 +96,15 @@ namespace rd_utils::net {
     if (this-> isOpen ()) {
       timespec tv;
       if (timeout < 0) {
-	tv.tv_sec = 0;
-	tv.tv_nsec = 0;
+        tv.tv_sec = 0;
+        tv.tv_nsec = 0;
       } else {
-	tv.tv_sec = (uint64_t) timeout;
-	tv.tv_nsec =  (uint64_t) (timeout * 1000000000) % 1000000000;
+        tv.tv_sec = (uint64_t) timeout;
+        tv.tv_nsec =  (uint64_t) (timeout * 1000000000) % 1000000000;
       }
 
       WITH_LOCK (this-> _m) {
-	::setsockopt(this-> _sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char*) &tv, sizeof tv);
+        ::setsockopt(this-> _sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char*) &tv, sizeof tv);
       }
     }
 
@@ -154,21 +154,21 @@ namespace rd_utils::net {
   bool TcpStream::inner_sendRaw (const uint8_t * buffer, int len, bool t) {
     WITH_LOCK (this-> _m) {
       if (this-> _sockfd != 0 && !this-> _error) {
-	uint32_t lenToSend = len;
-	const uint8_t * curr = buffer;
-	while (lenToSend != 0) {
-	  auto sent = ::send (this-> _sockfd, curr, lenToSend, 0);
-	  if (sent < 1) {
-	    this-> _error = true;
-	    if (t) throw std::runtime_error ("Stream is closed");
-	    return false;
-	  }
+        uint32_t lenToSend = len;
+        const uint8_t * curr = buffer;
+        while (lenToSend != 0) {
+          auto sent = ::send (this-> _sockfd, curr, lenToSend, 0);
+          if (sent < 1) {
+            this-> _error = true;
+            if (t) throw std::runtime_error ("Stream is closed");
+            return false;
+          }
 
-	  lenToSend -= sent;
-	  curr += sent;
-	}
+          lenToSend -= sent;
+          curr += sent;
+        }
 	
-	return true;
+        return true;
       }
     }
     
@@ -187,21 +187,21 @@ namespace rd_utils::net {
   bool TcpStream::inner_receiveRaw (uint8_t * buffer, uint32_t len, bool t) {
     WITH_LOCK (this-> _m) {
       if (this-> _sockfd != 0 && !this-> _error) {
-	uint8_t * curr = buffer;
-	uint32_t lenToRecv = len;
-	while (lenToRecv > 0) {
-	  auto valread = ::recv (this-> _sockfd, curr, lenToRecv, 0);
-	  if (valread <= 0) {
-	    this-> _error = true;
-	    if (t) throw std::runtime_error ("Stream is closed");
-	    return false;
-	  }
+        uint8_t * curr = buffer;
+        uint32_t lenToRecv = len;
+        while (lenToRecv > 0) {
+          auto valread = ::recv (this-> _sockfd, curr, lenToRecv, 0);
+          if (valread <= 0) {
+            this-> _error = true;
+            if (t) throw std::runtime_error ("Stream is closed");
+            return false;
+          }
 
-	  curr += valread;
-	  lenToRecv -= valread;
-	}
+          curr += valread;
+          lenToRecv -= valread;
+        }
 
-	return true;
+        return true;
       }
     }
     
@@ -224,29 +224,29 @@ namespace rd_utils::net {
   bool TcpStream::receiveStr (std::string & v, uint32_t len, bool t) {
     WITH_LOCK (this-> _m) {
       if (this-> _sockfd != 0 && !this-> _error) {
-	std::stringstream result;
-	uint32_t bufferSize = 1024;
-	char buffer [bufferSize + 1];
-	uint32_t lenToRecv = len;
+        std::stringstream result;
+        uint32_t bufferSize = 1024;
+        char buffer [bufferSize + 1];
+        uint32_t lenToRecv = len;
 
-	while (lenToRecv > 0) {
-	  uint32_t currentRecv = std::min (lenToRecv, bufferSize);
-	  auto valread = ::recv (this-> _sockfd, &buffer, currentRecv, 0);
-	  if(valread <= 0) {
-	    this-> _error = true;
-	    v = "";
+        while (lenToRecv > 0) {
+          uint32_t currentRecv = std::min (lenToRecv, bufferSize);
+          auto valread = ::recv (this-> _sockfd, &buffer, currentRecv, 0);
+          if(valread <= 0) {
+            this-> _error = true;
+            v = "";
 
-	    if (t) throw std::runtime_error ("Stream is closed");
-	    return false;
-	  }
+            if (t) throw std::runtime_error ("Stream is closed");
+            return false;
+          }
 
-	  buffer [valread] = 0;
-	  result << buffer;
-	  lenToRecv -= valread;
-	}
+          buffer [valread] = 0;
+          result << buffer;
+          lenToRecv -= valread;
+        }
 
-	v = result.str ();
-	return true;
+        v = result.str ();
+        return true;
       }
     }
 
@@ -355,19 +355,19 @@ namespace rd_utils::net {
   void TcpStream::close  () {
     WITH_LOCK (this-> _m) {
       if (this-> _sockfd > 0) {
-	::shutdown (this-> _sockfd, SHUT_RDWR);
+        ::shutdown (this-> _sockfd, SHUT_RDWR);
 	
-	struct linger linger;
-	linger.l_onoff = 1;
-	linger.l_linger = 0;
+        struct linger linger;
+        linger.l_onoff = 1;
+        linger.l_linger = 0;
 
-	::setsockopt(this-> _sockfd, SOL_SOCKET, SO_LINGER, (char *) &linger, sizeof(linger));
+        ::setsockopt(this-> _sockfd, SOL_SOCKET, SO_LINGER, (char *) &linger, sizeof(linger));
 
-	::close (this-> _sockfd);
+        ::close (this-> _sockfd);
 	    
-	this-> _sockfd = 0;
-	this-> _addr = SockAddrV4 (0, 0);
-	this-> _error = false;
+        this-> _sockfd = 0;
+        this-> _addr = SockAddrV4 (0, 0);
+        this-> _error = false;
       }
     }
   }
