@@ -11,8 +11,9 @@ namespace rd_utils::utils::trace {
             rd_utils::utils::create_directory (rd_utils::utils::parent_directory (filename), true);
         }
 
+        this-> _first = true;
         this-> _file = std::ofstream (filename, std::ios::out);
-        this-> _file << "[\n";
+        this-> _file << "[";
         this-> _file << std::endl;
     }
 
@@ -22,32 +23,41 @@ namespace rd_utils::utils::trace {
 
     void JsonExporter::appendFloat (uint32_t timestamp, const std::vector <float> & values) {
         std::stringstream s;
+        if (!this-> _first) { s << ",\n"; }
+        this-> _first = false;
+
         s << "\t{";
         uint32_t i = 0;
         s << "\"timestamp\" : " << timestamp;
         for (auto & it : this-> _head) {
             s << ", \"" << it << "\" : " << values [i];
         }
-        s << "},";
+        s << "}";
         this-> _file << s.str ();
         this-> _file << std::endl;
     }
 
     void JsonExporter::appendInt (uint32_t timestamp, const std::vector <uint32_t> & values) {
         std::stringstream s;
+        if (!this-> _first) { s << ",\n"; }
+        this-> _first = false;
+
         s << "\t{";
         uint32_t i = 0;
         s << "\"timestamp\" : " << timestamp;
         for (auto & it : this-> _head) {
             s << ", \"" << it << "\" : " << values [i];
         }
-        s << "},";
+        s << "}";
         this-> _file << s.str ();
         this-> _file << std::endl;
     }
 
     void JsonExporter::append (uint32_t timestamp, const config::ConfigNode & cfg) {
         std::stringstream s;
+        if (!this-> _first) { s << ",\n"; }
+        this-> _first = false;
+
         s << "\t{";
         s << "\"timestamp\" : " << timestamp;
         match (cfg) {
@@ -66,7 +76,7 @@ namespace rd_utils::utils::trace {
                 }
             } fo;
         }
-        s << "},";
+        s << "}";
         this-> _file << s.str ();
         this-> _file << std::endl;
     }

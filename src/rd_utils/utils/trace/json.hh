@@ -16,6 +16,7 @@ namespace rd_utils::utils::trace {
         std::string _filename;
         std::ofstream _file;
         std::vector <std::string> _head;
+        bool _first = true;
 
     public:
 
