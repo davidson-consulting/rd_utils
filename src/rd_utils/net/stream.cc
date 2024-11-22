@@ -36,26 +36,6 @@ namespace rd_utils::net {
         throw utils::Rd_UtilsError ("Error creating socket.");
       }
 
-      int opts = 1;
-      if (setsockopt(this-> _sockfd, SOL_SOCKET, SO_REUSEADDR, (char *) &opts, sizeof(int)) != 0) {        
-        LOG_ERROR ("Errno : ", errno, " ", strerror (errno));
-        ::close (this-> _sockfd);
-        this-> _sockfd = 0;
-        throw utils::Rd_UtilsError ("Error configuring.");
-      }
-      
-      struct sockaddr_in listen_addr;
-      listen_addr.sin_family = AF_INET;
-      listen_addr.sin_port = 0;
-      listen_addr.sin_addr.s_addr = INADDR_ANY;
-
-      if (::bind(this-> _sockfd, (struct sockaddr *) &listen_addr, sizeof(listen_addr)) != 0) {
-        LOG_ERROR ("Errno bind : ", errno, " ", strerror (errno));
-        ::close (this-> _sockfd);
-        this-> _sockfd = 0;
-        throw utils::Rd_UtilsError ("Error binding.");
-      }
-      
       sockaddr_in sin;
       ::memset (&sin, 0, sizeof (sin));
       sin.sin_addr.s_addr = this-> _addr.ip ().toN ();
