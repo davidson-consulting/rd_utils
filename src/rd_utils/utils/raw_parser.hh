@@ -37,39 +37,43 @@ namespace rd_utils::utils::raw {
     /**
      * parse a raw config string
      */
-    std::shared_ptr<config::ConfigNode> parse (net::TcpStream & stream);
+    std::shared_ptr<config::ConfigNode> parse (uint8_t *& buffer, uint32_t & len);
 
-    void dump (net::TcpStream& stream, const config::ConfigNode & node);
+    void dump (std::vector <uint8_t> & buffer, const config::ConfigNode & node);
 
-
-  private:
-
-    std::shared_ptr<config::ConfigNode> parseValue (net::TcpStream &);
-
-    std::shared_ptr<config::ConfigNode> parseDict (net::TcpStream &);
-
-    std::shared_ptr<config::ConfigNode> parseArray (net::TcpStream &);
-
-    std::shared_ptr<config::ConfigNode> parseInt (net::TcpStream &);
-
-    std::shared_ptr<config::ConfigNode> parseFloat (net::TcpStream &);
-
-    std::shared_ptr<config::ConfigNode> parseString (net::TcpStream &);
 
   private:
 
-    void dumpDict (net::TcpStream &, const config::Dict & d);
+    std::shared_ptr<config::ConfigNode> parseValue (uint8_t*&, uint32_t&);
+    std::shared_ptr<config::ConfigNode> parseDict (uint8_t*&, uint32_t&);
+    std::shared_ptr<config::ConfigNode> parseArray (uint8_t*&, uint32_t&);
+    std::shared_ptr<config::ConfigNode> parseInt (uint8_t*&, uint32_t&);
+    std::shared_ptr<config::ConfigNode> parseFloat (uint8_t*&, uint32_t&);
+    std::shared_ptr<config::ConfigNode> parseString (uint8_t*&, uint32_t&);
 
-    void dumpArray (net::TcpStream &, const config::Array & d);
+  private:
 
-    void dumpInt (net::TcpStream &, const config::Int & d);
+    void dumpDict (std::vector <uint8_t> &, const config::Dict & d);
+    void dumpArray (std::vector <uint8_t> &, const config::Array & d);
+    void dumpInt (std::vector <uint8_t> &, const config::Int & d);
+    void dumpFloat (std::vector <uint8_t> &, const config::Float & d);
+    void dumpString (std::vector <uint8_t> &, const config::String & d);
+    void dumpBool (std::vector <uint8_t> &, const config::Bool & d);
 
-    void dumpFloat (net::TcpStream &, const config::Float & d);
+  private:
 
-    void dumpString (net::TcpStream &, const config::String & d);
+    uint8_t readU8 (uint8_t*&buffer, uint32_t &len);
+    uint32_t readU32 (uint8_t*&buffer, uint32_t &len);
+    int64_t readI64 (uint8_t*&buffer, uint32_t &len);
+    double readF64 (uint8_t*&buffer, uint32_t &len);
+    std::string readString (uint8_t*&buffer, uint32_t &len, uint32_t nb);
 
-    void dumpBool (net::TcpStream &, const config::Bool & d);
-
+    void writeU8 (std::vector <uint8_t> & buffer, Types value);
+    void writeU8 (std::vector <uint8_t> & buffer, uint8_t value);
+    void writeU32 (std::vector <uint8_t> & buffer, uint32_t value);
+    void writeI64 (std::vector <uint8_t> & buffer, int64_t);
+    void writeF64 (std::vector <uint8_t> & buffer, double);
+    void writeString (std::vector <uint8_t> & buffer, const std::string & v);
   };
 
 }
