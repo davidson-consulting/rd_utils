@@ -41,7 +41,7 @@ namespace rd_utils::utils::raw {
   std::shared_ptr <config::ConfigNode> RawParser::parseDict (net::TcpStream & stream) {
     auto dict = std::make_shared <config::Dict> ();
     uint32_t nb = stream.receiveU32 ();
-    if (nb > 1024) throw std::runtime_error ("Too much element sent");
+    if (nb > 2048) throw std::runtime_error ("Too much element sent");
 
     for (uint32_t i = 0 ; i < nb; i++) {
       auto n = stream.receiveU32 ();
@@ -58,7 +58,7 @@ namespace rd_utils::utils::raw {
   std::shared_ptr <config::ConfigNode> RawParser::parseArray (net::TcpStream & stream) {
     auto array = std::make_shared <config::Array> ();
     auto nb = stream.receiveU32 ();
-    if (nb > 1024) throw std::runtime_error ("Too much element sent");
+    if (nb > 2048) throw std::runtime_error ("Too much element sent");
 
     for (uint32_t i = 0 ; i < nb; i++) {
       auto value = this-> parse (stream);

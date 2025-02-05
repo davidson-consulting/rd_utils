@@ -725,7 +725,7 @@ namespace rd_utils::concurrency::actor {
       try {
         msg = this-> readMessage (session);
       } catch (std::runtime_error & e) {
-        LOG_ERROR ("Failed to read request response message : ", e.what ());
+        LOG_ERROR ("Failed to read request response message : ", reqId, " ", e.what ());
       }
 
       this-> pushResponse ({.reqId = reqId, .msg = msg});
