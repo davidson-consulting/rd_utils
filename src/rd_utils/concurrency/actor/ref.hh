@@ -7,7 +7,6 @@
 #include <rd_utils/utils/_.hh>
 #include <rd_utils/utils/raw_parser.hh>
 #include <rd_utils/memory/cache/_.hh>
-#include "stream.hh"
 
 
 namespace rd_utils::concurrency::actor {
@@ -65,32 +64,6 @@ namespace rd_utils::concurrency::actor {
 
     };
 
-    /**
-     * Future returned by the ref when a request is sent
-     */
-    class RequestStreamFuture {
-      ActorSystem * _sys;
-      concurrency::timer _t;
-      uint64_t _reqId;
-      float _timeout;
-      std::shared_ptr <net::TcpStream> _str;
-      std::shared_ptr <semaphore> _wait;
-      RequestStreamFuture (uint64_t reqId, ActorSystem * sys, concurrency::timer t, std::shared_ptr <net::TcpStream> stream, std::shared_ptr <semaphore> wait, float timeout = 5);
-
-      friend ActorRef;
-
-    public :
-
-      RequestStreamFuture (const RequestStreamFuture &) = delete;
-      void operator=(const RequestStreamFuture &) = delete;
-
-      /**
-       * Wait for the request to complete
-       */
-      std::shared_ptr <ActorStream> wait ();
-    };
-
-
   public :
 
     ActorRef (const ActorRef &) = delete;
@@ -118,13 +91,6 @@ namespace rd_utils::concurrency::actor {
      *    - timeout: the timeout of the request (-1 = forever)
      */
     RequestFuture request (const rd_utils::utils::config::ConfigNode & msg, float timeout = 5);
-
-    /**
-     * Send a request to open a stream to the actor
-     * @params:
-     *    - timeout: the timeout of the request (-1 = forever)
-     */
-    RequestStreamFuture requestStream (const rd_utils::utils::config::ConfigNode & msg, float timeout = 5);
 
     /**
      * @returns: the name of the actor

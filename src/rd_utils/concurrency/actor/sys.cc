@@ -571,8 +571,16 @@ namespace rd_utils::concurrency::actor {
    */
 
   void ActorSystem::onActorExistReq (std::shared_ptr <net::TcpStream> session) {
-    auto name = this-> readActorName (session);
-    LOG_DEBUG ("Actor existence : ", name);
+    std::string name;
+    try {
+      name = this-> readActorName (session);
+      LOG_DEBUG ("Actor existence : ", name);
+      session-> sendU32 (1);
+    } catch (...) {
+      LOG_ERROR ("Failed to read request");
+      session-> sendU32 (0, false);
+      return;
+    }
 
     std::shared_ptr <ActorBase> act;
     if (this-> getActor (name, act)) {
@@ -583,11 +591,22 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::onActorReq (std::shared_ptr <net::TcpStream> session) {
-    auto name = this-> readActorName (session);
+    std::string name;
+    net::SockAddrV4 addr (net::Ipv4Address (0), 0);
+    uint64_t reqId;
+    std::shared_ptr <utils::config::ConfigNode> msg;
 
-    auto addr = this-> readAddress (session);
-    auto reqId = session-> receiveU64 ();
-    auto msg = this-> readMessage (session);
+    try {
+      name = this-> readActorName (session);
+      addr = this-> readAddress (session);
+      reqId = session-> receiveU64 ();
+      msg = this-> readMessage (session);
+      session-> sendU32 (1);
+    } catch (...) {
+      LOG_ERROR ("Failed to read request");
+      session-> sendU32 (0, false);
+      return;
+    }
 
     std::shared_ptr <ActorBase> act;
     if (!this-> getActor (name, act)) {
@@ -616,11 +635,22 @@ namespace rd_utils::concurrency::actor {
   }
 
   void ActorSystem::onActorReqStream (std::shared_ptr <net::TcpStream> session) {
-    auto name = this-> readActorName (session);
+    std::string name;
+    net::SockAddrV4 addr (net::Ipv4Address (0), 0);
+    uint64_t reqId;
+    std::shared_ptr <utils::config::ConfigNode> msg;
 
-    auto addr = this-> readAddress (session);
-    auto reqId = session-> receiveU64 ();
-    auto msg = this-> readMessage (session);
+    try {
+      name = this-> readActorName (session);
+      addr = this-> readAddress (session);
+      reqId = session-> receiveU64 ();
+      msg = this-> readMessage (session);
+      session-> sendU32 (1);
+    } catch (...) {
+      LOG_ERROR ("Failed to read request");
+      session-> sendU32 (0, false);
+      return;
+    }
 
     std::shared_ptr <ActorBase> act;
     if (!this-> getActor (name, act)) {
@@ -660,9 +690,19 @@ namespace rd_utils::concurrency::actor {
    */
 
   void ActorSystem::onActorMsg (std::shared_ptr <net::TcpStream> session) {
-    auto name = this-> readActorName (session);
-    this-> readAddress (session);
-    auto msg = this-> readMessage (session);
+    std::string name;
+    std::shared_ptr <utils::config::ConfigNode> msg;
+
+    try {
+      name = this-> readActorName (session);
+      this-> readAddress (session);
+      msg = this-> readMessage (session);
+      session-> sendU32 (1);
+    } catch (...) {
+      LOG_ERROR ("Failed to read message");
+      session-> sendU32 (0, false);
+      return;
+    }
 
     std::shared_ptr <ActorBase> act;
     if (!this-> getActor (name, act)) {
@@ -724,8 +764,11 @@ namespace rd_utils::concurrency::actor {
       std::shared_ptr<utils::config::ConfigNode> msg = nullptr;
       try {
         msg = this-> readMessage (session);
+        session-> sendU32 (1);
       } catch (std::runtime_error & e) {
         LOG_ERROR ("Failed to read request response message : ", reqId, " ", e.what ());
+        session-> sendU32 (0, false);
+        return;
       }
 
       this-> pushResponse ({.reqId = reqId, .msg = msg});

@@ -36,16 +36,6 @@ namespace rd_utils::concurrency::actor {
     , _wait (wait)
   {}
 
-
-  ActorRef::RequestStreamFuture::RequestStreamFuture (uint64_t reqId, ActorSystem * sys, concurrency::timer t, std::shared_ptr <net::TcpStream> s, std::shared_ptr <semaphore> wait, float timeout) :
-    _sys (sys)
-    , _t (t)
-    , _reqId (reqId)
-    , _timeout (timeout)
-    , _str (std::move (s))
-    , _wait (wait)
-  {}
-
   /*!
    * ====================================================================================================
    * ====================================================================================================
@@ -55,14 +45,22 @@ namespace rd_utils::concurrency::actor {
    */
 
   void ActorRef::send (const rd_utils::utils::config::ConfigNode & node) {
-    auto session = this-> stream ();
+    for (uint64_t i = 0 ; i < 16 ; i++) {
+      try {
+        auto session = this-> stream ();
 
-    session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_MSG));
-    session-> sendU32 (this-> _name.length ());
-    session-> sendStr (this-> _name);
-    session-> sendU32 (this-> _sys-> port ());
+        session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_MSG));
+        session-> sendU32 (this-> _name.length ());
+        session-> sendStr (this-> _name);
+        session-> sendU32 (this-> _sys-> port ());
 
-    utils::raw::dump (*session, node);
+        utils::raw::dump (*session, node);
+        if (session-> receiveU32 () == 1) { return; }
+      } catch (...) {}
+      LOG_ERROR ("Failed to send message");
+    }
+
+    throw std::runtime_error ("Failed to send message after multiple tries");
   }
 
   /*!
@@ -75,23 +73,40 @@ namespace rd_utils::concurrency::actor {
 
 
   ActorRef::RequestFuture ActorRef::request (const rd_utils::utils::config::ConfigNode & node, float timeout) {
+    bool success = false;
+
     concurrency::timer t;
-    auto session = this-> stream ();
-
-    session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ));
-    session-> sendU32 (this-> _name.length ());
-    session-> sendStr (this-> _name);
-    session-> sendU32 (this-> _sys-> port ());
-
-    std::shared_ptr <semaphore> wait = std::make_shared <semaphore> ();
     uint64_t uniqId = this-> _sys-> genUniqId ();
+    std::shared_ptr <semaphore> wait = std::make_shared <semaphore> ();
     this-> _sys-> registerRequestId (uniqId, wait);
 
-    session-> sendU64 (uniqId);
+    for (uint64_t i = 0 ; i < 16 ; i++) {
+      try {
+        auto session = this-> stream ();
 
-    utils::raw::dump (*session, node);
+        session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_REQ));
+        session-> sendU32 (this-> _name.length ());
+        session-> sendStr (this-> _name);
+        session-> sendU32 (this-> _sys-> port ());
+        session-> sendU64 (uniqId);
 
-    return RequestFuture (uniqId, this-> _sys, t, wait, timeout);
+        utils::raw::dump (*session, node);
+        if (session-> receiveU32 () == 1) {
+          success = true;
+          break;
+        }
+      } catch (...) {}
+
+      LOG_ERROR ("Failed to send request");
+    }
+
+    if (success) {
+      return RequestFuture (uniqId, this-> _sys, t, wait, timeout);
+    } else {
+      this-> _sys-> removeRequestId (uniqId);
+    }
+
+    throw std::runtime_error ("Failed to send request");
   }
 
   std::shared_ptr <rd_utils::utils::config::ConfigNode> ActorRef::RequestFuture::wait () {
@@ -122,75 +137,34 @@ namespace rd_utils::concurrency::actor {
   /*!
    * ====================================================================================================
    * ====================================================================================================
-   * ===================================          STREAM REQ          ===================================
-   * ====================================================================================================
-   * ====================================================================================================
-   */
-
-  ActorRef::RequestStreamFuture ActorRef::requestStream (const rd_utils::utils::config::ConfigNode & msg, float timeout) {
-    concurrency::timer t;
-    auto session = this-> stream ();
-
-    session-> sendU32 ((uint32_t) ActorSystem::Protocol::ACTOR_REQ_STREAM);
-    session-> sendU32 (this-> _name.length ());
-    session-> sendStr (this-> _name);
-    session-> sendU32 (this-> _sys-> port ());
-
-    auto wait = std::make_shared <semaphore> ();
-    uint64_t uniqId = this-> _sys-> genUniqId ();
-    this-> _sys-> registerRequestId (uniqId, wait);
-
-    session-> sendU64 (uniqId);
-    utils::raw::dump (*session, msg);
-
-    return RequestStreamFuture (uniqId, this-> _sys, t, session, wait, timeout);
-  }
-
-  std::shared_ptr <ActorStream> ActorRef::RequestStreamFuture::wait () {
-    float rest = this-> _timeout;
-    if (this-> _timeout > 0) {
-      rest = this-> _timeout - this-> _t.time_since_start ();
-      if (this-> _t.time_since_start () > this-> _timeout) {
-        this-> _sys-> removeRequestId (this-> _reqId);
-        throw std::runtime_error ("timeout");
-      }
-    }
-
-    if (this-> _wait-> wait (rest)) {
-      ActorSystem::ResponseStream resp;
-      if (this-> _sys-> consumeResponseStream (this-> _reqId, resp)) {
-        return std::make_shared <ActorStream> (resp.stream, this-> _str);
-      } else {
-        this-> _sys-> removeRequestId (this-> _reqId);
-        throw std::runtime_error ("not found");
-      }
-    }
-
-    this-> _sys-> removeRequestId (this-> _reqId);
-    throw std::runtime_error ("timeout " + std::to_string (this-> _reqId));
-  }
-
-  /*!
-   * ====================================================================================================
-   * ====================================================================================================
    * ===================================          RESPONSES          ====================================
    * ====================================================================================================
    * ====================================================================================================
    */
 
   void ActorRef::response (uint64_t reqId, std::shared_ptr <rd_utils::utils::config::ConfigNode> node) {
-    {
-      auto session = this-> stream ();
-      session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP));
-      session-> sendU64 (reqId);
+    for (uint64_t i = 0 ; i < 16 ; i++) {
+      try {
+        auto session = this-> stream ();
+        session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP));
+        session-> sendU64 (reqId);
 
-      if (node == nullptr) {
-        session-> sendU32 (0);
-      } else {
-        session-> sendU32 (1);
-        utils::raw::dump (*session, *node);
-      }
+        if (node == nullptr) {
+          session-> sendU32 (0);
+        } else {
+          session-> sendU32 (1);
+          utils::raw::dump (*session, *node);
+        }
+
+        if (session-> receiveU32 () == 1) {
+          return;
+        }
+      } catch (...) {}
+
+      LOG_ERROR ("Failed to send response");
     }
+
+    throw std::runtime_error ("Failed to send response after multiple retries");
   }
 
   std::shared_ptr <net::TcpStream> ActorRef::stream () {
