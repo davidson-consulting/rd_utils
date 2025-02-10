@@ -40,6 +40,11 @@ namespace rd_utils {
       if (sock <= 0) {
         throw utils::Rd_UtilsError ("Failed to accept client");
       }
+
+      struct linger linger;
+      linger.l_onoff = 1;
+      linger.l_linger = 0;
+      ::setsockopt(sock, SOL_SOCKET, SO_LINGER, (char *) &linger, sizeof(linger));
       
       auto addr = SockAddrV4 (Ipv4Address (client.sin_addr.s_addr), ntohs (client.sin_port));
       return std::make_shared <TcpStream> (sock, addr);

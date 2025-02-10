@@ -49,6 +49,11 @@ namespace rd_utils::net {
         throw utils::Rd_UtilsError ("Error connecting.");
       }
 
+      struct linger linger;
+      linger.l_onoff = 1;
+      linger.l_linger = 0;
+      ::setsockopt(this-> _sockfd, SOL_SOCKET, SO_LINGER, (char *) &linger, sizeof(linger));
+
       this-> _connect = true;
     }
   }
@@ -338,17 +343,10 @@ namespace rd_utils::net {
         if (!this-> _connect) {
           uint8_t c;
           while (::recv (this-> _sockfd, &c, 1, 0) > 0) {}
-        } else {
-          struct linger linger;
-          linger.l_onoff = 1;
-          linger.l_linger = 0;
-
-          ::setsockopt(this-> _sockfd, SOL_SOCKET, SO_LINGER, (char *) &linger, sizeof(linger));
-          ::shutdown (this-> _sockfd, SHUT_RDWR);
         }
 
+        ::shutdown (this-> _sockfd, SHUT_RDWR);
         ::close (this-> _sockfd);
-	    
         this-> _sockfd = 0;
         this-> _addr = SockAddrV4 (0, 0);
         this-> _error = false;
