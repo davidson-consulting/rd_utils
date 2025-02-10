@@ -45,7 +45,7 @@ namespace rd_utils::concurrency::actor {
    */
 
   void ActorRef::send (const rd_utils::utils::config::ConfigNode & node) {
-    for (uint64_t i = 0 ; i < 16 ; i++) {
+    for (uint64_t i = 0 ; i < 100 ; i++) {
       try {
         auto session = this-> stream ();
 
@@ -57,7 +57,9 @@ namespace rd_utils::concurrency::actor {
         utils::raw::dump (*session, node);
         if (session-> receiveU32 () == 1) { return; }
       } catch (...) {}
+
       LOG_ERROR ("Failed to send message");
+      concurrency::timer::sleep (0.01);
     }
 
     throw std::runtime_error ("Failed to send message after multiple tries");
@@ -80,7 +82,7 @@ namespace rd_utils::concurrency::actor {
     std::shared_ptr <semaphore> wait = std::make_shared <semaphore> ();
     this-> _sys-> registerRequestId (uniqId, wait);
 
-    for (uint64_t i = 0 ; i < 16 ; i++) {
+    for (uint64_t i = 0 ; i < 100 ; i++) {
       try {
         auto session = this-> stream ();
 
@@ -98,6 +100,7 @@ namespace rd_utils::concurrency::actor {
       } catch (...) {}
 
       LOG_ERROR ("Failed to send request");
+      concurrency::timer::sleep (0.01);
     }
 
     if (success) {
@@ -106,7 +109,7 @@ namespace rd_utils::concurrency::actor {
       this-> _sys-> removeRequestId (uniqId);
     }
 
-    throw std::runtime_error ("Failed to send request");
+    throw std::runtime_error ("Failed to send request " + std::to_string (uniqId));
   }
 
   std::shared_ptr <rd_utils::utils::config::ConfigNode> ActorRef::RequestFuture::wait () {
@@ -143,7 +146,7 @@ namespace rd_utils::concurrency::actor {
    */
 
   void ActorRef::response (uint64_t reqId, std::shared_ptr <rd_utils::utils::config::ConfigNode> node) {
-    for (uint64_t i = 0 ; i < 16 ; i++) {
+    for (uint64_t i = 0 ; i < 100 ; i++) {
       try {
         auto session = this-> stream ();
         session-> sendU32 ((uint32_t) (ActorSystem::Protocol::ACTOR_RESP));
@@ -162,6 +165,7 @@ namespace rd_utils::concurrency::actor {
       } catch (...) {}
 
       LOG_ERROR ("Failed to send response");
+      concurrency::timer::sleep (0.01);
     }
 
     throw std::runtime_error ("Failed to send response after multiple retries");

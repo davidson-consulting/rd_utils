@@ -12,7 +12,6 @@
 
 #include "ref.hh"
 #include "base.hh"
-#include "stream.hh"
 
 namespace rd_utils::concurrency::actor {
 
@@ -174,7 +173,6 @@ namespace rd_utils::concurrency::actor {
         switch ((ActorSystem::Protocol) protId) {
         case ActorSystem::Protocol::ACTOR_MSG:
         case ActorSystem::Protocol::ACTOR_REQ:
-        case ActorSystem::Protocol::ACTOR_REQ_STREAM:
           this-> submitJob (protId, stream);
           break;
         default :
@@ -375,34 +373,6 @@ namespace rd_utils::concurrency::actor {
     return false;
   }
 
-  void ActorSystem::pushResponseStream (ResponseStream && rep) {
-    WITH_LOCK (this-> _rqMut) {
-      auto it = this-> _requestIds.find (rep.reqId);
-      if (it == this-> _requestIds.end ()) {
-        LOG_WARN ("Request response after timeout");
-        return;
-      }
-
-      this-> _responseStreams.emplace (rep.reqId, std::move (rep));
-      it-> second-> post ();
-      this-> _requestIds.erase (rep.reqId);
-    }
-  }
-
-  bool ActorSystem::consumeResponseStream (uint64_t id, ResponseStream & resp) {
-    WITH_LOCK (this-> _rqMut) {
-      auto fnd = this-> _responseStreams.find (id);
-      if (fnd != this-> _responseStreams.end ()) {
-        resp = std::move (fnd-> second);
-        this-> _responseStreams.erase (id);
-
-        return true;
-      }
-    }
-
-    return false;
-  }
-
   /*!
    * ====================================================================================================
    * ====================================================================================================
@@ -528,9 +498,6 @@ namespace rd_utils::concurrency::actor {
       case ActorSystem::Protocol::ACTOR_RESP:
         this-> onActorResp (session);
         break;
-      case ActorSystem::Protocol::ACTOR_RESP_STREAM:
-        this-> onActorRespStream (session);
-        break;
       case ActorSystem::Protocol::SYSTEM_KILL_ALL:
         this-> onSystemKill ();
         break;
@@ -550,9 +517,6 @@ namespace rd_utils::concurrency::actor {
         break;
       case ActorSystem::Protocol::ACTOR_REQ:
         this-> onActorReq (session);
-        break;
-      case ActorSystem::Protocol::ACTOR_REQ_STREAM:
-        this-> onActorReqStream (session);
         break;
       default :
         break;
@@ -632,53 +596,6 @@ namespace rd_utils::concurrency::actor {
     if (act-> isAtomic ()) {
       act-> getMutex ().unlock ();
     }
-  }
-
-  void ActorSystem::onActorReqStream (std::shared_ptr <net::TcpStream> session) {
-    std::string name;
-    net::SockAddrV4 addr (net::Ipv4Address (0), 0);
-    uint64_t reqId;
-    std::shared_ptr <utils::config::ConfigNode> msg;
-
-    try {
-      name = this-> readActorName (session);
-      addr = this-> readAddress (session);
-      reqId = session-> receiveU64 ();
-      msg = this-> readMessage (session);
-      session-> sendU32 (1);
-    } catch (...) {
-      LOG_ERROR ("Failed to read request");
-      session-> sendU32 (0, false);
-      return;
-    }
-
-    std::shared_ptr <ActorBase> act;
-    if (!this-> getActor (name, act)) {
-      return;
-    }
-
-    if (act-> isAtomic ()) {
-      act-> getMutex ().lock ();
-    }
-
-    try {
-      auto actorRef = this-> remoteActor ("", addr);
-      auto conn = actorRef-> stream ();
-
-      conn-> sendU32 ((uint32_t) ActorSystem::Protocol::ACTOR_RESP_STREAM, true);
-      conn-> sendU64 ((uint64_t) reqId, true);
-
-      ActorStream stream (session, conn);
-
-      act-> onStream (*msg, stream);
-    } catch (const std::runtime_error & err) {
-      LOG_ERROR ("Failed to send response ", err.what (), " to : ", addr);
-    }
-
-    if (act-> isAtomic ()) {
-      act-> getMutex ().unlock ();
-    }
-
   }
 
   /*!
@@ -775,11 +692,6 @@ namespace rd_utils::concurrency::actor {
     } else {
       this-> pushResponse ({.reqId = reqId, .msg = nullptr});
     }
-  }
-
-  void ActorSystem::onActorRespStream (std::shared_ptr<net::TcpStream> session) {
-    auto reqId = session-> receiveU64 ();
-    this-> pushResponseStream ({.reqId = reqId, .stream = session});
   }
 
   /*!

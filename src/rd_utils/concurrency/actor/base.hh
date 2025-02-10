@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include "stream.hh"
 #include "../mutex.hh"
 
 namespace rd_utils::concurrency::actor {
@@ -57,11 +56,6 @@ namespace rd_utils::concurrency::actor {
      * Request that returns a list of flat values
      */
     virtual std::shared_ptr <rd_utils::memory::cache::collection::ArrayListBase> onRequestList (const rd_utils::utils::config::ConfigNode & msg);
-
-    /**
-     * When a direct stream is opened between two actors
-     */
-    virtual void onStream (const rd_utils::utils::config::ConfigNode & msg, ActorStream & stream);
 
     /**
      * @returns: the actor reference of this actor

@@ -14,7 +14,6 @@ namespace rd_utils::concurrency::actor {
 
   class ActorRef;
   class ActorBase;
-  class ActorStream;
 
   enum class ActorSystemLimits : int32_t {
     BASE_TIMEOUT = 5
@@ -29,11 +28,6 @@ namespace rd_utils::concurrency::actor {
     struct Response {
       uint64_t reqId;
       std::shared_ptr <rd_utils::utils::config::ConfigNode> msg;
-    };
-
-    struct ResponseStream {
-      uint64_t reqId;
-      std::shared_ptr <net::TcpStream> stream;
     };
 
   private:
@@ -109,9 +103,6 @@ namespace rd_utils::concurrency::actor {
     // mailbox of responses
     std::map <uint64_t, Response> _responses;
 
-    // Streaming response
-    std::map <uint64_t, ResponseStream> _responseStreams;
-
     // Request being resolved but that might timeout
     std::map <uint64_t, std::shared_ptr <semaphore> > _requestIds;
 
@@ -127,8 +118,6 @@ namespace rd_utils::concurrency::actor {
       ACTOR_REQ_BIG,
       ACTOR_RESP,
       ACTOR_RESP_BIG,
-      ACTOR_REQ_STREAM,
-      ACTOR_RESP_STREAM,
       SYSTEM_CLOSED,
       SYSTEM_KILL_ALL
     };
@@ -345,11 +334,6 @@ namespace rd_utils::concurrency::actor {
     void pushResponse (Response && rep);
 
     /**
-     * Push a stream response
-     */
-    void pushResponseStream (ResponseStream && rep);
-
-    /**
      * generate a uniq id
      */
     uint64_t genUniqId ();
@@ -368,11 +352,6 @@ namespace rd_utils::concurrency::actor {
      * Consume the response if it exists
      */
     bool consumeResponse (uint64_t id, Response & resp);
-
-    /**
-     * Consume the response if it exists
-     */
-    bool consumeResponseStream (uint64_t id, ResponseStream & resp);
 
     /**
      * Treat an actor existance request
@@ -398,19 +377,9 @@ namespace rd_utils::concurrency::actor {
     void onActorReq (std::shared_ptr <net::TcpStream> session);
 
     /**
-     * Treat an actor request msg to open a stream between two actors
-     */
-    void onActorReqStream (std::shared_ptr <net::TcpStream> session);
-
-    /**
      * Treat an actor response
      */
     void onActorResp (std::shared_ptr <net::TcpStream> session);
-
-    /**
-     * Treat an actor big response
-     */
-    void onActorRespStream (std::shared_ptr <net::TcpStream> session);
 
     /**
      * Treat a request to kill the system
