@@ -32,7 +32,7 @@ namespace rd_utils::net {
     _epoll_fd (0)
     , _addr (0, 0)
     , _context (nullptr)
-    , _th (0, nullptr)
+    , _th (0)
     , _trigger (false)
   {}
 
@@ -41,7 +41,7 @@ namespace rd_utils::net {
     , _addr (v4)
     , _context (nullptr)
     ,_nbThreads (getNbThreads (nbThreads))
-    ,_th (0, nullptr)
+    ,_th (0)
     ,_trigger (true)
   {}
 

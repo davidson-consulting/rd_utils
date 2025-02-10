@@ -45,13 +45,13 @@ namespace rd_utils {
 			}
 
 			dg_thread_launcher::dg_thread_launcher () :
-				content (0, nullptr),
+				content (0),
 				closure (nullptr),
 				func (nullptr)
 			{}
 
 			dg_thread_launcher::dg_thread_launcher (fake* closure, void (fake::*func) (Thread)) :
-				content (0, new ThreadPipe (true)),
+				content (0),
 				closure (closure),
 				func (func)
 			{}
@@ -60,22 +60,19 @@ namespace rd_utils {
 				(this-> closure->* (this-> func)) (this-> content);
 			}
 
-			void dg_thread_launcher::dispose () {
-				delete this-> content.pipe;
-				this-> content.pipe = nullptr;
-			}
+			void dg_thread_launcher::dispose () {}
 
 			dg_thread_launcher::~dg_thread_launcher () {
 				this-> dispose ();
 			}
 
 			fn_thread_launcher::fn_thread_launcher () :
-				content (0, nullptr),
+				content (0),
 				func (nullptr)
 			{}
 
 			fn_thread_launcher::fn_thread_launcher (void (*func) (Thread)) :
-				content (0, new ThreadPipe (true)),
+				content (0),
 				func (func)
 			{}
 
@@ -83,10 +80,7 @@ namespace rd_utils {
 				this-> func (this-> content);
 			}
 
-			void fn_thread_launcher::dispose () {
-				delete this-> content.pipe;
-				this-> content.pipe = nullptr;
-			}
+			void fn_thread_launcher::dispose () {}
 
 			fn_thread_launcher::~fn_thread_launcher () {
 				this-> dispose ();

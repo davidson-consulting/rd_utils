@@ -9,11 +9,9 @@ namespace rd_utils {
 
 		struct Thread {
 			pthread_t id;
-			ThreadPipe * pipe;
 
-			Thread (int id, ThreadPipe* pipe) :
+			Thread (int id) :
 				id (id)
-				, pipe (pipe)
 			{}
 
 			/**
@@ -86,7 +84,7 @@ namespace rd_utils {
 
 				dg_thread_launcher_template (fake* closure, void (fake::*func) (Thread, T...), T... args) :
 					dg_thread_launcher (),
-					content (0, new ThreadPipe (true)),
+					content (0),
 					closure (closure), func (func), datas (std::make_tuple (args...))
 				{}
 
@@ -97,9 +95,7 @@ namespace rd_utils {
 
 				}
 
-				void dispose () {
-					delete this-> content.pipe;
-				}
+				void dispose () {}
 			};
 
 			template <typename ... T>
@@ -111,26 +107,17 @@ namespace rd_utils {
 
 				fn_thread_launcher_template (void (*func) (Thread, T...), T... args) :
 					fn_thread_launcher (),
-					content (0, new ThreadPipe (true)), func (func), datas (std::make_tuple (args...))
+					content (0), func (func), datas (std::make_tuple (args...))
 				{}
 
 				void run () override {
 					std::apply (this-> func, std::tuple_cat (std::make_tuple (this-> content), this-> datas));
 				}
 
-				void dispose () {
-					delete this-> content.pipe;
-				}
+				void dispose () {}
 
 			};
 		}
-
-		/**
-		 * Spawn a new thread that will run a function
-		 * @params:
-		 *  - func: the main function of the thread
-		 */
-		Thread spawn (void (*func) (Thread));
 
 		template <typename ... T>
 		Thread spawn (void (*func) (Thread, T...), T... args) {

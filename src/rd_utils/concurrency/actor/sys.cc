@@ -20,8 +20,8 @@ namespace rd_utils::concurrency::actor {
     , _listener (nullptr)
     , _nbJobThreads (nbThreads <= 0 ? std::thread::hardware_concurrency() : nbThreads + 1)
     , _nbManageThreads (nbManageThreads <= 0 ? std::thread::hardware_concurrency() : nbManageThreads + 1)
-    , _th (0, nullptr)
-    , _treatTh (0, nullptr)
+    , _th (0)
+    , _treatTh (0)
   {}
 
 
@@ -396,8 +396,8 @@ namespace rd_utils::concurrency::actor {
 
       this-> _waitTreatTask.post ();      
       concurrency::join (this-> _treatTh);
-      this->  _th = concurrency::Thread (0, nullptr);
-      this-> _treatTh = concurrency::Thread (0, nullptr);
+      this->  _th = concurrency::Thread (0);
+      this-> _treatTh = concurrency::Thread (0);
     }
 
     this-> _jobs.clear ();

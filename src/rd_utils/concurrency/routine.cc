@@ -8,7 +8,7 @@ namespace rd_utils::concurrency {
 		: _freq (freq)
 		, _task (nullptr)
 		, _sem (std::make_shared <concurrency::semaphore> ())
-		, _th (0, nullptr)
+		, _th (0)
 	{}
 
 	Routine& Routine::start (void (*func) ()) {
@@ -36,7 +36,7 @@ namespace rd_utils::concurrency {
 		if (this-> _th.equals (self)) return false;
 
 		concurrency::join (this-> _th);
-		this-> _th = Thread (0, nullptr);
+		this-> _th = Thread (0);
 
 		return true;
 	}
@@ -44,7 +44,7 @@ namespace rd_utils::concurrency {
 	void Routine::taskMain (concurrency::Thread) {
 		while (this-> _isRunning) {
 			this-> _t.reset ();
-			this-> _task-> execute (Thread (0, nullptr));
+			this-> _task-> execute (Thread (0));
 
 			auto took = this-> _t.time_since_start ();
 			auto suppose = 1.0f / this-> _freq;
