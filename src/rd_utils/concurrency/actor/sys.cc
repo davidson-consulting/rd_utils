@@ -557,6 +557,7 @@ namespace rd_utils::concurrency::actor {
 
           this-> release (addr, str);
           if (success) {
+            if (i != 0) LOG_ERROR ("TOOK : ", i, " iterations ");
             return true;
           }
         }
@@ -570,12 +571,14 @@ namespace rd_utils::concurrency::actor {
 
   void ActorSystem::receiveMessage (std::shared_ptr <net::TcpStream> stream) {
     std::vector <uint8_t> buffer;
+    rd_utils::concurrency::timer t;
     try {
       auto size = stream-> receiveU32 ();
       if (size > utils::MemorySize::MB (1).bytes ()) throw std::runtime_error ("message to big");
       buffer.resize (size);
       stream-> receiveRaw (buffer.data (), size, true);
     } catch (...) {
+      LOG_ERROR ("Failed to recv message");
       return;
     }
 
