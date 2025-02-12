@@ -7,16 +7,6 @@
 
 namespace rd_utils::utils::raw {
 
-  /**
-   * Parse a configuration in raw str
-   */
-  std::shared_ptr<config::ConfigNode> parse (net::TcpStream &);
-
-  /**
-   * Dump a configuration in raw
-   */
-  void dump (net::TcpStream &, const config::ConfigNode&);
-
   class RawParser {
   private:
 
@@ -41,7 +31,6 @@ namespace rd_utils::utils::raw {
 
     void dump (std::vector <uint8_t> & buffer, const config::ConfigNode & node);
 
-
   private:
 
     std::shared_ptr<config::ConfigNode> parseValue (uint8_t*&, uint32_t&);
@@ -60,20 +49,37 @@ namespace rd_utils::utils::raw {
     void dumpString (std::vector <uint8_t> &, const config::String & d);
     void dumpBool (std::vector <uint8_t> &, const config::Bool & d);
 
-  private:
 
-    uint8_t readU8 (uint8_t*&buffer, uint32_t &len);
-    uint32_t readU32 (uint8_t*&buffer, uint32_t &len);
-    int64_t readI64 (uint8_t*&buffer, uint32_t &len);
-    double readF64 (uint8_t*&buffer, uint32_t &len);
-    std::string readString (uint8_t*&buffer, uint32_t &len, uint32_t nb);
-
-    void writeU8 (std::vector <uint8_t> & buffer, Types value);
-    void writeU8 (std::vector <uint8_t> & buffer, uint8_t value);
-    void writeU32 (std::vector <uint8_t> & buffer, uint32_t value);
-    void writeI64 (std::vector <uint8_t> & buffer, int64_t);
-    void writeF64 (std::vector <uint8_t> & buffer, double);
-    void writeString (std::vector <uint8_t> & buffer, const std::string & v);
   };
+
+  /*!
+   * ====================================================================================================
+   * ====================================================================================================
+   * =============================          DESERIALIZATION UTILS          ==============================
+   * ====================================================================================================
+   * ====================================================================================================
+   */
+
+  uint8_t readU8 (uint8_t*&buffer, uint32_t &len);
+  uint32_t readU32 (uint8_t*&buffer, uint32_t &len);
+  uint64_t readU64 (uint8_t*&buffer, uint32_t &len);
+  int64_t readI64 (uint8_t*&buffer, uint32_t &len);
+  double readF64 (uint8_t*&buffer, uint32_t &len);
+  std::string readString (uint8_t*&buffer, uint32_t &len, uint32_t nb);
+
+  /*!
+   * ====================================================================================================
+   * ====================================================================================================
+   * ==============================          SERIALIZATION UTILS          ===============================
+   * ====================================================================================================
+   * ====================================================================================================
+   */
+
+  void writeU8 (std::vector <uint8_t> & buffer, uint8_t value);
+  void writeU32 (std::vector <uint8_t> & buffer, uint32_t value);
+  void writeU64 (std::vector <uint8_t> & buffer, uint64_t);
+  void writeI64 (std::vector <uint8_t> & buffer, int64_t);
+  void writeF64 (std::vector <uint8_t> & buffer, double);
+  void writeString (std::vector <uint8_t> & buffer, const std::string & v);
 
 }

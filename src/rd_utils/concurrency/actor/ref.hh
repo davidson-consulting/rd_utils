@@ -74,7 +74,7 @@ namespace rd_utils::concurrency::actor {
      *    - name: the name of the actor
      *    - sock: the socket of the actor
      */
-    ActorRef (bool local, const std::string & name, net::SockAddrV4 addr, ActorSystem * sys);
+    ActorRef (const std::string & name, net::SockAddrV4 addr, ActorSystem * sys);
 
     /**
      * Send a message to the actor
@@ -83,14 +83,30 @@ namespace rd_utils::concurrency::actor {
      *    - timeout: timeout of the connection to the other actor
      * @info: if timeout < 0 wait indefinitely
      */
-    void send (const rd_utils::utils::config::ConfigNode & msg);
+    void send (const rd_utils::utils::config::Dict & msg);
+
+    /**
+     * Send a message to the actor
+     * @params:
+     *    - msg: the message to send
+     *    - timeout: timeout of the connection to the other actor
+     * @info: if timeout < 0 wait indefinitely
+     */
+    void send (std::shared_ptr <rd_utils::utils::config::ConfigNode> msg);
 
     /**
      * Send a request to the actor
      * @params:
      *    - timeout: the timeout of the request (-1 = forever)
      */
-    RequestFuture request (const rd_utils::utils::config::ConfigNode & msg, float timeout = 5);
+    RequestFuture request (const rd_utils::utils::config::Dict & msg, float timeout = 5);
+
+    /**
+     * Send a request to the actor
+     * @params:
+     *    - timeout: the timeout of the request (-1 = forever)
+     */
+    RequestFuture request (std::shared_ptr <rd_utils::utils::config::ConfigNode>  msg, float timeout = 5);
 
     /**
      * @returns: the name of the actor

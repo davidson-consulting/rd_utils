@@ -340,10 +340,10 @@ namespace rd_utils::net {
   void TcpStream::close  () {
     WITH_LOCK (this-> _m) {
       if (this-> _sockfd > 0) {
-        if (!this-> _connect) {
-          uint8_t c;
-          while (::recv (this-> _sockfd, &c, 1, 0) > 0) {}
-        }
+        // if (!this-> _connect) {
+        //   uint8_t c;
+        //   while (::recv (this-> _sockfd, &c, 1, 0) > 0) {}
+        // }
 
         ::shutdown (this-> _sockfd, SHUT_RDWR);
         ::close (this-> _sockfd);
