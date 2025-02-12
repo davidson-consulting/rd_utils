@@ -10,11 +10,12 @@
 #include <rd_utils/utils/_.hh>
 #include <rd_utils/memory/cache/_.hh>
 
+#include "msg.hh"
+
 namespace rd_utils::concurrency::actor {
 
   class ActorRef;
   class ActorBase;
-  class ActorMessage;
 
   enum class ActorSystemLimits : int32_t {
     BASE_TIMEOUT = 5
@@ -36,7 +37,9 @@ namespace rd_utils::concurrency::actor {
 
     struct Job {
       std::vector <uint8_t> data;
+      bool packet;
       net::Ipv4Address origin;
+      ActorMessage msg;
     };
 
     // If true the server should be killed when all actors are killed

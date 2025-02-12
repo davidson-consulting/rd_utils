@@ -163,7 +163,7 @@ namespace rd_utils::concurrency::actor {
 
   void ActorSystem::workerJobThread (concurrency::Thread t) {
     this-> _ready.post ();
-    Job job {.data = {}, .origin = net::Ipv4Address (0)};
+    Job job {.data = {}, .packet = true, .origin = net::Ipv4Address (0), .msg = ActorMessage () };
 
     for (;;) {
       this-> _waitJobTask.wait ();
@@ -171,8 +171,12 @@ namespace rd_utils::concurrency::actor {
 
       if (this-> _jobs.receive (job)) {
         try {
-          ActorMessage msg = ActorMessage::deserialize (this, job.origin, job.data);
-          this-> onSession (msg);
+          if (job.packet) {
+            ActorMessage msg = ActorMessage::deserialize (this, job.origin, job.data);
+            this-> onSession (msg);
+          } else {
+            this-> onSession (job.msg);
+          }
         } catch (const std::exception & err) {
           LOG_ERROR ("Failed to read message ", err.what ());
         }
@@ -539,11 +543,11 @@ namespace rd_utils::concurrency::actor {
   }
 
   bool ActorSystem::sendMessage (net::SockAddrV4 addr, const ActorMessage & msg, uint32_t nbTries, bool local) {
-    auto buffer = msg.serialize ();
     if (local)  {
-      this-> submitJob (Job {.data = buffer, .origin = this-> addr ().ip ()});
+      this-> submitJob (Job {.data = {}, .packet = false, .origin = this-> addr ().ip (), .msg = msg});
       return true;
     } else {
+      auto buffer = msg.serialize ();
       for (uint32_t i = 0 ; i < nbTries ; i++) {
         auto str = this-> connect (addr);
         if (str != nullptr) {
@@ -589,7 +593,7 @@ namespace rd_utils::concurrency::actor {
       if (result == ActorMessage::Protocol::SYSTEM_KILL_ALL) {
         this-> onSystemKill ();
       } else {
-        this-> submitJob (Job {.data = buffer, .origin = stream-> addr ().ip () });
+        this-> submitJob (Job {.data = buffer, .packet = true, .origin = stream-> addr ().ip (), .msg = ActorMessage () });
       }
     } catch (...) {
       return;
