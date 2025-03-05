@@ -144,7 +144,7 @@ namespace rd_utils::utils {
   }
 
   MemorySize MemorySize::nextPow2 (MemorySize A) {
-    if (A.bytes () == 1) return A;
+    if (A.bytes () <= 1) return A;
     else {
       return MemorySize::B (1 << (64 - __builtin_clzl (A.bytes () - 1)));
     }
