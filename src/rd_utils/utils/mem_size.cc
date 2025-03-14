@@ -167,6 +167,15 @@ namespace rd_utils::utils {
 
 
 std::ostream & operator<< (std::ostream & o, const rd_utils::utils::MemorySize & m) {
-  o << "M (" << m.megabytes () << "MB)";
+  auto gb = m.gigabytes ();
+  auto mb = m.megabytes () % 1024;
+  auto kb = m.kilobytes () % 1024;
+  auto b = m.bytes () % 1024;
+
+  if (gb != 0) o << gb << "G";
+  if (mb != 0) o << mb << "M";
+  if (kb != 0) o << kb << "K";
+  if (b != 0)  o << b << "B";
+
   return o;
 }

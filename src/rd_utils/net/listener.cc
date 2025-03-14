@@ -22,7 +22,10 @@ namespace rd_utils {
     }
 	
     bool __SIG__ = ignoreSigPipe ();
-	
+
+    TcpListener::TcpListener () :
+      _addr (SockAddrV4 (Ipv4Address (0), 0))
+    {}
 
     TcpListener::TcpListener (SockAddrV4 addr) :
       _addr (addr)
